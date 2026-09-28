@@ -16,14 +16,23 @@ interface MacrosChartProps {
   data: Record<string, unknown>[];
   dataKey: string;
   color?: string;
+  goal?: number;
 }
 
-export function MacrosChart({data, dataKey, color}: MacrosChartProps) {
+export function MacrosChart({data, dataKey, color, goal}: MacrosChartProps) {
   const colorFromData =
     data.length > 0 && typeof data[0].name === 'string'
       ? (macroColors[data[0].name] ?? undefined)
       : undefined;
   const resolvedColor = color ?? colorFromData;
+
+  // avoid clipping bars that exceed the goal
+  const maxDataValue = data.reduce((max, entry) => {
+    const value = entry[dataKey];
+    return typeof value === 'number' && value > max ? value : max;
+  }, 0);
+  const yDomain: [number, number] | undefined =
+    goal !== undefined ? [0, Math.max(goal, maxDataValue)] : undefined;
 
   return (
     <div className="h-72 w-full">
@@ -44,6 +53,7 @@ export function MacrosChart({data, dataKey, color}: MacrosChartProps) {
             tick={{fill: 'hsl(var(--muted-foreground))', fontSize: 12}}
             axisLine={false}
             tickLine={false}
+            domain={yDomain}
           />
           <Tooltip
             cursor={{fill: 'hsl(var(--muted) / 30%)'}}

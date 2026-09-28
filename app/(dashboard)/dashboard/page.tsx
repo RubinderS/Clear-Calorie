@@ -149,7 +149,11 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <MacrosChart data={caloriesData} dataKey="calories" />
+            <MacrosChart
+              data={caloriesData}
+              dataKey="calories"
+              goal={calorieGoal}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -164,6 +168,7 @@ export default async function DashboardPage() {
               data={proteinData}
               dataKey="protein"
               color={macroColors.Protein}
+              goal={proteinGoal}
             />
           </CardContent>
         </Card>
