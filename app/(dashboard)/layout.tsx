@@ -5,6 +5,7 @@ import {authOptions} from '@/lib/auth-options';
 import {Button} from '@/components/ui/button';
 import {MobileNav} from '@/components/mobile-nav';
 import {DesktopNav} from '@/components/desktop-nav';
+import {ThemeToggle} from '@/components/theme-toggle';
 
 export default async function DashboardLayout({
   children,
@@ -46,7 +47,10 @@ export default async function DashboardLayout({
               </Button>
             </form>
           </nav>
-          <MobileNav items={navItems} />
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <MobileNav items={navItems} />
+          </div>
         </div>
       </header>
       <main className="flex-1 py-8">
