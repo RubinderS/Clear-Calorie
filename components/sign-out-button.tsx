@@ -12,13 +12,19 @@ export function SignOutButton({
   className,
   variant = 'ghost',
 }: SignOutButtonProps) {
+  const handleClick = () => {
+    if (window.confirm('Are you sure you want to sign out?')) {
+      signOut({callbackUrl: '/'});
+    }
+  };
+
   return (
     <Button
       type="button"
       variant={variant}
       size="sm"
       className={className}
-      onClick={() => signOut({callbackUrl: '/'})}
+      onClick={handleClick}
     >
       Sign out
     </Button>
