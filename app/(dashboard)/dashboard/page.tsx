@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {MacrosChart} from '@/components/macros-chart';
+import {macroColors} from '@/lib/chart-colors';
 import {WeightChart} from '@/components/weight-chart';
 import {NutritionProgress} from '@/components/nutrition-progress';
 
@@ -91,27 +92,26 @@ export default async function DashboardPage() {
     },
   ];
 
-  const macrosData = [
-    {name: 'Protein', value: protein, goal: goals?.proteinGoal ?? 150},
-    {name: 'Carbs', value: carbs, goal: goals?.carbsGoal ?? 250},
-    {name: 'Fat', value: fat, goal: goals?.fatGoal ?? 70},
-  ];
-
-  const weekMap = new Map<string, number>();
+  const weekMap = new Map<string, {calories: number; protein: number}>();
   for (let i = 6; i >= 0; i--) {
     const date = format(subDays(todayStart, i), 'yyyy-MM-dd');
-    weekMap.set(date, 0);
+    weekMap.set(date, {calories: 0, protein: 0});
   }
   for (const item of weekFood) {
     const date = format(item.loggedAt, 'yyyy-MM-dd');
-    weekMap.set(date, (weekMap.get(date) ?? 0) + item.calories);
+    const totals = weekMap.get(date) ?? {calories: 0, protein: 0};
+    totals.calories += item.calories;
+    totals.protein += item.protein;
+    weekMap.set(date, totals);
   }
-  const caloriesData = Array.from(weekMap.entries()).map(
-    ([date, calories]) => ({
-      date: format(new Date(date), 'MMM dd'),
-      calories,
-    }),
-  );
+  const caloriesData = Array.from(weekMap.entries()).map(([date, totals]) => ({
+    date: format(new Date(date), 'MMM dd'),
+    calories: totals.calories,
+  }));
+  const proteinData = Array.from(weekMap.entries()).map(([date, totals]) => ({
+    date: format(new Date(date), 'MMM dd'),
+    protein: totals.protein,
+  }));
 
   const weightData = recentWeights
     .slice()
@@ -154,11 +154,17 @@ export default async function DashboardPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Macros today</CardTitle>
-            <CardDescription>Protein, carbs, and fat breakdown</CardDescription>
+            <CardTitle>Protein this week</CardTitle>
+            <CardDescription>
+              Your daily protein intake over the last 7 days
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <MacrosChart data={macrosData} dataKey="value" />
+            <MacrosChart
+              data={proteinData}
+              dataKey="protein"
+              color={macroColors.Protein}
+            />
           </CardContent>
         </Card>
       </div>

@@ -19,6 +19,7 @@ export function NutritionProgress({items}: NutritionProgressProps) {
       {items.map((item) => {
         const percent = item.goal > 0 ? (item.value / item.goal) * 100 : 0;
         const isOver = item.value > item.goal;
+        const remaining = Math.round(item.goal - item.value);
 
         return (
           <div key={item.label} className="space-y-1.5">
@@ -43,6 +44,16 @@ export function NutritionProgress({items}: NutritionProgressProps) {
                 isOver ? 'bg-destructive' : item.colorClassName,
               )}
             />
+            <p
+              className={cn(
+                'text-xs',
+                isOver ? 'text-destructive' : 'text-muted-foreground',
+              )}
+            >
+              {isOver
+                ? `${Math.abs(remaining)}${item.unit} over goal`
+                : `${remaining}${item.unit} remaining`}
+            </p>
           </div>
         );
       })}

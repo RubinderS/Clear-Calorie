@@ -10,23 +10,20 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import {macroColors} from '@/lib/chart-colors';
 
 interface MacrosChartProps {
   data: Record<string, unknown>[];
   dataKey: string;
+  color?: string;
 }
 
-const macroColors: Record<string, string> = {
-  Protein: '#8b5cf6',
-  Carbs: '#3b82f6',
-  Fat: '#f59e0b',
-};
-
-export function MacrosChart({data, dataKey}: MacrosChartProps) {
+export function MacrosChart({data, dataKey, color}: MacrosChartProps) {
   const colorFromData =
     data.length > 0 && typeof data[0].name === 'string'
       ? (macroColors[data[0].name] ?? undefined)
       : undefined;
+  const resolvedColor = color ?? colorFromData;
 
   return (
     <div className="h-72 w-full">
@@ -60,12 +57,12 @@ export function MacrosChart({data, dataKey}: MacrosChartProps) {
           />
           <Bar
             dataKey={dataKey}
-            fill={colorFromData ?? 'hsl(var(--primary))'}
+            fill={resolvedColor ?? 'hsl(var(--primary))'}
             radius={[8, 8, 0, 0]}
           >
             {data.map((entry, index) => {
               const name = typeof entry.name === 'string' ? entry.name : '';
-              const fill = macroColors[name] ?? 'hsl(var(--primary))';
+              const fill = color ?? macroColors[name] ?? 'hsl(var(--primary))';
               return <Cell key={`cell-${index}`} fill={fill} />;
             })}
           </Bar>
