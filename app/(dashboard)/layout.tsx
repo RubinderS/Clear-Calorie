@@ -4,6 +4,7 @@ import {redirect} from 'next/navigation';
 import {authOptions} from '@/lib/auth-options';
 import {Button} from '@/components/ui/button';
 import {MobileNav} from '@/components/mobile-nav';
+import {DesktopNav} from '@/components/desktop-nav';
 
 export default async function DashboardLayout({
   children,
@@ -38,15 +39,7 @@ export default async function DashboardLayout({
             ClearCalorie
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                {item.label}
-              </Link>
-            ))}
+            <DesktopNav items={navItems} />
             <form action="/api/auth/signout" method="POST" className="ml-2">
               <Button type="submit" variant="ghost" size="sm">
                 Sign out
