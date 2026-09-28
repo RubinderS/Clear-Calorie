@@ -22,6 +22,18 @@ export function FoodForm() {
   const [saving, setSaving] = useState(false);
   const [savedFoods, setSavedFoods] = useState<SavedFoodItem[]>([]);
 
+  function blockDecimalKeys(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (['.', ',', 'e', 'E', '+', '-'].includes(event.key)) {
+      event.preventDefault();
+    }
+  }
+
+  function blockDecimalPaste(event: React.ClipboardEvent<HTMLInputElement>) {
+    if (!/^\d+$/.test(event.clipboardData.getData('text'))) {
+      event.preventDefault();
+    }
+  }
+
   useEffect(() => {
     fetch('/api/saved-food')
       .then((res) => res.json())
@@ -107,10 +119,10 @@ export function FoodForm() {
     const formData = new FormData(event.currentTarget);
     const data = {
       name: formData.get('name') as string,
-      calories: Number(formData.get('calories')),
-      protein: Number(formData.get('protein')),
-      carbs: Number(formData.get('carbs')),
-      fat: Number(formData.get('fat')),
+      calories: Math.round(Number(formData.get('calories'))),
+      protein: Math.round(Number(formData.get('protein'))),
+      carbs: Math.round(Number(formData.get('carbs'))),
+      fat: Math.round(Number(formData.get('fat'))),
     };
 
     const response = await fetch('/api/food', {
@@ -146,6 +158,9 @@ export function FoodForm() {
                 name="calories"
                 type="number"
                 min={0}
+                step={1}
+                onKeyDown={blockDecimalKeys}
+                onPaste={blockDecimalPaste}
                 required
               />
             </div>
@@ -156,6 +171,9 @@ export function FoodForm() {
                 name="protein"
                 type="number"
                 min={0}
+                step={1}
+                onKeyDown={blockDecimalKeys}
+                onPaste={blockDecimalPaste}
                 defaultValue={0}
               />
             </div>
@@ -166,6 +184,9 @@ export function FoodForm() {
                 name="carbs"
                 type="number"
                 min={0}
+                step={1}
+                onKeyDown={blockDecimalKeys}
+                onPaste={blockDecimalPaste}
                 defaultValue={0}
               />
             </div>
@@ -176,6 +197,9 @@ export function FoodForm() {
                 name="fat"
                 type="number"
                 min={0}
+                step={1}
+                onKeyDown={blockDecimalKeys}
+                onPaste={blockDecimalPaste}
                 defaultValue={0}
               />
             </div>
