@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import {MacrosChart} from '@/components/macros-chart';
 import {WeightChart} from '@/components/weight-chart';
-import {Activity, Flame, Scale, Target, Utensils} from 'lucide-react';
+import {NutritionProgress} from '@/components/nutrition-progress';
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -54,10 +54,42 @@ export default async function DashboardPage() {
   );
 
   const calorieGoal = goals?.calorieGoal ?? 2000;
-  const remaining = calorieGoal - caloriesIn + caloriesOut;
+  const netCalories = caloriesIn - caloriesOut;
 
   const proteinGoal = goals?.proteinGoal ?? 150;
-  const proteinRemaining = proteinGoal - protein;
+  const carbsGoal = goals?.carbsGoal ?? 250;
+  const fatGoal = goals?.fatGoal ?? 70;
+
+  const progressItems = [
+    {
+      label: 'Calories',
+      value: netCalories,
+      goal: calorieGoal,
+      unit: '',
+      colorClassName: 'bg-primary',
+    },
+    {
+      label: 'Protein',
+      value: protein,
+      goal: proteinGoal,
+      unit: 'g',
+      colorClassName: 'bg-purple-500',
+    },
+    {
+      label: 'Carbs',
+      value: carbs,
+      goal: carbsGoal,
+      unit: 'g',
+      colorClassName: 'bg-blue-500',
+    },
+    {
+      label: 'Fat',
+      value: fat,
+      goal: fatGoal,
+      unit: 'g',
+      colorClassName: 'bg-amber-500',
+    },
+  ];
 
   const macrosData = [
     {name: 'Protein', value: protein, goal: goals?.proteinGoal ?? 150},
@@ -96,86 +128,17 @@ export default async function DashboardPage() {
         <p className="text-muted-foreground">Today&apos;s summary</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card className="relative overflow-hidden">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription>Calories in</CardDescription>
-              <div className="rounded-lg bg-primary/10 p-1.5 text-primary">
-                <Utensils className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-3xl">{caloriesIn}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">Goal: {calorieGoal}</p>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription>Calories out</CardDescription>
-              <div className="rounded-lg bg-orange-500/10 p-1.5 text-orange-500">
-                <Flame className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-3xl">{caloriesOut}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">From exercise</p>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription>Remaining</CardDescription>
-              <div className="rounded-lg bg-blue-500/10 p-1.5 text-blue-500">
-                <Target className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-3xl">{remaining}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">Net calories today</p>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription>Protein remaining</CardDescription>
-              <div className="rounded-lg bg-purple-500/10 p-1.5 text-purple-500">
-                <Activity className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-3xl">{proteinRemaining}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Goal: {proteinGoal}g
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription>Latest weight</CardDescription>
-              <div className="rounded-lg bg-teal-500/10 p-1.5 text-teal-500">
-                <Scale className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-3xl">
-              {recentWeights[0]?.weight ?? '—'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              {recentWeights[0]
-                ? format(recentWeights[0].loggedAt, 'MMM dd')
-                : 'No entries yet'}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Today&apos;s progress</CardTitle>
+          <CardDescription>
+            Calories, protein, carbs, and fat vs. your daily goals
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <NutritionProgress items={progressItems} />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
