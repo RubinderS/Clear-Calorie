@@ -39,6 +39,11 @@
 - `public/` — Static assets
 - `types/` — TypeScript type definitions
 
+## Demo Login
+
+- Demo credentials: `demo@example.com` / `password` (defined in `prisma/seed.ts`).
+- If login with the demo user fails, the database likely hasn't been seeded yet — run `npm run db:seed`.
+
 ## Development Notes
 
 - Use the App Router pattern (`app/` directory)
