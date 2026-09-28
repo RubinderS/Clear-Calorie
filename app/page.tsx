@@ -1,8 +1,14 @@
 import Link from 'next/link';
+import {getServerSession} from 'next-auth/next';
+import {redirect} from 'next/navigation';
+import {authOptions} from '@/lib/auth-options';
 import {Button} from '@/components/ui/button';
 import {ArrowRight, HeartPulse, LineChart, Utensils} from 'lucide-react';
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession(authOptions);
+  if (session?.user) redirect('/dashboard');
+
   return (
     <div className="flex min-h-full flex-col items-center justify-center p-4 text-center">
       <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">

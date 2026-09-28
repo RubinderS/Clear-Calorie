@@ -5,6 +5,7 @@ import {createPortal} from 'react-dom';
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 import {Button} from '@/components/ui/button';
+import {SignOutButton} from '@/components/sign-out-button';
 import {cn} from '@/lib/utils';
 
 interface MobileNavProps {
@@ -126,16 +127,7 @@ export function MobileNav({items}: MobileNavProps) {
                     </li>
                   ))}
                 </ul>
-                <form action="/api/auth/signout" method="POST">
-                  <Button
-                    type="submit"
-                    variant="outline"
-                    className="w-full"
-                    size="sm"
-                  >
-                    Sign out
-                  </Button>
-                </form>
+                <SignOutButton variant="outline" className="w-full" />
               </div>
             </nav>
           </>,

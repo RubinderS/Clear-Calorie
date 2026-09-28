@@ -2,10 +2,10 @@ import Link from 'next/link';
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
 import {authOptions} from '@/lib/auth-options';
-import {Button} from '@/components/ui/button';
 import {MobileNav} from '@/components/mobile-nav';
 import {DesktopNav} from '@/components/desktop-nav';
 import {ThemeToggle} from '@/components/theme-toggle';
+import {SignOutButton} from '@/components/sign-out-button';
 
 export default async function DashboardLayout({
   children,
@@ -41,11 +41,7 @@ export default async function DashboardLayout({
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
             <DesktopNav items={navItems} />
-            <form action="/api/auth/signout" method="POST" className="ml-2">
-              <Button type="submit" variant="ghost" size="sm">
-                Sign out
-              </Button>
-            </form>
+            <SignOutButton className="ml-2" />
           </nav>
           <div className="flex items-center gap-1">
             <ThemeToggle />
