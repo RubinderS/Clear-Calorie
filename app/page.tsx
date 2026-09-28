@@ -3,7 +3,47 @@ import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
 import {authOptions} from '@/lib/auth-options';
 import {Button} from '@/components/ui/button';
-import {ArrowRight, HeartPulse, LineChart, Utensils} from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {NutritionProgress} from '@/components/nutrition-progress';
+import {ArrowRight, HeartPulse} from 'lucide-react';
+
+// Sample data used only to preview the dashboard's progress UI for logged-out visitors.
+const previewProgressItems = [
+  {
+    label: 'Calories',
+    value: 1450,
+    goal: 2000,
+    unit: '',
+    colorClassName: 'bg-primary',
+  },
+  {
+    label: 'Protein',
+    value: 92,
+    goal: 150,
+    unit: 'g',
+    colorClassName: 'bg-purple-500',
+  },
+  {
+    label: 'Carbs',
+    value: 140,
+    goal: 250,
+    unit: 'g',
+    colorClassName: 'bg-blue-500',
+  },
+  {
+    label: 'Fat',
+    value: 45,
+    goal: 70,
+    unit: 'g',
+    colorClassName: 'bg-amber-500',
+  },
+];
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
@@ -33,35 +73,17 @@ export default async function Home() {
           <Link href="/login">Sign in</Link>
         </Button>
       </div>
-      <div className="mt-16 grid max-w-2xl gap-6 sm:grid-cols-3">
-        <div className="rounded-2xl border border-border/50 bg-card/60 p-5 text-left shadow-sm backdrop-blur">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Utensils className="h-5 w-5" />
-          </div>
-          <h3 className="font-semibold">Food logging</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Track calories and macros for every meal.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-border/50 bg-card/60 p-5 text-left shadow-sm backdrop-blur">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10 text-orange-500">
-            <HeartPulse className="h-5 w-5" />
-          </div>
-          <h3 className="font-semibold">Exercise</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Record workouts and calories burned.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-border/50 bg-card/60 p-5 text-left shadow-sm backdrop-blur">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
-            <LineChart className="h-5 w-5" />
-          </div>
-          <h3 className="font-semibold">Insights</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Visualize trends and reach your goals.
-          </p>
-        </div>
-      </div>
+      <Card className="mt-16 w-full max-w-md text-left">
+        <CardHeader>
+          <CardTitle>Today&apos;s progress</CardTitle>
+          <CardDescription>
+            A preview of the dashboard you&apos;ll see after signing in
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <NutritionProgress items={previewProgressItems} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
