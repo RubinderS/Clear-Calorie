@@ -5,10 +5,11 @@ import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
 
 const goalsSchema = z.object({
-  calorieGoal: z.number().int().min(0),
-  proteinGoal: z.number().int().min(0),
-  carbsGoal: z.number().int().min(0),
-  fatGoal: z.number().int().min(0),
+  calorieGoal: z.number().int().min(0).optional(),
+  proteinGoal: z.number().int().min(0).optional(),
+  carbsGoal: z.number().int().min(0).optional(),
+  fatGoal: z.number().int().min(0).optional(),
+  saturatedFatGoal: z.number().int().min(0).optional(),
   weightGoal: z.number().positive().nullable().optional(),
 });
 
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
 
+    // Each goals card submits only its own fields, so merge with defaults on create.
     const goals = await prisma.goal.upsert({
       where: {userId: session.user.id},
       update: parsed.data,

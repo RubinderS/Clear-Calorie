@@ -4,13 +4,24 @@ import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
 
-const foodSchema = z.object({
-  name: z.string().min(1),
-  calories: z.number().int().min(0),
-  protein: z.number().int().min(0).default(0),
-  carbs: z.number().int().min(0).default(0),
-  fat: z.number().int().min(0).default(0),
-});
+const foodSchema = z
+  .object({
+    name: z.string().min(1),
+    calories: z.number().int().min(0),
+    protein: z.number().int().min(0).default(0),
+    carbs: z.number().int().min(0).default(0),
+    fat: z.number().int().min(0).default(0),
+    saturatedFat: z.number().int().min(0).default(0),
+  })
+  .superRefine((data, ctx) => {
+    if (data.saturatedFat > data.fat) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Saturated fat cannot exceed total fat',
+        path: ['saturatedFat'],
+      });
+    }
+  });
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);

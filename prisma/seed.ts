@@ -22,6 +22,7 @@ async function main() {
           proteinGoal: 160,
           carbsGoal: 260,
           fatGoal: 75,
+          saturatedFatGoal: 20,
           weightGoal: 170,
         },
       },
@@ -37,6 +38,7 @@ async function main() {
         protein: 10,
         carbs: 54,
         fat: 6,
+        saturatedFat: 1,
       },
       {
         userId: user.id,
@@ -45,6 +47,7 @@ async function main() {
         protein: 45,
         carbs: 12,
         fat: 20,
+        saturatedFat: 4,
       },
       {
         userId: user.id,
@@ -53,6 +56,7 @@ async function main() {
         protein: 12,
         carbs: 80,
         fat: 14,
+        saturatedFat: 2,
       },
     ],
   });

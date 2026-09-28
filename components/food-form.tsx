@@ -14,13 +14,17 @@ type SavedFoodItem = {
   protein: number;
   carbs: number;
   fat: number;
+  saturatedFat: number;
 };
+
+const SATURATED_FAT_ERROR = 'Saturated fat cannot exceed total fat.';
 
 export function FoodForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedFoods, setSavedFoods] = useState<SavedFoodItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   function blockDecimalKeys(event: React.KeyboardEvent<HTMLInputElement>) {
     if (['.', ',', 'e', 'E', '+', '-'].includes(event.key)) {
@@ -64,6 +68,9 @@ export function FoodForm() {
     (form.elements.namedItem('fat') as HTMLInputElement).value = String(
       item.fat,
     );
+    (form.elements.namedItem('saturatedFat') as HTMLInputElement).value =
+      String(item.saturatedFat);
+    setError(null);
   }
 
   async function saveCurrentFood() {
@@ -80,7 +87,14 @@ export function FoodForm() {
       protein: Number(formData.get('protein')),
       carbs: Number(formData.get('carbs')),
       fat: Number(formData.get('fat')),
+      saturatedFat: Number(formData.get('saturatedFat')),
     };
+
+    if (data.saturatedFat > data.fat) {
+      setError(SATURATED_FAT_ERROR);
+      return;
+    }
+    setError(null);
 
     setSaving(true);
     const response = await fetch('/api/saved-food', {
@@ -114,7 +128,6 @@ export function FoodForm() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setLoading(true);
 
     const formData = new FormData(event.currentTarget);
     const data = {
@@ -123,8 +136,16 @@ export function FoodForm() {
       protein: Math.round(Number(formData.get('protein'))),
       carbs: Math.round(Number(formData.get('carbs'))),
       fat: Math.round(Number(formData.get('fat'))),
+      saturatedFat: Math.round(Number(formData.get('saturatedFat'))),
     };
 
+    if (data.saturatedFat > data.fat) {
+      setError(SATURATED_FAT_ERROR);
+      return;
+    }
+    setError(null);
+
+    setLoading(true);
     const response = await fetch('/api/food', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -202,8 +223,37 @@ export function FoodForm() {
                 onPaste={blockDecimalPaste}
                 defaultValue={0}
               />
+              <div className="flex flex-col space-y-2 pl-4 border-l-2 border-border/50">
+                <Label
+                  htmlFor="saturatedFat"
+                  className="text-xs text-muted-foreground"
+                >
+                  of which saturated (g)
+                </Label>
+                <Input
+                  id="saturatedFat"
+                  name="saturatedFat"
+                  type="number"
+                  min={0}
+                  step={1}
+                  onKeyDown={blockDecimalKeys}
+                  onPaste={blockDecimalPaste}
+                  defaultValue={0}
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? 'saturatedFat-error' : undefined}
+                />
+              </div>
             </div>
           </div>
+          {error && (
+            <p
+              id="saturatedFat-error"
+              role="alert"
+              className="text-sm text-red-500"
+            >
+              {error}
+            </p>
+          )}
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? 'Saving...' : 'Log food'}
           </Button>
@@ -231,7 +281,7 @@ export function FoodForm() {
                     <p className="truncate text-sm font-medium">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {item.calories} kcal · P: {item.protein}g · C:{' '}
-                      {item.carbs}g · F: {item.fat}g
+                      {item.carbs}g · F: {item.fat}g · Sat: {item.saturatedFat}g
                     </p>
                   </div>
                   <div className="ml-3 flex items-center gap-2">

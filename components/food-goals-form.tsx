@@ -8,17 +8,19 @@ import {Label} from '@/components/ui/label';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Goal} from '@prisma/client';
 
-interface GoalsFormProps {
+interface FoodGoalsFormProps {
   goals: Goal | null;
 }
 
-export function GoalsForm({goals}: GoalsFormProps) {
+const SATURATED_FAT_ERROR = 'Saturated fat goal cannot exceed total fat goal.';
+
+export function FoodGoalsForm({goals}: FoodGoalsFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setLoading(true);
 
     const formData = new FormData(event.currentTarget);
     const data = {
@@ -26,11 +28,16 @@ export function GoalsForm({goals}: GoalsFormProps) {
       proteinGoal: Number(formData.get('proteinGoal')),
       carbsGoal: Number(formData.get('carbsGoal')),
       fatGoal: Number(formData.get('fatGoal')),
-      weightGoal: formData.get('weightGoal')
-        ? Number(formData.get('weightGoal'))
-        : null,
+      saturatedFatGoal: Number(formData.get('saturatedFatGoal')),
     };
 
+    if (data.saturatedFatGoal > data.fatGoal) {
+      setError(SATURATED_FAT_ERROR);
+      return;
+    }
+    setError(null);
+
+    setLoading(true);
     const response = await fetch('/api/goals', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -47,7 +54,7 @@ export function GoalsForm({goals}: GoalsFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Update goals</CardTitle>
+        <CardTitle>Food goal</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -95,21 +102,39 @@ export function GoalsForm({goals}: GoalsFormProps) {
                 defaultValue={goals?.fatGoal ?? 70}
                 required
               />
-            </div>
-            <div className="flex flex-col space-y-2">
-              <Label htmlFor="weightGoal">Weight goal</Label>
-              <Input
-                id="weightGoal"
-                name="weightGoal"
-                type="number"
-                step="0.1"
-                min={0}
-                defaultValue={goals?.weightGoal ?? ''}
-              />
+              <div className="flex flex-col space-y-2 pl-4 border-l-2 border-border/50">
+                <Label
+                  htmlFor="saturatedFatGoal"
+                  className="text-xs text-muted-foreground"
+                >
+                  of which saturated fat (g)
+                </Label>
+                <Input
+                  id="saturatedFatGoal"
+                  name="saturatedFatGoal"
+                  type="number"
+                  min={0}
+                  defaultValue={goals?.saturatedFatGoal ?? 20}
+                  required
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={
+                    error ? 'saturatedFatGoal-error' : undefined
+                  }
+                />
+              </div>
             </div>
           </div>
+          {error && (
+            <p
+              id="saturatedFatGoal-error"
+              role="alert"
+              className="text-sm text-red-500"
+            >
+              {error}
+            </p>
+          )}
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Saving...' : 'Save goals'}
+            {loading ? 'Saving...' : 'Save food goal'}
           </Button>
         </form>
       </CardContent>

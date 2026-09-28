@@ -57,7 +57,7 @@ export default async function FoodPage() {
                         <p className="font-medium">{entry.name}</p>
                         <p className="text-xs text-muted-foreground">
                           P: {entry.protein}g · C: {entry.carbs}g · F:{' '}
-                          {entry.fat}g
+                          {entry.fat}g · Sat: {entry.saturatedFat}g
                         </p>
                       </div>
                     </div>

@@ -49,6 +49,10 @@ export default async function DashboardPage() {
   const protein = todaysFood.reduce((sum, item) => sum + item.protein, 0);
   const carbs = todaysFood.reduce((sum, item) => sum + item.carbs, 0);
   const fat = todaysFood.reduce((sum, item) => sum + item.fat, 0);
+  const saturatedFat = todaysFood.reduce(
+    (sum, item) => sum + item.saturatedFat,
+    0,
+  );
   const caloriesOut = todaysExercise.reduce(
     (sum, item) => sum + item.calories,
     0,
@@ -60,6 +64,7 @@ export default async function DashboardPage() {
   const proteinGoal = goals?.proteinGoal ?? 150;
   const carbsGoal = goals?.carbsGoal ?? 250;
   const fatGoal = goals?.fatGoal ?? 70;
+  const saturatedFatGoal = goals?.saturatedFatGoal ?? 20;
 
   const progressItems = [
     {
@@ -89,6 +94,13 @@ export default async function DashboardPage() {
       goal: fatGoal,
       unit: 'g',
       colorClassName: 'bg-amber-500',
+    },
+    {
+      label: 'Saturated fat',
+      value: saturatedFat,
+      goal: saturatedFatGoal,
+      unit: 'g',
+      colorClassName: 'bg-orange-700',
     },
   ];
 
