@@ -1,0 +1,29 @@
+services:
+  web:
+    image: ghcr.io/rubinders/clear-calorie:main
+    pull_policy: always
+    ports:
+      - '${HOST_PORT:-3000}:3000'
+    environment:
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?set NEXTAUTH_SECRET in .env (see .env.example)}
+      # Origin used for callback URLs and to decide whether session cookies get the
+      # Secure flag. Host-header detection assumes https when no reverse proxy sends
+      # x-forwarded-proto, and browsers drop Secure cookies on plain-HTTP origins,
+      # so serving over http:// requires setting this to the exact origin users hit.
+      NEXTAUTH_URL: ${NEXTAUTH_URL:?set NEXTAUTH_URL in .env, e.g. http://192.168.1.10:3000}
+      # Everything below is optional — the image ships working defaults.
+      # Uncomment and set as needed:
+      #
+      # Rate limiting silently no-ops unless BOTH are set
+      # UPSTASH_REDIS_REST_URL: https://your-instance.upstash.io
+      # UPSTASH_REDIS_REST_TOKEN: your-upstash-token
+      #
+      # Verification emails fail to send unless BOTH are set
+      # RESEND_API_KEY: re_xxxxxxxx
+      # RESEND_FROM_EMAIL: noreply@yourdomain.com
+      #
+      # Only to move the database off the mounted volume
+      # DATABASE_URL: file:/app/data/dev.db
+    volumes:
+      - ~/clearcalorie:/app/data
+    restart: unless-stopped
