@@ -6,6 +6,7 @@ import {prisma} from '@/lib/prisma';
 import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {FoodForm} from '@/components/food-form';
+import {Utensils} from 'lucide-react';
 
 export default async function FoodPage() {
   const session = await getServerSession(authOptions);
@@ -50,9 +51,7 @@ export default async function FoodPage() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <span className="text-sm font-bold">
-                          {entry.name.charAt(0).toUpperCase()}
-                        </span>
+                        <Utensils className="h-5 w-5" aria-hidden="true" />
                       </div>
                       <div>
                         <p className="font-medium">{entry.name}</p>

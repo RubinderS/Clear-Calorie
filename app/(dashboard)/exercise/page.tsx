@@ -6,6 +6,7 @@ import {prisma} from '@/lib/prisma';
 import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {ExerciseForm} from '@/components/exercise-form';
+import {Dumbbell} from 'lucide-react';
 
 export default async function ExercisePage() {
   const session = await getServerSession(authOptions);
@@ -56,9 +57,7 @@ export default async function ExercisePage() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10 text-orange-500">
-                        <span className="text-sm font-bold">
-                          {entry.name.charAt(0).toUpperCase()}
-                        </span>
+                        <Dumbbell className="h-5 w-5" aria-hidden="true" />
                       </div>
                       <div>
                         <p className="font-medium">{entry.name}</p>
