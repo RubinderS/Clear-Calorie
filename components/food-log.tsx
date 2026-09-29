@@ -2,8 +2,9 @@
 
 import {useEffect, useState} from 'react';
 import {format, parseISO} from 'date-fns';
-import {Utensils} from 'lucide-react';
+import {Trash2, Utensils} from 'lucide-react';
 import {FoodForm} from '@/components/food-form';
+import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 
 type FoodEntry = {
@@ -31,6 +32,7 @@ export function FoodLog({
   const [selectedDate, setSelectedDate] = useState(today);
   const [entries, setEntries] = useState(initialEntries);
   const [isLoading, setIsLoading] = useState(false);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
 
   async function loadEntries(date: string) {
     setIsLoading(true);
@@ -60,6 +62,27 @@ export function FoodLog({
   function handleLogCreated() {
     setSelectedDate(today);
     void loadEntries(today);
+  }
+
+  async function handleDelete(entry: FoodEntry) {
+    if (!window.confirm(`Delete ${entry.name}? This cannot be undone.`)) {
+      return;
+    }
+
+    const {id: entryId} = entry;
+    setDeletingEntryId(entryId);
+    try {
+      const response = await fetch(`/api/food?id=${entryId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setEntries((currentEntries) =>
+          currentEntries.filter((entry) => entry.id !== entryId),
+        );
+      }
+    } finally {
+      setDeletingEntryId(null);
+    }
   }
 
   const isToday = selectedDate === today;
@@ -119,11 +142,27 @@ export function FoodLog({
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold">{entry.calories} kcal</p>
-                    <p className="text-xs text-muted-foreground">
-                      {timeFormatter.format(new Date(entry.loggedAt))}
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <p className="font-semibold">{entry.calories} kcal</p>
+                      <p className="text-xs text-muted-foreground">
+                        {timeFormatter.format(new Date(entry.loggedAt))}
+                      </p>
+                    </div>
+                    {isToday && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Delete ${entry.name}`}
+                        title={`Delete ${entry.name}`}
+                        disabled={deletingEntryId === entry.id}
+                        onClick={() => void handleDelete(entry)}
+                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-red-500/30 dark:hover:text-red-200"
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
+                    )}
                   </div>
                 </li>
               ))}
