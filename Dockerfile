@@ -40,6 +40,8 @@ COPY . .
 
 # Disable telemetry during build
 ENV NEXT_TELEMETRY_DISABLED=1
+# Pin explicitly rather than relying on the base image defaulting to UTC
+ENV TZ=UTC
 
 # Generate Prisma client (postinstall was skipped with --ignore-scripts)
 RUN npx prisma generate
@@ -51,6 +53,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# Pin explicitly rather than relying on the base image defaulting to UTC
+ENV TZ=UTC
 # Derive callback URLs from the request Host header so the same image serves
 # localhost and LAN addresses. Without an x-forwarded-proto header this assumes
 # https, which yields Secure cookies a plain-HTTP client will discard, so

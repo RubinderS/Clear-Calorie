@@ -1,8 +1,9 @@
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
-import {format, startOfDay, endOfDay} from 'date-fns';
+import {format} from 'date-fns';
 import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
+import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {ExerciseForm} from '@/components/exercise-form';
 
@@ -11,8 +12,8 @@ export default async function ExercisePage() {
   if (!session?.user?.id) redirect('/login');
 
   const userId = session.user.id;
-  const todayStart = startOfDay(new Date());
-  const todayEnd = endOfDay(new Date());
+  const timeZone = await getUserTimeZone();
+  const {start: todayStart, end: todayEnd} = getTodayRange(timeZone);
 
   const entries = await prisma.exerciseLog.findMany({
     where: {userId, loggedAt: {gte: todayStart, lte: todayEnd}},
@@ -69,7 +70,7 @@ export default async function ExercisePage() {
                     <div className="text-right">
                       <p className="font-semibold">{entry.calories} kcal</p>
                       <p className="text-xs text-muted-foreground">
-                        {format(entry.loggedAt, 'h:mm a')}
+                        {format(toZoned(entry.loggedAt, timeZone), 'h:mm a')}
                       </p>
                     </div>
                   </li>

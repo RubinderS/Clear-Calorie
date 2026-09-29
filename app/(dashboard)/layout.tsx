@@ -6,6 +6,7 @@ import {MobileNav} from '@/components/mobile-nav';
 import {DesktopNav} from '@/components/desktop-nav';
 import {ThemeToggle} from '@/components/theme-toggle';
 import {SignOutButton} from '@/components/sign-out-button';
+import {TimezoneSync} from '@/components/timezone-sync';
 
 export default async function DashboardLayout({
   children,
@@ -28,6 +29,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-full flex-col">
+      <TimezoneSync />
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link

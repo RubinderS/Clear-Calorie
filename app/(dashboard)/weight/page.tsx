@@ -3,6 +3,7 @@ import {redirect} from 'next/navigation';
 import {format} from 'date-fns';
 import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
+import {getUserTimeZone, toZoned} from '@/lib/timezone';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {WeightForm} from '@/components/weight-form';
 import {WeightChart} from '@/components/weight-chart';
@@ -11,6 +12,7 @@ export default async function WeightPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect('/login');
 
+  const timeZone = await getUserTimeZone();
   const entries = await prisma.weightLog.findMany({
     where: {userId: session.user.id},
     orderBy: {loggedAt: 'desc'},
@@ -21,7 +23,7 @@ export default async function WeightPage() {
     .slice()
     .reverse()
     .map((entry) => ({
-      date: format(entry.loggedAt, 'MMM dd'),
+      date: format(toZoned(entry.loggedAt, timeZone), 'MMM dd'),
       weight: entry.weight,
     }));
 
@@ -58,7 +60,10 @@ export default async function WeightPage() {
                       <p className="font-semibold">{entry.weight}</p>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {format(entry.loggedAt, 'MMM dd, yyyy')}
+                      {format(
+                        toZoned(entry.loggedAt, timeZone),
+                        'MMM dd, yyyy',
+                      )}
                     </p>
                   </li>
                 ))}

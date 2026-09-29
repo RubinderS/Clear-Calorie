@@ -1,8 +1,9 @@
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
-import {format, startOfDay, endOfDay, subDays} from 'date-fns';
+import {format, parseISO, subDays} from 'date-fns';
 import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
+import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {
   Card,
   CardContent,
@@ -20,8 +21,8 @@ export default async function DashboardPage() {
   if (!session?.user?.id) redirect('/login');
 
   const userId = session.user.id;
-  const todayStart = startOfDay(new Date());
-  const todayEnd = endOfDay(new Date());
+  const timeZone = await getUserTimeZone();
+  const {start: todayStart, end: todayEnd} = getTodayRange(timeZone);
 
   const [goals, todaysFood, todaysExercise, recentWeights, weekFood] =
     await Promise.all([
@@ -110,18 +111,19 @@ export default async function DashboardPage() {
     weekMap.set(date, {calories: 0, protein: 0});
   }
   for (const item of weekFood) {
-    const date = format(item.loggedAt, 'yyyy-MM-dd');
+    const date = format(toZoned(item.loggedAt, timeZone), 'yyyy-MM-dd');
     const totals = weekMap.get(date) ?? {calories: 0, protein: 0};
     totals.calories += item.calories;
     totals.protein += item.protein;
     weekMap.set(date, totals);
   }
+  // parseISO keeps date-only keys at local midnight; new Date() would read them as UTC.
   const caloriesData = Array.from(weekMap.entries()).map(([date, totals]) => ({
-    date: format(new Date(date), 'MMM dd'),
+    date: format(parseISO(date), 'MMM dd'),
     calories: totals.calories,
   }));
   const proteinData = Array.from(weekMap.entries()).map(([date, totals]) => ({
-    date: format(new Date(date), 'MMM dd'),
+    date: format(parseISO(date), 'MMM dd'),
     protein: totals.protein,
   }));
 
@@ -129,7 +131,7 @@ export default async function DashboardPage() {
     .slice()
     .reverse()
     .map((entry) => ({
-      date: format(entry.loggedAt, 'MMM dd'),
+      date: format(toZoned(entry.loggedAt, timeZone), 'MMM dd'),
       weight: entry.weight,
     }));
 
