@@ -25,17 +25,15 @@ export function NutritionProgress({items}: NutritionProgressProps) {
           <div key={item.label} className="space-y-1.5">
             <div className="flex items-baseline justify-between text-sm">
               <span className="font-medium">{item.label}</span>
-              <span className="text-muted-foreground">
-                <span
-                  className={cn(
-                    'font-semibold',
-                    isOver ? 'text-destructive' : 'text-foreground',
-                  )}
-                >
-                  {Math.round(item.value)}
-                </span>{' '}
-                / {item.goal}
-                {item.unit}
+              <span
+                className={cn(
+                  'font-semibold',
+                  isOver ? 'text-destructive' : 'text-foreground',
+                )}
+              >
+                {isOver
+                  ? `${Math.abs(remaining)}${item.unit} over goal`
+                  : `${remaining}${item.unit} remaining`}
               </span>
             </div>
             <Progress
@@ -44,15 +42,9 @@ export function NutritionProgress({items}: NutritionProgressProps) {
                 isOver ? 'bg-destructive' : item.colorClassName,
               )}
             />
-            <p
-              className={cn(
-                'text-xs',
-                isOver ? 'text-destructive' : 'text-muted-foreground',
-              )}
-            >
-              {isOver
-                ? `${Math.abs(remaining)}${item.unit} over goal`
-                : `${remaining}${item.unit} remaining`}
+            <p className={cn('text-xs text-muted-foreground')}>
+              {Math.round(item.value)} / {item.goal}
+              {item.unit}
             </p>
           </div>
         );

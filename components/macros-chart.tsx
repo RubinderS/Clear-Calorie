@@ -44,7 +44,7 @@ export function MacrosChart({data, dataKey, color, goal}: MacrosChartProps) {
             vertical={false}
           />
           <XAxis
-            dataKey="name"
+            dataKey={typeof data[0]?.date === 'string' ? 'date' : 'name'}
             tick={{fill: 'hsl(var(--muted-foreground))', fontSize: 12}}
             axisLine={false}
             tickLine={false}
