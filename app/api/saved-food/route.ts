@@ -1,17 +1,20 @@
 import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
+import {Prisma} from '@prisma/client';
 import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
 
 const savedFoodSchema = z
   .object({
+    id: z.string().optional(),
     name: z.string().min(1),
     calories: z.number().int().min(0),
     protein: z.number().int().min(0).default(0),
     carbs: z.number().int().min(0).default(0),
     fat: z.number().int().min(0).default(0),
     saturatedFat: z.number().int().min(0).default(0),
+    isPinned: z.boolean().default(false),
   })
   .superRefine((data, ctx) => {
     if (data.saturatedFat > data.fat) {
@@ -57,22 +60,49 @@ export async function POST(request: Request) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
 
+    const {id, ...data} = parsed.data;
+
+    const existing = await prisma.savedFoodItem.findUnique({
+      where: {
+        userId_name: {
+          userId: session.user.id,
+          name: data.name,
+        },
+      },
+    });
+
+    if (existing && existing.id !== id) {
+      return NextResponse.json(
+        {error: 'An item with this name already exists'},
+        {status: 400},
+      );
+    }
+
     const item = await prisma.savedFoodItem.upsert({
       where: {
         userId_name: {
           userId: session.user.id,
-          name: parsed.data.name,
+          name: data.name,
         },
       },
-      update: parsed.data,
+      update: data,
       create: {
-        ...parsed.data,
+        ...data,
         userId: session.user.id,
       },
     });
 
     return NextResponse.json(item, {status: 201});
-  } catch {
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2002'
+    ) {
+      return NextResponse.json(
+        {error: 'An item with this name already exists'},
+        {status: 400},
+      );
+    }
     return NextResponse.json(
       {error: 'Failed to save food item'},
       {status: 500},

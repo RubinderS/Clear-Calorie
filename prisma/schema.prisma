@@ -89,6 +89,7 @@ model SavedFoodItem {
   carbs        Int      @default(0)
   fat          Int      @default(0)
   saturatedFat Int      @default(0)
+  isPinned     Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -119,6 +120,7 @@ model SavedExerciseItem {
   name        String
   calories    Int
   durationMin Int      @default(0)
+  isPinned    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
