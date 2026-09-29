@@ -31,26 +31,28 @@ export function FoodLog({
 }: FoodLogProps) {
   const [selectedDate, setSelectedDate] = useState(today);
   const [entries, setEntries] = useState(initialEntries);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(() => initialEntries.length === 0);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
 
-  async function loadEntries(date: string) {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/food?date=${date}`);
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadEntries() {
+      setIsLoading(true);
+      const response = await fetch(`/api/food?date=${selectedDate}`);
+      if (!isMounted) return;
       if (response.ok) {
         setEntries(await response.json());
       }
-    } finally {
       setIsLoading(false);
     }
-  }
 
-  useEffect(() => {
-    if (selectedDate !== today) {
-      void loadEntries(selectedDate);
-    }
-  }, [selectedDate, today]);
+    void loadEntries();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDate]);
 
   function handleDateChange(event: React.ChangeEvent<HTMLInputElement>) {
     const date = event.target.value;
@@ -61,7 +63,6 @@ export function FoodLog({
 
   function handleLogCreated() {
     setSelectedDate(today);
-    void loadEntries(today);
   }
 
   async function handleDelete(entry: FoodEntry) {
