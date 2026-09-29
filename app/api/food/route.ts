@@ -3,6 +3,7 @@ import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
+import {getDateRange, getUserTimeZone} from '@/lib/timezone';
 
 const foodSchema = z
   .object({
@@ -22,6 +23,31 @@ const foodSchema = z
       });
     }
   });
+
+export async function GET(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({error: 'Unauthorized'}, {status: 401});
+  }
+
+  const date = new URL(request.url).searchParams.get('date');
+  const timeZone = await getUserTimeZone();
+  const range = date ? getDateRange(date, timeZone) : null;
+
+  if (!range) {
+    return NextResponse.json({error: 'Invalid date'}, {status: 400});
+  }
+
+  const entries = await prisma.foodLog.findMany({
+    where: {
+      userId: session.user.id,
+      loggedAt: {gte: range.start, lte: range.end},
+    },
+    orderBy: {loggedAt: 'desc'},
+  });
+
+  return NextResponse.json(entries);
+}
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);

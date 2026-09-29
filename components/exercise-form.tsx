@@ -17,7 +17,11 @@ type SavedExerciseItem = {
 
 const MAX_SUGGESTIONS = 8;
 
-export function ExerciseForm() {
+type ExerciseFormProps = {
+  onLogCreated?: () => void;
+};
+
+export function ExerciseForm({onLogCreated}: ExerciseFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [savedExercises, setSavedExercises] = useState<SavedExerciseItem[]>([]);
@@ -164,6 +168,7 @@ export function ExerciseForm() {
       setSelectedId(null);
       setIsSaved(false);
       setIsPinned(false);
+      onLogCreated?.();
       router.refresh();
     }
   }

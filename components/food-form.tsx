@@ -21,7 +21,11 @@ type SavedFoodItem = {
 const SATURATED_FAT_ERROR = 'Saturated fat cannot exceed total fat.';
 const MAX_SUGGESTIONS = 8;
 
-export function FoodForm() {
+type FoodFormProps = {
+  onLogCreated?: () => void;
+};
+
+export function FoodForm({onLogCreated}: FoodFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [savedFoods, setSavedFoods] = useState<SavedFoodItem[]>([]);
@@ -197,6 +201,7 @@ export function FoodForm() {
       setSelectedId(null);
       setIsSaved(false);
       setIsPinned(false);
+      onLogCreated?.();
       router.refresh();
     }
   }

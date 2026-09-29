@@ -27,6 +27,32 @@ export function getTodayRange(timeZone: string): {start: Date; end: Date} {
   return {start: startOfDay(now), end: endOfDay(now)};
 }
 
+/** Start/end of a calendar date as real UTC instants in the given IANA timezone. */
+export function getDateRange(
+  date: string,
+  timeZone: string,
+): {start: Date; end: Date} | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) return null;
+
+  const zonedDate = TZDate.tz(
+    timeZone,
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+  );
+
+  if (
+    zonedDate.getFullYear() !== Number(match[1]) ||
+    zonedDate.getMonth() !== Number(match[2]) - 1 ||
+    zonedDate.getDate() !== Number(match[3])
+  ) {
+    return null;
+  }
+
+  return {start: startOfDay(zonedDate), end: endOfDay(zonedDate)};
+}
+
 /** Wraps a stored (UTC) Date so date-fns reads its fields in the given timezone. */
 export function toZoned(date: Date, timeZone: string): TZDate {
   return new TZDate(date, timeZone);
