@@ -28,6 +28,7 @@ export function ExerciseLog({
   today,
 }: ExerciseLogProps) {
   const [selectedDate, setSelectedDate] = useState(today);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [entries, setEntries] = useState(initialEntries);
   const [isLoading, setIsLoading] = useState(() => initialEntries.length === 0);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
@@ -50,7 +51,7 @@ export function ExerciseLog({
     return () => {
       isMounted = false;
     };
-  }, [selectedDate]);
+  }, [selectedDate, refreshVersion]);
 
   function handleDateChange(event: React.ChangeEvent<HTMLInputElement>) {
     const date = event.target.value;
@@ -61,6 +62,7 @@ export function ExerciseLog({
 
   function handleLogCreated() {
     setSelectedDate(today);
+    setRefreshVersion((version) => version + 1);
   }
 
   async function handleDelete(entry: ExerciseEntry) {
