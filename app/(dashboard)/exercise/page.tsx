@@ -25,7 +25,6 @@ export default async function ExercisePage() {
   ]);
 
   const totalBurned = sumNumbers(entries.map((entry) => entry.calories));
-  const totalDuration = sumNumbers(entries.map((entry) => entry.durationMin));
   const today = format(toZoned(new Date(), timeZone), 'yyyy-MM-dd');
 
   return (
@@ -33,7 +32,7 @@ export default async function ExercisePage() {
       <div>
         <h1 className="text-3xl font-bold">Exercise log</h1>
         <p className="text-muted-foreground">
-          Today: {totalBurned} calories burned · {totalDuration} minutes
+          Today: {totalBurned} calories burned
         </p>
       </div>
 

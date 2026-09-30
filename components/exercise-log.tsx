@@ -101,9 +101,6 @@ export function ExerciseLog({
   }
 
   const totalBurned = sumNumbers(log.entries.map((entry) => entry.calories));
-  const totalDuration = sumNumbers(
-    log.entries.map((entry) => entry.durationMin),
-  );
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -126,7 +123,7 @@ export function ExerciseLog({
         timeZone={timeZone}
         todayTitle="Today's workouts"
         dateInputLabel="View exercise logs for date"
-        summary={`${totalBurned} calories burned · ${totalDuration} minutes`}
+        summary={`${totalBurned} calories burned`}
         loadingText="Loading workouts..."
         emptyText="No exercise logged"
         icon={Dumbbell}
