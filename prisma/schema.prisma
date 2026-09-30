@@ -50,6 +50,7 @@ model User {
   savedFoods    SavedFoodItem[]
   exercises     ExerciseLog[]
   savedExercises SavedExerciseItem[]
+  exerciseGoals ExerciseGoal[]
   weights       WeightLog[]
   goals         Goal?
 }
@@ -103,14 +104,24 @@ model ExerciseLog {
   id          String   @id @default(cuid())
   userId      String
   name        String
+  type        String   @default("TIME")
   calories    Int
   durationMin Int      @default(0)
+  sets        Int?
+  reps        Int?
+  weight      Float?
   loggedAt    DateTime @default(now())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  // Set when the entry was ticked off from a planned exercise goal
+  exerciseGoalId String?
+  // User-local yyyy-MM-dd the goal was ticked for; one tick per goal per day
+  goalDate       String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseGoal ExerciseGoal? @relation(fields: [exerciseGoalId], references: [id], onDelete: SetNull)
 
+  @@unique([exerciseGoalId, goalDate])
   @@index([userId, loggedAt])
 }
 
@@ -118,8 +129,12 @@ model SavedExerciseItem {
   id          String   @id @default(cuid())
   userId      String
   name        String
+  type        String   @default("TIME")
   calories    Int
   durationMin Int      @default(0)
+  sets        Int?
+  reps        Int?
+  weight      Float?
   isPinned    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -127,6 +142,27 @@ model SavedExerciseItem {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, name])
+  @@index([userId])
+}
+
+model ExerciseGoal {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  type        String   @default("TIME")
+  calories    Int      @default(0)
+  durationMin Int?
+  sets        Int?
+  reps        Int?
+  weight      Float?
+  // Bit n set = active on JS getDay() n (0 = Sunday)
+  daysMask    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs ExerciseLog[]
+
   @@index([userId])
 }
 

@@ -11,7 +11,8 @@
     "postinstall": "prisma generate",
     "db:migrate": "cross-env TZ=UTC prisma migrate dev",
     "db:studio": "cross-env TZ=UTC prisma studio",
-    "db:seed": "cross-env TZ=UTC tsx --env-file=.env prisma/seed.ts"
+    "db:seed": "cross-env TZ=UTC tsx --env-file=.env prisma/seed.ts",
+    "db:reset": "cross-env TZ=UTC prisma migrate reset --force --skip-seed && npm run db:seed"
   },
   "dependencies": {
     "@auth/prisma-adapter": "1.6.0",

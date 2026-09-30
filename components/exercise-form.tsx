@@ -6,29 +6,46 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {
+  EMPTY_EXERCISE_DETAILS,
+  ExerciseDetailFields,
+  toDetailValues,
+  toDetailsPayload,
+} from '@/components/exercise-detail-fields';
 import {Decimal} from '@/lib/decimal';
+import {formatExerciseDetail, isSameExerciseName} from '@/lib/exercise';
 
 type SavedExerciseItem = {
   id: string;
   name: string;
+  type: string;
   calories: number;
   durationMin: number;
+  sets: number | null;
+  reps: number | null;
+  weight: number | null;
   isPinned: boolean;
 };
 
 const MAX_SUGGESTIONS = 8;
+const NO_PLANNED_NAMES: string[] = [];
 
 type ExerciseFormProps = {
+  plannedNames?: string[];
   onLogCreated?: () => void;
 };
 
-export function ExerciseForm({onLogCreated}: ExerciseFormProps) {
+export function ExerciseForm({
+  plannedNames = NO_PLANNED_NAMES,
+  onLogCreated,
+}: ExerciseFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [savedExercises, setSavedExercises] = useState<SavedExerciseItem[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [name, setName] = useState('');
+  const [details, setDetails] = useState(EMPTY_EXERCISE_DETAILS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
@@ -49,9 +66,13 @@ export function ExerciseForm({onLogCreated}: ExerciseFormProps) {
 
   const suggestions = useMemo(() => {
     const query = name.trim().toLowerCase();
+    const available = savedExercises.filter(
+      (item) =>
+        !plannedNames.some((planned) => isSameExerciseName(planned, item.name)),
+    );
     const pool = query
-      ? savedExercises.filter((item) => item.name.toLowerCase().includes(query))
-      : savedExercises.filter((item) => item.isPinned);
+      ? available.filter((item) => item.name.toLowerCase().includes(query))
+      : available.filter((item) => item.isPinned);
 
     return [...pool]
       .sort((a, b) => {
@@ -59,7 +80,7 @@ export function ExerciseForm({onLogCreated}: ExerciseFormProps) {
         return a.name.localeCompare(b.name);
       })
       .slice(0, MAX_SUGGESTIONS);
-  }, [name, savedExercises]);
+  }, [name, savedExercises, plannedNames]);
 
   function applySuggestion(item: SavedExerciseItem) {
     const form = document.getElementById(
@@ -70,11 +91,9 @@ export function ExerciseForm({onLogCreated}: ExerciseFormProps) {
     (form.elements.namedItem('calories') as HTMLInputElement).value = String(
       item.calories,
     );
-    (form.elements.namedItem('durationMin') as HTMLInputElement).value = String(
-      item.durationMin,
-    );
 
     setName(item.name);
+    setDetails(toDetailValues(item));
     setSelectedId(item.id);
     setIsSaved(true);
     setIsPinned(item.isPinned);
@@ -134,10 +153,17 @@ export function ExerciseForm({onLogCreated}: ExerciseFormProps) {
       calories: new Decimal(Number(formData.get('calories')))
         .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
         .toNumber(),
-      durationMin: new Decimal(Number(formData.get('durationMin')))
-        .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
-        .toNumber(),
+      ...toDetailsPayload(details),
     };
+
+    if (
+      plannedNames.some((planned) => isSameExerciseName(planned, data.name))
+    ) {
+      setSaveError(
+        `"${data.name}" is in today's plan. Tick it off there instead.`,
+      );
+      return;
+    }
 
     setSaveError(null);
     setLoading(true);
@@ -182,18 +208,22 @@ export function ExerciseForm({onLogCreated}: ExerciseFormProps) {
     if (response.ok) {
       (event.target as HTMLFormElement)?.reset();
       setName('');
+      setDetails(EMPTY_EXERCISE_DETAILS);
       setSelectedId(null);
       setIsSaved(false);
       setIsPinned(false);
       onLogCreated?.();
       router.refresh();
+    } else {
+      const payload = await response.json().catch(() => null);
+      setSaveError(payload?.error ?? 'Failed to log exercise');
     }
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Add exercise</CardTitle>
+        <CardTitle>Add custom exercise</CardTitle>
       </CardHeader>
       <CardContent>
         <form id="exercise-form" onSubmit={handleSubmit} className="space-y-4">
@@ -224,7 +254,7 @@ export function ExerciseForm({onLogCreated}: ExerciseFormProps) {
                       {item.isPinned && '📌 '}
                       {item.name}
                       <span className="ml-2 text-xs text-muted-foreground">
-                        {item.calories} kcal
+                        {formatExerciseDetail(item)} · {item.calories} kcal
                       </span>
                     </span>
                     <button
@@ -240,27 +270,20 @@ export function ExerciseForm({onLogCreated}: ExerciseFormProps) {
               </ul>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col space-y-2">
-              <Label htmlFor="calories">Calories burned</Label>
-              <Input
-                id="calories"
-                name="calories"
-                type="number"
-                min={0}
-                required
-              />
-            </div>
-            <div className="flex flex-col space-y-2">
-              <Label htmlFor="durationMin">Duration (min)</Label>
-              <Input
-                id="durationMin"
-                name="durationMin"
-                type="number"
-                min={0}
-                defaultValue={0}
-              />
-            </div>
+          <ExerciseDetailFields
+            idPrefix="exercise"
+            value={details}
+            onChange={setDetails}
+          />
+          <div className="flex flex-col space-y-2">
+            <Label htmlFor="calories">Calories burned</Label>
+            <Input
+              id="calories"
+              name="calories"
+              type="number"
+              min={0}
+              required
+            />
           </div>
           <div className="flex flex-col gap-2 rounded-xl border border-border/50 bg-muted/30 p-3">
             <div className="flex items-center gap-2">

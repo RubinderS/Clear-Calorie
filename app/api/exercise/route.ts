@@ -2,14 +2,21 @@ import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
+import {
+  exerciseDetailsSchema,
+  isSameExerciseName,
+  toExerciseFields,
+} from '@/lib/exercise';
+import {getPlannedExerciseGoals} from '@/lib/exercise-plan';
 import {prisma} from '@/lib/prisma';
-import {getDateRange, getUserTimeZone} from '@/lib/timezone';
+import {getDateRange, getTodayRange, getUserTimeZone} from '@/lib/timezone';
 
-const exerciseSchema = z.object({
-  name: z.string().min(1),
-  calories: z.number().int().min(0),
-  durationMin: z.number().int().min(0).default(0),
-});
+const exerciseSchema = z
+  .object({
+    name: z.string().trim().min(1),
+    calories: z.number().int().min(0),
+  })
+  .and(exerciseDetailsSchema);
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -50,9 +57,28 @@ export async function POST(request: Request) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
 
+    const {name, calories} = parsed.data;
+
+    const planned = await getPlannedExerciseGoals(
+      session.user.id,
+      await getUserTimeZone(),
+    );
+    if (planned.some((goal) => isSameExerciseName(goal.name, name))) {
+      return NextResponse.json(
+        {
+          error: `"${name}" is in today's plan. Tick it off there instead.`,
+        },
+        {status: 400},
+      );
+    }
+
+    const fields = toExerciseFields(parsed.data);
     const entry = await prisma.exerciseLog.create({
       data: {
-        ...parsed.data,
+        name,
+        calories,
+        ...fields,
+        durationMin: fields.durationMin ?? 0,
         userId: session.user.id,
       },
     });
@@ -74,13 +100,25 @@ export async function DELETE(request: Request) {
     return NextResponse.json({error: 'Entry ID is required'}, {status: 400});
   }
 
-  const result = await prisma.exerciseLog.deleteMany({
+  const entry = await prisma.exerciseLog.findFirst({
     where: {id: entryId, userId: session.user.id},
+    select: {loggedAt: true},
   });
-
-  if (result.count === 0) {
+  if (!entry) {
     return NextResponse.json({error: 'Entry not found'}, {status: 404});
   }
+
+  const {start, end} = getTodayRange(await getUserTimeZone());
+  if (entry.loggedAt < start || entry.loggedAt > end) {
+    return NextResponse.json(
+      {error: "Only today's entries can be deleted"},
+      {status: 403},
+    );
+  }
+
+  await prisma.exerciseLog.deleteMany({
+    where: {id: entryId, userId: session.user.id},
+  });
 
   return new NextResponse(null, {status: 204});
 }

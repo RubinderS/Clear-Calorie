@@ -1,5 +1,5 @@
 import {cookies} from 'next/headers';
-import {startOfDay, endOfDay} from 'date-fns';
+import {startOfDay, endOfDay, format} from 'date-fns';
 import {TZDate} from '@date-fns/tz';
 import {TIMEZONE_COOKIE, DEFAULT_TIMEZONE} from '@/lib/timezone-constants';
 
@@ -56,4 +56,14 @@ export function getDateRange(
 /** Wraps a stored (UTC) Date so date-fns reads its fields in the given timezone. */
 export function toZoned(date: Date, timeZone: string): TZDate {
   return new TZDate(date, timeZone);
+}
+
+/** Today's weekday in the given timezone, matching Date#getDay() (0 = Sunday). */
+export function getTodayWeekday(timeZone: string): number {
+  return TZDate.tz(timeZone).getDay();
+}
+
+/** Today's calendar date (yyyy-MM-dd) in the given timezone. */
+export function getTodayDate(timeZone: string): string {
+  return format(TZDate.tz(timeZone), 'yyyy-MM-dd');
 }

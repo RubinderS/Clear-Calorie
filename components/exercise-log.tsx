@@ -1,32 +1,60 @@
 'use client';
 
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
+import {useRouter} from 'next/navigation';
 import {addDays, format, parseISO} from 'date-fns';
 import {ChevronLeft, ChevronRight, Dumbbell, Trash2} from 'lucide-react';
 import {ExerciseForm} from '@/components/exercise-form';
+import {
+  TodaysExercisePlan,
+  type PlannedExercise,
+} from '@/components/todays-exercise-plan';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {sumNumbers} from '@/lib/decimal';
+import {formatExerciseDetail} from '@/lib/exercise';
 
 type ExerciseEntry = {
   id: string;
   name: string;
+  type: string;
   calories: number;
   durationMin: number;
+  sets: number | null;
+  reps: number | null;
+  weight: number | null;
+  exerciseGoalId: string | null;
   loggedAt: string | Date;
 };
 
 type ExerciseLogProps = {
   entries: ExerciseEntry[];
+  plannedGoals: PlannedExercise[];
   timeZone: string;
   today: string;
 };
 
 export function ExerciseLog({
   entries: initialEntries,
+  plannedGoals,
   timeZone,
   today,
 }: ExerciseLogProps) {
+  const router = useRouter();
+  const [completedGoalIds, setCompletedGoalIds] = useState<Set<string>>(
+    () =>
+      new Set(
+        initialEntries.flatMap((entry) =>
+          entry.exerciseGoalId ? [entry.exerciseGoalId] : [],
+        ),
+      ),
+  );
+  const [togglingGoalId, setTogglingGoalId] = useState<string | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const plannedNames = useMemo(
+    () => plannedGoals.map((goal) => goal.name),
+    [plannedGoals],
+  );
   const [selectedDate, setSelectedDate] = useState(today);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [entries, setEntries] = useState(initialEntries);
@@ -65,6 +93,44 @@ export function ExerciseLog({
     setRefreshVersion((version) => version + 1);
   }
 
+  function markGoalCompleted(goalId: string, completed: boolean) {
+    setCompletedGoalIds((current) => {
+      const next = new Set(current);
+      if (completed) next.add(goalId);
+      else next.delete(goalId);
+      return next;
+    });
+  }
+
+  async function handleToggleGoal(goal: PlannedExercise, checked: boolean) {
+    setTogglingGoalId(goal.id);
+    setPlanError(null);
+    try {
+      const response = checked
+        ? await fetch('/api/exercise-goals/log', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({goalId: goal.id}),
+          })
+        : await fetch(`/api/exercise-goals/log?goalId=${goal.id}`, {
+            method: 'DELETE',
+          });
+      // 404 on untick means the log was already removed elsewhere
+      if (response.ok || (!checked && response.status === 404)) {
+        markGoalCompleted(goal.id, checked);
+        handleLogCreated();
+        router.refresh();
+      } else {
+        const payload = await response.json().catch(() => null);
+        setPlanError(payload?.error ?? `Failed to update "${goal.name}"`);
+      }
+    } catch {
+      setPlanError(`Failed to update "${goal.name}"`);
+    } finally {
+      setTogglingGoalId(null);
+    }
+  }
+
   async function handleDelete(entry: ExerciseEntry) {
     if (!window.confirm(`Delete ${entry.name}? This cannot be undone.`)) {
       return;
@@ -80,6 +146,9 @@ export function ExerciseLog({
         setEntries((currentEntries) =>
           currentEntries.filter((entry) => entry.id !== entryId),
         );
+        if (entry.exerciseGoalId) {
+          markGoalCompleted(entry.exerciseGoalId, false);
+        }
       }
     } finally {
       setDeletingEntryId(null);
@@ -97,7 +166,19 @@ export function ExerciseLog({
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <ExerciseForm onLogCreated={handleLogCreated} />
+      <div className="space-y-6">
+        <TodaysExercisePlan
+          goals={plannedGoals}
+          completedIds={completedGoalIds}
+          pendingId={togglingGoalId}
+          error={planError}
+          onToggle={(goal, checked) => void handleToggleGoal(goal, checked)}
+        />
+        <ExerciseForm
+          plannedNames={plannedNames}
+          onLogCreated={handleLogCreated}
+        />
+      </div>
 
       <Card>
         <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -172,7 +253,8 @@ export function ExerciseLog({
                     <div>
                       <p className="font-medium">{entry.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {entry.durationMin} minutes
+                        {formatExerciseDetail(entry)}
+                        {entry.exerciseGoalId && ' · Planned'}
                       </p>
                     </div>
                   </div>
@@ -183,20 +265,18 @@ export function ExerciseLog({
                         {timeFormatter.format(new Date(entry.loggedAt))}
                       </p>
                     </div>
-                    {isToday && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Delete ${entry.name}`}
-                        title={`Delete ${entry.name}`}
-                        disabled={deletingEntryId === entry.id}
-                        onClick={() => void handleDelete(entry)}
-                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-red-500/30 dark:hover:text-red-200"
-                      >
-                        <Trash2 aria-hidden="true" />
-                      </Button>
-                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Delete ${entry.name}`}
+                      title={`Delete ${entry.name}`}
+                      disabled={!isToday || deletingEntryId === entry.id}
+                      onClick={() => void handleDelete(entry)}
+                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-red-500/30 dark:hover:text-red-200"
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
                   </div>
                 </li>
               ))}

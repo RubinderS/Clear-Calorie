@@ -15,7 +15,9 @@ import {MacrosChart} from '@/components/macros-chart';
 import {macroColors} from '@/lib/chart-colors';
 import {WeightChart} from '@/components/weight-chart';
 import {NutritionProgress} from '@/components/nutrition-progress';
+import {TodaysExerciseGoals} from '@/components/todays-exercise-goals';
 import {Decimal, sumNumbers} from '@/lib/decimal';
+import {getPlannedExerciseGoals} from '@/lib/exercise-plan';
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -25,27 +27,39 @@ export default async function DashboardPage() {
   const timeZone = await getUserTimeZone();
   const {start: todayStart, end: todayEnd} = getTodayRange(timeZone);
 
-  const [goals, todaysFood, todaysExercise, recentWeights, weekFood] =
-    await Promise.all([
-      prisma.goal.findUnique({where: {userId}}),
-      prisma.foodLog.findMany({
-        where: {userId, loggedAt: {gte: todayStart, lte: todayEnd}},
-        orderBy: {loggedAt: 'desc'},
-      }),
-      prisma.exerciseLog.findMany({
-        where: {userId, loggedAt: {gte: todayStart, lte: todayEnd}},
-        orderBy: {loggedAt: 'desc'},
-      }),
-      prisma.weightLog.findMany({
-        where: {userId},
-        orderBy: {loggedAt: 'desc'},
-        take: 7,
-      }),
-      prisma.foodLog.findMany({
-        where: {userId, loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd}},
-        orderBy: {loggedAt: 'asc'},
-      }),
-    ]);
+  const [
+    goals,
+    todaysFood,
+    todaysExercise,
+    recentWeights,
+    weekFood,
+    plannedGoals,
+  ] = await Promise.all([
+    prisma.goal.findUnique({where: {userId}}),
+    prisma.foodLog.findMany({
+      where: {userId, loggedAt: {gte: todayStart, lte: todayEnd}},
+      orderBy: {loggedAt: 'desc'},
+    }),
+    prisma.exerciseLog.findMany({
+      where: {userId, loggedAt: {gte: todayStart, lte: todayEnd}},
+      orderBy: {loggedAt: 'desc'},
+    }),
+    prisma.weightLog.findMany({
+      where: {userId},
+      orderBy: {loggedAt: 'desc'},
+      take: 7,
+    }),
+    prisma.foodLog.findMany({
+      where: {userId, loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd}},
+      orderBy: {loggedAt: 'asc'},
+    }),
+    getPlannedExerciseGoals(userId, timeZone),
+  ]);
+
+  const todaysExerciseGoals = plannedGoals.map((goal) => ({
+    ...goal,
+    completed: todaysExercise.some((entry) => entry.exerciseGoalId === goal.id),
+  }));
 
   const caloriesIn = sumNumbers(todaysFood.map((item) => item.calories));
   const protein = sumNumbers(todaysFood.map((item) => item.protein));
@@ -151,6 +165,8 @@ export default async function DashboardPage() {
           <NutritionProgress items={progressItems} />
         </CardContent>
       </Card>
+
+      <TodaysExerciseGoals goals={todaysExerciseGoals} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

@@ -186,20 +186,18 @@ export function FoodLog({
                         {timeFormatter.format(new Date(entry.loggedAt))}
                       </p>
                     </div>
-                    {isToday && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Delete ${entry.name}`}
-                        title={`Delete ${entry.name}`}
-                        disabled={deletingEntryId === entry.id}
-                        onClick={() => void handleDelete(entry)}
-                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-red-500/30 dark:hover:text-red-200"
-                      >
-                        <Trash2 aria-hidden="true" />
-                      </Button>
-                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Delete ${entry.name}`}
+                      title={`Delete ${entry.name}`}
+                      disabled={!isToday || deletingEntryId === entry.id}
+                      onClick={() => void handleDelete(entry)}
+                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-red-500/30 dark:hover:text-red-200"
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
                   </div>
                 </li>
               ))}

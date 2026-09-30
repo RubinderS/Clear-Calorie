@@ -1,8 +1,9 @@
 import {randomInt} from 'node:crypto';
 import {prisma} from '@/lib/prisma';
 import {hashPassword} from '@/lib/auth';
-import {startOfDay, subDays, addHours} from 'date-fns';
+import {startOfDay, subDays, addHours, format} from 'date-fns';
 import {Decimal} from '@/lib/decimal';
+import {EVERYDAY_MASK, daysToMask, isActiveOn} from '@/lib/exercise';
 
 function noon(date: Date) {
   return addHours(startOfDay(date), 12);
@@ -112,8 +113,11 @@ async function main() {
       {
         userId: user.id,
         name: 'Strength training',
+        type: 'STRENGTH',
         calories: 210,
-        durationMin: 45,
+        sets: 3,
+        reps: 10,
+        weight: 50,
       },
       {
         userId: user.id,
@@ -200,6 +204,19 @@ async function main() {
     })),
   });
 
+  const morningRun = await prisma.exerciseGoal.create({
+    data: {
+      userId: user.id,
+      name: 'Morning run',
+      type: 'TIME',
+      calories: 320,
+      durationMin: 30,
+      daysMask: daysToMask([1, 3, 5]),
+    },
+  });
+
+  const morningRunToday = isActiveOn(morningRun.daysMask, today.getDay());
+
   await prisma.exerciseLog.createMany({
     data: [
       // Today
@@ -209,13 +226,18 @@ async function main() {
         calories: 320,
         durationMin: 30,
         loggedAt: today,
+        exerciseGoalId: morningRunToday ? morningRun.id : null,
+        goalDate: morningRunToday ? format(today, 'yyyy-MM-dd') : null,
       },
       // Yesterday
       {
         userId: user.id,
         name: 'Strength training',
+        type: 'STRENGTH',
         calories: 210,
-        durationMin: 45,
+        sets: 3,
+        reps: 10,
+        weight: 50,
         loggedAt: yesterday,
       },
       // Two days ago
@@ -225,6 +247,28 @@ async function main() {
         calories: 150,
         durationMin: 20,
         loggedAt: twoDaysAgo,
+      },
+    ],
+  });
+
+  await prisma.exerciseGoal.createMany({
+    data: [
+      {
+        userId: user.id,
+        name: 'Strength training',
+        type: 'STRENGTH',
+        calories: 210,
+        sets: 3,
+        reps: 10,
+        daysMask: daysToMask([2, 4]),
+      },
+      {
+        userId: user.id,
+        name: 'Evening walk',
+        type: 'TIME',
+        calories: 150,
+        durationMin: 20,
+        daysMask: EVERYDAY_MASK,
       },
     ],
   });
