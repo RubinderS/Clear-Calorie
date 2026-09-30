@@ -1,8 +1,8 @@
 'use client';
 
 import {useEffect, useState} from 'react';
-import {format, parseISO} from 'date-fns';
-import {Dumbbell, Trash2} from 'lucide-react';
+import {addDays, format, parseISO} from 'date-fns';
+import {ChevronLeft, ChevronRight, Dumbbell, Trash2} from 'lucide-react';
 import {ExerciseForm} from '@/components/exercise-form';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
@@ -106,14 +106,47 @@ export function ExerciseLog({
               ? "Today's workouts"
               : format(parseISO(selectedDate), 'MMMM d, yyyy')}
           </CardTitle>
-          <input
-            aria-label="View exercise logs for date"
-            type="date"
-            value={selectedDate}
-            max={today}
-            onChange={handleDateChange}
-            className="h-9 rounded-lg border border-input bg-background px-3 text-sm"
-          />
+          <div className="flex w-full items-center justify-between gap-1 sm:w-auto">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Previous day"
+              title="Previous day"
+              onClick={() =>
+                setSelectedDate((date) =>
+                  format(addDays(parseISO(date), -1), 'yyyy-MM-dd'),
+                )
+              }
+              className="h-9 w-9 shrink-0"
+            >
+              <ChevronLeft aria-hidden="true" />
+            </Button>
+            <input
+              aria-label="View exercise logs for date"
+              type="date"
+              value={selectedDate}
+              max={today}
+              onChange={handleDateChange}
+              className="h-9 min-w-0 rounded-lg border border-input bg-background px-3 text-sm"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Next day"
+              title="Next day"
+              disabled={selectedDate >= today}
+              onClick={() =>
+                setSelectedDate((date) =>
+                  format(addDays(parseISO(date), 1), 'yyyy-MM-dd'),
+                )
+              }
+              className="h-9 w-9 shrink-0"
+            >
+              <ChevronRight aria-hidden="true" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <p className="mb-4 text-sm text-muted-foreground">
