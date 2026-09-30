@@ -66,9 +66,18 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `npm run build` — Build for production
 - `npm run start` — Start production server
 - `npm run lint` — Run ESLint
+- `npm test` — Run decimal arithmetic regression tests
 - `npm run db:migrate` — Run Prisma migrations
 - `npm run db:studio` — Open Prisma Studio
 - `npm run db:seed` — Seed the database
+
+## Numeric Calculations
+
+Health totals, net calories, goal percentages, remaining amounts, chart bounds,
+and exercise rounding use `decimal.js` with 40 significant digits. Decimal
+accumulators are converted to numbers only for component, API, and chart
+boundaries. Food nutrition is still stored as Prisma `Float` / SQLite `REAL`;
+this prevents arithmetic rounding artifacts, not arbitrary-precision storage.
 
 ## Project Structure
 

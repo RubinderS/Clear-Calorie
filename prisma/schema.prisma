@@ -66,11 +66,11 @@ model FoodLog {
   id           String   @id @default(cuid())
   userId       String
   name         String
-  calories     Int
-  protein      Int      @default(0)
-  carbs        Int      @default(0)
-  fat          Int      @default(0)
-  saturatedFat Int      @default(0)
+  calories     Float
+  protein      Float    @default(0)
+  carbs        Float    @default(0)
+  fat          Float    @default(0)
+  saturatedFat Float    @default(0)
   loggedAt     DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -84,11 +84,11 @@ model SavedFoodItem {
   id           String   @id @default(cuid())
   userId       String
   name         String
-  calories     Int
-  protein      Int      @default(0)
-  carbs        Int      @default(0)
-  fat          Int      @default(0)
-  saturatedFat Int      @default(0)
+  calories     Float
+  protein      Float    @default(0)
+  carbs        Float    @default(0)
+  fat          Float    @default(0)
+  saturatedFat Float    @default(0)
   isPinned     Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt DateTime @updatedAt

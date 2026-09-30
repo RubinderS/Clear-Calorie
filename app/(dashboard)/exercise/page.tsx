@@ -5,6 +5,7 @@ import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
 import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {ExerciseLog} from '@/components/exercise-log';
+import {sumNumbers} from '@/lib/decimal';
 
 export default async function ExercisePage() {
   const session = await getServerSession(authOptions);
@@ -19,11 +20,8 @@ export default async function ExercisePage() {
     orderBy: {loggedAt: 'desc'},
   });
 
-  const totalBurned = entries.reduce((sum, entry) => sum + entry.calories, 0);
-  const totalDuration = entries.reduce(
-    (sum, entry) => sum + entry.durationMin,
-    0,
-  );
+  const totalBurned = sumNumbers(entries.map((entry) => entry.calories));
+  const totalDuration = sumNumbers(entries.map((entry) => entry.durationMin));
   const today = format(toZoned(new Date(), timeZone), 'yyyy-MM-dd');
 
   return (

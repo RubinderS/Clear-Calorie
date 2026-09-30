@@ -6,6 +6,7 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {Decimal} from '@/lib/decimal';
 
 type SavedExerciseItem = {
   id: string;
@@ -118,8 +119,12 @@ export function ExerciseForm({onLogCreated}: ExerciseFormProps) {
     const formData = new FormData(event.currentTarget);
     const data = {
       name: (formData.get('name') as string)?.trim(),
-      calories: Math.round(Number(formData.get('calories'))),
-      durationMin: Math.round(Number(formData.get('durationMin'))),
+      calories: new Decimal(Number(formData.get('calories')))
+        .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
+        .toNumber(),
+      durationMin: new Decimal(Number(formData.get('durationMin')))
+        .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
+        .toNumber(),
     };
 
     setSaveError(null);

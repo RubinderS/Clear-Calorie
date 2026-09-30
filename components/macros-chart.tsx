@@ -11,6 +11,7 @@ import {
   Cell,
 } from 'recharts';
 import {macroColors} from '@/lib/chart-colors';
+import {Decimal} from '@/lib/decimal';
 
 interface MacrosChartProps {
   data: Record<string, unknown>[];
@@ -29,10 +30,12 @@ export function MacrosChart({data, dataKey, color, goal}: MacrosChartProps) {
   // avoid clipping bars that exceed the goal
   const maxDataValue = data.reduce((max, entry) => {
     const value = entry[dataKey];
-    return typeof value === 'number' && value > max ? value : max;
-  }, 0);
+    return typeof value === 'number' ? Decimal.max(max, value) : max;
+  }, new Decimal(0));
   const yDomain: [number, number] | undefined =
-    goal !== undefined ? [0, Math.max(goal, maxDataValue)] : undefined;
+    goal !== undefined
+      ? [0, Decimal.max(goal, maxDataValue).toNumber()]
+      : undefined;
 
   return (
     <div className="h-72 w-full">

@@ -15,6 +15,7 @@ import {MacrosChart} from '@/components/macros-chart';
 import {macroColors} from '@/lib/chart-colors';
 import {WeightChart} from '@/components/weight-chart';
 import {NutritionProgress} from '@/components/nutrition-progress';
+import {Decimal, sumNumbers} from '@/lib/decimal';
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -46,21 +47,15 @@ export default async function DashboardPage() {
       }),
     ]);
 
-  const caloriesIn = todaysFood.reduce((sum, item) => sum + item.calories, 0);
-  const protein = todaysFood.reduce((sum, item) => sum + item.protein, 0);
-  const carbs = todaysFood.reduce((sum, item) => sum + item.carbs, 0);
-  const fat = todaysFood.reduce((sum, item) => sum + item.fat, 0);
-  const saturatedFat = todaysFood.reduce(
-    (sum, item) => sum + item.saturatedFat,
-    0,
-  );
-  const caloriesOut = todaysExercise.reduce(
-    (sum, item) => sum + item.calories,
-    0,
-  );
+  const caloriesIn = sumNumbers(todaysFood.map((item) => item.calories));
+  const protein = sumNumbers(todaysFood.map((item) => item.protein));
+  const carbs = sumNumbers(todaysFood.map((item) => item.carbs));
+  const fat = sumNumbers(todaysFood.map((item) => item.fat));
+  const saturatedFat = sumNumbers(todaysFood.map((item) => item.saturatedFat));
+  const caloriesOut = sumNumbers(todaysExercise.map((item) => item.calories));
 
   const calorieGoal = goals?.calorieGoal ?? 2000;
-  const netCalories = caloriesIn - caloriesOut;
+  const netCalories = new Decimal(caloriesIn).minus(caloriesOut).toNumber();
 
   const proteinGoal = goals?.proteinGoal ?? 150;
   const carbsGoal = goals?.carbsGoal ?? 250;
@@ -105,26 +100,29 @@ export default async function DashboardPage() {
     },
   ];
 
-  const weekMap = new Map<string, {calories: number; protein: number}>();
+  const weekMap = new Map<string, {calories: Decimal; protein: Decimal}>();
   for (let i = 6; i >= 0; i--) {
     const date = format(subDays(todayStart, i), 'yyyy-MM-dd');
-    weekMap.set(date, {calories: 0, protein: 0});
+    weekMap.set(date, {calories: new Decimal(0), protein: new Decimal(0)});
   }
   for (const item of weekFood) {
     const date = format(toZoned(item.loggedAt, timeZone), 'yyyy-MM-dd');
-    const totals = weekMap.get(date) ?? {calories: 0, protein: 0};
-    totals.calories += item.calories;
-    totals.protein += item.protein;
+    const totals = weekMap.get(date) ?? {
+      calories: new Decimal(0),
+      protein: new Decimal(0),
+    };
+    totals.calories = totals.calories.plus(item.calories);
+    totals.protein = totals.protein.plus(item.protein);
     weekMap.set(date, totals);
   }
   // parseISO keeps date-only keys at local midnight; new Date() would read them as UTC.
   const caloriesData = Array.from(weekMap.entries()).map(([date, totals]) => ({
     date: format(parseISO(date), 'MMM dd'),
-    calories: totals.calories,
+    calories: totals.calories.toNumber(),
   }));
   const proteinData = Array.from(weekMap.entries()).map(([date, totals]) => ({
     date: format(parseISO(date), 'MMM dd'),
-    protein: totals.protein,
+    protein: totals.protein.toNumber(),
   }));
 
   const weightData = recentWeights

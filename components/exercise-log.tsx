@@ -6,6 +6,7 @@ import {Dumbbell, Trash2} from 'lucide-react';
 import {ExerciseForm} from '@/components/exercise-form';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {sumNumbers} from '@/lib/decimal';
 
 type ExerciseEntry = {
   id: string;
@@ -84,11 +85,8 @@ export function ExerciseLog({
   }
 
   const isToday = selectedDate === today;
-  const totalBurned = entries.reduce((sum, entry) => sum + entry.calories, 0);
-  const totalDuration = entries.reduce(
-    (sum, entry) => sum + entry.durationMin,
-    0,
-  );
+  const totalBurned = sumNumbers(entries.map((entry) => entry.calories));
+  const totalDuration = sumNumbers(entries.map((entry) => entry.durationMin));
   const timeFormatter = new Intl.DateTimeFormat(undefined, {
     hour: 'numeric',
     minute: '2-digit',

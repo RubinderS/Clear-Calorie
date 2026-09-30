@@ -1,9 +1,21 @@
+import {randomInt} from 'node:crypto';
 import {prisma} from '@/lib/prisma';
 import {hashPassword} from '@/lib/auth';
 import {startOfDay, subDays, addHours} from 'date-fns';
+import {Decimal} from '@/lib/decimal';
 
 function noon(date: Date) {
   return addHours(startOfDay(date), 12);
+}
+
+function randomNutritionValue(value: number) {
+  if (value === 0) return value;
+  const decimalPlaces = randomInt(0, 3);
+  if (decimalPlaces === 0) return value;
+
+  const divisor = new Decimal(10).pow(decimalPlaces);
+  const fraction = new Decimal(randomInt(1, divisor.toNumber())).div(divisor);
+  return new Decimal(value).plus(fraction).toNumber();
 }
 
 async function main() {
@@ -78,7 +90,14 @@ async function main() {
         saturatedFat: 0,
         isPinned: true,
       },
-    ],
+    ].map((food) => ({
+      ...food,
+      calories: randomNutritionValue(food.calories),
+      protein: randomNutritionValue(food.protein),
+      carbs: randomNutritionValue(food.carbs),
+      fat: randomNutritionValue(food.fat),
+      saturatedFat: randomNutritionValue(food.saturatedFat),
+    })),
   });
 
   await prisma.savedExerciseItem.createMany({
@@ -171,7 +190,14 @@ async function main() {
         saturatedFat: 4,
         loggedAt: twoDaysAgo,
       },
-    ],
+    ].map((food) => ({
+      ...food,
+      calories: randomNutritionValue(food.calories),
+      protein: randomNutritionValue(food.protein),
+      carbs: randomNutritionValue(food.carbs),
+      fat: randomNutritionValue(food.fat),
+      saturatedFat: randomNutritionValue(food.saturatedFat),
+    })),
   });
 
   await prisma.exerciseLog.createMany({

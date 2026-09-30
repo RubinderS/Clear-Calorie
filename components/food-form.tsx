@@ -38,18 +38,6 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
   const [isPinned, setIsPinned] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  function blockDecimalKeys(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (['.', ',', 'e', 'E', '+', '-'].includes(event.key)) {
-      event.preventDefault();
-    }
-  }
-
-  function blockDecimalPaste(event: React.ClipboardEvent<HTMLInputElement>) {
-    if (!/^\d+$/.test(event.clipboardData.getData('text'))) {
-      event.preventDefault();
-    }
-  }
-
   useEffect(() => {
     fetch('/api/saved-food')
       .then((res) => res.json())
@@ -142,11 +130,11 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
     const formData = new FormData(event.currentTarget);
     const data = {
       name: (formData.get('name') as string)?.trim(),
-      calories: Math.round(Number(formData.get('calories'))),
-      protein: Math.round(Number(formData.get('protein'))),
-      carbs: Math.round(Number(formData.get('carbs'))),
-      fat: Math.round(Number(formData.get('fat'))),
-      saturatedFat: Math.round(Number(formData.get('saturatedFat'))),
+      calories: Number(formData.get('calories')),
+      protein: Number(formData.get('protein')),
+      carbs: Number(formData.get('carbs')),
+      fat: Number(formData.get('fat')),
+      saturatedFat: Number(formData.get('saturatedFat')),
     };
 
     if (data.saturatedFat > data.fat) {
@@ -264,9 +252,7 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
                 name="calories"
                 type="number"
                 min={0}
-                step={1}
-                onKeyDown={blockDecimalKeys}
-                onPaste={blockDecimalPaste}
+                step="any"
                 required
               />
             </div>
@@ -277,9 +263,7 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
                 name="protein"
                 type="number"
                 min={0}
-                step={1}
-                onKeyDown={blockDecimalKeys}
-                onPaste={blockDecimalPaste}
+                step="any"
                 defaultValue={0}
               />
             </div>
@@ -290,9 +274,7 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
                 name="carbs"
                 type="number"
                 min={0}
-                step={1}
-                onKeyDown={blockDecimalKeys}
-                onPaste={blockDecimalPaste}
+                step="any"
                 defaultValue={0}
               />
             </div>
@@ -303,9 +285,7 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
                 name="fat"
                 type="number"
                 min={0}
-                step={1}
-                onKeyDown={blockDecimalKeys}
-                onPaste={blockDecimalPaste}
+                step="any"
                 defaultValue={0}
               />
               <div className="flex flex-col space-y-2 pl-4 border-l-2 border-border/50">
@@ -320,9 +300,7 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
                   name="saturatedFat"
                   type="number"
                   min={0}
-                  step={1}
-                  onKeyDown={blockDecimalKeys}
-                  onPaste={blockDecimalPaste}
+                  step="any"
                   defaultValue={0}
                   aria-invalid={error ? true : undefined}
                   aria-describedby={error ? 'saturatedFat-error' : undefined}

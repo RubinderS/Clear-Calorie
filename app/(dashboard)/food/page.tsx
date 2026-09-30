@@ -5,6 +5,7 @@ import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
 import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {FoodLog} from '@/components/food-log';
+import {sumNumbers} from '@/lib/decimal';
 
 export default async function FoodPage() {
   const session = await getServerSession(authOptions);
@@ -19,7 +20,7 @@ export default async function FoodPage() {
     orderBy: {loggedAt: 'desc'},
   });
 
-  const totalCalories = entries.reduce((sum, entry) => sum + entry.calories, 0);
+  const totalCalories = sumNumbers(entries.map((entry) => entry.calories));
   const today = format(toZoned(new Date(), timeZone), 'yyyy-MM-dd');
 
   return (

@@ -8,11 +8,11 @@ import {getDateRange, getUserTimeZone} from '@/lib/timezone';
 const foodSchema = z
   .object({
     name: z.string().min(1),
-    calories: z.number().int().min(0),
-    protein: z.number().int().min(0).default(0),
-    carbs: z.number().int().min(0).default(0),
-    fat: z.number().int().min(0).default(0),
-    saturatedFat: z.number().int().min(0).default(0),
+    calories: z.number().finite().min(0),
+    protein: z.number().finite().min(0).default(0),
+    carbs: z.number().finite().min(0).default(0),
+    fat: z.number().finite().min(0).default(0),
+    saturatedFat: z.number().finite().min(0).default(0),
   })
   .superRefine((data, ctx) => {
     if (data.saturatedFat > data.fat) {

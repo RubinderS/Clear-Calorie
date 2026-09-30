@@ -1,4 +1,5 @@
 import {cn} from '@/lib/utils';
+import {Decimal} from '@/lib/decimal';
 
 interface ProgressProps {
   value: number;
@@ -11,7 +12,7 @@ export function Progress({
   className,
   indicatorClassName,
 }: ProgressProps) {
-  const clamped = Math.min(100, Math.max(0, value));
+  const clamped = Decimal.min(100, Decimal.max(0, value)).toString();
 
   return (
     <div

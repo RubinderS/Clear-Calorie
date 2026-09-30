@@ -1,5 +1,6 @@
 import {Progress} from '@/components/ui/progress';
 import {cn} from '@/lib/utils';
+import {getGoalProgress} from '@/lib/decimal';
 
 interface NutritionProgressItem {
   label: string;
@@ -17,9 +18,10 @@ export function NutritionProgress({items}: NutritionProgressProps) {
   return (
     <div className="space-y-5">
       {items.map((item) => {
-        const percent = item.goal > 0 ? (item.value / item.goal) * 100 : 0;
-        const isOver = item.value > item.goal;
-        const remaining = Math.round(item.goal - item.value);
+        const {percent, isOver, remaining, value} = getGoalProgress(
+          item.value,
+          item.goal,
+        );
 
         return (
           <div key={item.label} className="space-y-1.5">
@@ -32,7 +34,7 @@ export function NutritionProgress({items}: NutritionProgressProps) {
                 )}
               >
                 {isOver
-                  ? `${Math.abs(remaining)}${item.unit} over goal`
+                  ? `${remaining}${item.unit} over goal`
                   : `${remaining}${item.unit} remaining`}
               </span>
             </div>
@@ -43,7 +45,7 @@ export function NutritionProgress({items}: NutritionProgressProps) {
               )}
             />
             <p className={cn('text-xs text-muted-foreground')}>
-              {Math.round(item.value)} / {item.goal}
+              {value} / {item.goal}
               {item.unit}
             </p>
           </div>

@@ -6,6 +6,7 @@ import {Trash2, Utensils} from 'lucide-react';
 import {FoodForm} from '@/components/food-form';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {sumNumbers} from '@/lib/decimal';
 
 type FoodEntry = {
   id: string;
@@ -87,7 +88,7 @@ export function FoodLog({
   }
 
   const isToday = selectedDate === today;
-  const totalCalories = entries.reduce((sum, entry) => sum + entry.calories, 0);
+  const totalCalories = sumNumbers(entries.map((entry) => entry.calories));
   const timeFormatter = new Intl.DateTimeFormat(undefined, {
     hour: 'numeric',
     minute: '2-digit',
