@@ -93,9 +93,18 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
     setSaveError(null);
   }
 
-  async function deleteSavedFood(id: string, event: React.MouseEvent) {
+  async function deleteSavedFood(item: SavedFoodItem, event: React.MouseEvent) {
     event.stopPropagation();
     event.preventDefault();
+    if (
+      !window.confirm(
+        `Delete saved food "${item.name}"? This cannot be undone. Existing food logs will not be affected.`,
+      )
+    ) {
+      return;
+    }
+
+    const {id} = item;
     const response = await fetch(`/api/saved-food?id=${id}`, {
       method: 'DELETE',
     });
@@ -234,7 +243,7 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
                     <button
                       type="button"
                       aria-label={`Remove ${item.name}`}
-                      onMouseDown={(event) => deleteSavedFood(item.id, event)}
+                      onMouseDown={(event) => deleteSavedFood(item, event)}
                       className="shrink-0 rounded px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
                       ×

@@ -82,9 +82,21 @@ export function ExerciseForm({onLogCreated}: ExerciseFormProps) {
     setSaveError(null);
   }
 
-  async function deleteSavedExercise(id: string, event: React.MouseEvent) {
+  async function deleteSavedExercise(
+    item: SavedExerciseItem,
+    event: React.MouseEvent,
+  ) {
     event.stopPropagation();
     event.preventDefault();
+    if (
+      !window.confirm(
+        `Delete saved exercise "${item.name}"? This cannot be undone. Existing exercise logs will not be affected.`,
+      )
+    ) {
+      return;
+    }
+
+    const {id} = item;
     const response = await fetch(`/api/saved-exercise?id=${id}`, {
       method: 'DELETE',
     });
@@ -218,9 +230,7 @@ export function ExerciseForm({onLogCreated}: ExerciseFormProps) {
                     <button
                       type="button"
                       aria-label={`Remove ${item.name}`}
-                      onMouseDown={(event) =>
-                        deleteSavedExercise(item.id, event)
-                      }
+                      onMouseDown={(event) => deleteSavedExercise(item, event)}
                       className="shrink-0 rounded px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
                       ×
