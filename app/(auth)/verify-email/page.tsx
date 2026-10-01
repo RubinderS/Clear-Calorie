@@ -37,32 +37,38 @@ function VerifyEmailSkeleton() {
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(
-    'loading',
-  );
-  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<
+    {status: 'success'} | {status: 'error'; error: string} | null
+  >(null);
+
+  const status = token ? (result?.status ?? 'loading') : 'error';
+  const error = !token
+    ? 'No verification token provided.'
+    : result?.status === 'error'
+      ? result.error
+      : null;
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      setError('No verification token provided.');
-      return;
-    }
+    if (!token) return;
 
     fetch(`/api/verify-email?token=${encodeURIComponent(token)}`)
       .then(async (response) => {
         if (response.redirected) {
-          setStatus('success');
+          setResult({status: 'success'});
           return;
         }
 
         const data = await response.json().catch(() => ({}));
-        setStatus('error');
-        setError(data.error || 'Unable to verify email.');
+        setResult({
+          status: 'error',
+          error: data.error || 'Unable to verify email.',
+        });
       })
       .catch(() => {
-        setStatus('error');
-        setError('Unable to verify email. Please try again later.');
+        setResult({
+          status: 'error',
+          error: 'Unable to verify email. Please try again later.',
+        });
       });
   }, [token]);
 

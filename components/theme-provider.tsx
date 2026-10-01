@@ -23,13 +23,34 @@ function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle('dark', isDark);
 }
 
-export function ThemeProvider({children}: {children: React.ReactNode}) {
-  const [theme, setThemeState] = React.useState<Theme>('system');
+const listeners = new Set<() => void>();
 
-  React.useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
-    setThemeState(stored ?? 'system');
-  }, []);
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY) listener();
+  };
+  window.addEventListener('storage', handleStorage);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+
+function getSnapshot(): Theme {
+  return (window.localStorage.getItem(STORAGE_KEY) as Theme | null) ?? 'system';
+}
+
+function getServerSnapshot(): Theme {
+  return 'system';
+}
+
+export function ThemeProvider({children}: {children: React.ReactNode}) {
+  const theme = React.useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
 
   React.useEffect(() => {
     applyTheme(theme);
@@ -45,7 +66,7 @@ export function ThemeProvider({children}: {children: React.ReactNode}) {
 
   const setTheme = React.useCallback((next: Theme) => {
     window.localStorage.setItem(STORAGE_KEY, next);
-    setThemeState(next);
+    listeners.forEach((listener) => listener());
   }, []);
 
   const value = React.useMemo(() => ({theme, setTheme}), [theme, setTheme]);

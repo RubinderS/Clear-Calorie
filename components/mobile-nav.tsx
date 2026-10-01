@@ -14,18 +14,15 @@ interface MobileNavProps {
 
 export function MobileNav({items}: MobileNavProps) {
   const pathname = usePathname();
-  const [open, setOpen] = React.useState(false);
-
-  // Close the menu whenever the route changes (App Router client-side
-  // navigations don't fire `popstate`, so watch the pathname instead).
-  React.useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+  // Tie the open state to the route it was opened on so navigation closes it.
+  const [openPath, setOpenPath] = React.useState<string | null>(null);
+  const open = openPath === pathname;
+  const setOpen = (next: boolean) => setOpenPath(next ? pathname : null);
 
   React.useEffect(() => {
     const media = window.matchMedia('(min-width: 768px)');
     const handleChange = (e: MediaQueryListEvent) => {
-      if (e.matches) setOpen(false);
+      if (e.matches) setOpenPath(null);
     };
     media.addEventListener('change', handleChange);
     return () => media.removeEventListener('change', handleChange);
@@ -40,7 +37,7 @@ export function MobileNav({items}: MobileNavProps) {
         aria-label={open ? 'Close menu' : 'Open menu'}
         aria-expanded={open}
         aria-controls="mobile-nav"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => setOpen(!open)}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
