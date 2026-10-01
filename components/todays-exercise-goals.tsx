@@ -44,15 +44,15 @@ export function TodaysExerciseGoals({goals}: {goals: TodaysExerciseGoal[]}) {
         ) : (
           <ul className="space-y-3">
             {goals.map((goal) => (
-              <li key={goal.id} className="flex items-center gap-3">
+              <li key={goal.id} className="flex items-start gap-3">
                 {goal.completed ? (
                   <CheckCircle2
-                    className="h-5 w-5 shrink-0 text-green-500"
+                    className="mt-0.5 h-5 w-5 shrink-0 text-green-500"
                     aria-label="Done"
                   />
                 ) : (
                   <Circle
-                    className="h-5 w-5 shrink-0 text-muted-foreground"
+                    className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground"
                     aria-label="Not done"
                   />
                 )}

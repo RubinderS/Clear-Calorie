@@ -59,7 +59,7 @@ export function TodaysExercisePlan({
                 <li key={goal.id}>
                   <label
                     htmlFor={inputId}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-border/50 bg-muted/30 p-3 transition-colors hover:bg-muted/50"
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3 transition-colors hover:bg-muted/50"
                   >
                     <input
                       id={inputId}
@@ -67,7 +67,7 @@ export function TodaysExercisePlan({
                       checked={checked}
                       disabled={pendingId === goal.id}
                       onChange={(event) => onToggle(goal, event.target.checked)}
-                      className="h-5 w-5 shrink-0 rounded border-input accent-primary disabled:cursor-wait disabled:opacity-50"
+                      className="mt-0.5 h-5 w-5 shrink-0 rounded border-input accent-primary disabled:cursor-wait disabled:opacity-50"
                     />
                     <span className="min-w-0 flex-1">
                       <span
