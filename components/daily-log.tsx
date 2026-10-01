@@ -2,6 +2,7 @@
 
 import {useEffect, useState, type ReactNode} from 'react';
 import {addDays, format, parseISO} from 'date-fns';
+import {TZDate} from '@date-fns/tz';
 import {ChevronLeft, ChevronRight, Trash2, type LucideIcon} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
@@ -136,11 +137,6 @@ export function DailyLogCard<T extends DailyLogEntry>({
     deletingEntryId,
     deleteEntry,
   } = log;
-  const timeFormatter = new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone,
-  });
 
   return (
     <Card>
@@ -221,7 +217,10 @@ export function DailyLogCard<T extends DailyLogEntry>({
                   <div className="text-right">
                     <p className="font-semibold">{entry.calories} kcal</p>
                     <p className="text-xs text-muted-foreground">
-                      {timeFormatter.format(new Date(entry.loggedAt))}
+                      {format(
+                        new TZDate(new Date(entry.loggedAt), timeZone),
+                        'h:mm a',
+                      )}
                     </p>
                   </div>
                   <Button

@@ -1,13 +1,9 @@
 import {randomInt} from 'node:crypto';
 import {prisma} from '@/lib/prisma';
 import {hashPassword} from '@/lib/auth';
-import {startOfDay, subDays, addHours, format} from 'date-fns';
+import {subDays, format} from 'date-fns';
 import {Decimal} from '@/lib/decimal';
 import {EVERYDAY_MASK, daysToMask, isActiveOn} from '@/lib/exercise';
-
-function noon(date: Date) {
-  return addHours(startOfDay(date), 12);
-}
 
 function randomNutritionValue(value: number) {
   if (value === 0) return value;
@@ -47,9 +43,10 @@ async function main() {
     },
   });
 
-  const today = noon(new Date());
-  const yesterday = noon(subDays(new Date(), 1));
-  const twoDaysAgo = noon(subDays(new Date(), 2));
+  // Anchored to now (not a fixed clock time) so entries are never in the future in any timezone.
+  const today = new Date();
+  const yesterday = subDays(today, 1);
+  const twoDaysAgo = subDays(today, 2);
 
   await prisma.savedFoodItem.createMany({
     data: [
