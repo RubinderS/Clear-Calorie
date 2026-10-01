@@ -85,3 +85,12 @@ body {
     radial-gradient(at 100% 100%, hsl(199 89% 48% / 0.06) 0px, transparent 50%);
   background-attachment: fixed;
 }
+
+/* iOS Safari auto-zooms on focus when a form control's font-size is below 16px. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
