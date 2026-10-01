@@ -7,7 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {Progress} from '@/components/ui/progress';
 import {formatExerciseDetail} from '@/lib/exercise';
 
 type TodaysExerciseGoal = {
@@ -43,52 +42,37 @@ export function TodaysExerciseGoals({goals}: {goals: TodaysExerciseGoal[]}) {
             for the days of the week.
           </p>
         ) : (
-          <>
-            <div
-              role="progressbar"
-              aria-label="Exercise goals completed"
-              aria-valuemin={0}
-              aria-valuemax={goals.length}
-              aria-valuenow={doneCount}
-              className="mb-4"
-            >
-              <Progress
-                value={(doneCount / goals.length) * 100}
-                indicatorClassName="bg-green-500"
-              />
-            </div>
-            <ul className="space-y-3">
-              {goals.map((goal) => (
-                <li key={goal.id} className="flex items-center gap-3">
-                  {goal.completed ? (
-                    <CheckCircle2
-                      className="h-5 w-5 shrink-0 text-green-500"
-                      aria-label="Done"
-                    />
-                  ) : (
-                    <Circle
-                      className="h-5 w-5 shrink-0 text-muted-foreground"
-                      aria-label="Not done"
-                    />
-                  )}
-                  <div className="min-w-0">
-                    <p
-                      className={
-                        goal.completed
-                          ? 'truncate font-medium text-muted-foreground line-through'
-                          : 'truncate font-medium'
-                      }
-                    >
-                      {goal.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatExerciseDetail(goal)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </>
+          <ul className="space-y-3">
+            {goals.map((goal) => (
+              <li key={goal.id} className="flex items-center gap-3">
+                {goal.completed ? (
+                  <CheckCircle2
+                    className="h-5 w-5 shrink-0 text-green-500"
+                    aria-label="Done"
+                  />
+                ) : (
+                  <Circle
+                    className="h-5 w-5 shrink-0 text-muted-foreground"
+                    aria-label="Not done"
+                  />
+                )}
+                <div className="min-w-0">
+                  <p
+                    className={
+                      goal.completed
+                        ? 'truncate font-medium text-muted-foreground line-through'
+                        : 'truncate font-medium'
+                    }
+                  >
+                    {goal.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatExerciseDetail(goal)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
         {goals.length > 0 && (
           <Link

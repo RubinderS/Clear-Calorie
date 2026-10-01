@@ -14,34 +14,29 @@ import {NutritionProgress} from '@/components/nutrition-progress';
 import {ArrowRight, HeartPulse} from 'lucide-react';
 
 // Sample data used only to preview the dashboard's progress UI for logged-out visitors.
-const previewProgressItems = [
-  {
-    label: 'Calories',
-    value: 1450,
-    goal: 2000,
-    unit: '',
-    colorClassName: 'bg-primary',
-  },
+const previewCalories = {eaten: 1700, burned: 250, goal: 2000};
+const previewExercise = {done: 2, total: 3};
+const previewMacroItems = [
   {
     label: 'Protein',
     value: 92,
     goal: 150,
     unit: 'g',
-    colorClassName: 'bg-purple-500',
+    colorClassName: 'text-purple-500',
   },
   {
     label: 'Carbs',
     value: 140,
     goal: 250,
     unit: 'g',
-    colorClassName: 'bg-blue-500',
+    colorClassName: 'text-blue-500',
   },
   {
     label: 'Fat',
     value: 45,
     goal: 70,
     unit: 'g',
-    colorClassName: 'bg-amber-500',
+    colorClassName: 'text-amber-500',
   },
 ];
 
@@ -81,7 +76,11 @@ export default async function Home() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <NutritionProgress items={previewProgressItems} />
+          <NutritionProgress
+            calories={previewCalories}
+            exercise={previewExercise}
+            macros={previewMacroItems}
+          />
         </CardContent>
       </Card>
     </div>

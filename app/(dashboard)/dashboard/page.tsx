@@ -69,48 +69,41 @@ export default async function DashboardPage() {
   const caloriesOut = sumNumbers(todaysExercise.map((item) => item.calories));
 
   const calorieGoal = goals?.calorieGoal ?? 2000;
-  const netCalories = new Decimal(caloriesIn).minus(caloriesOut).toNumber();
-
   const proteinGoal = goals?.proteinGoal ?? 150;
   const carbsGoal = goals?.carbsGoal ?? 250;
   const fatGoal = goals?.fatGoal ?? 70;
   const saturatedFatGoal = goals?.saturatedFatGoal ?? 20;
 
-  const progressItems = [
-    {
-      label: 'Calories',
-      value: netCalories,
-      goal: calorieGoal,
-      unit: '',
-      colorClassName: 'bg-primary',
-    },
+  const macroItems = [
     {
       label: 'Protein',
       value: protein,
       goal: proteinGoal,
       unit: 'g',
-      colorClassName: 'bg-purple-500',
+      colorClassName: 'text-purple-500',
     },
     {
       label: 'Carbs',
       value: carbs,
       goal: carbsGoal,
       unit: 'g',
-      colorClassName: 'bg-blue-500',
+      colorClassName: 'text-blue-500',
     },
     {
       label: 'Fat',
       value: fat,
       goal: fatGoal,
       unit: 'g',
-      colorClassName: 'bg-amber-500',
+      colorClassName: 'text-amber-500',
     },
+  ];
+  const limitItems = [
     {
       label: 'Saturated fat',
       value: saturatedFat,
       goal: saturatedFatGoal,
       unit: 'g',
-      colorClassName: 'bg-orange-700',
+      colorClassName: 'text-orange-700',
     },
   ];
 
@@ -158,11 +151,23 @@ export default async function DashboardPage() {
         <CardHeader>
           <CardTitle>Today&apos;s progress</CardTitle>
           <CardDescription>
-            Calories, protein, carbs, and fat vs. your daily goals
+            Calories, exercise, and macros vs. your daily goals
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <NutritionProgress items={progressItems} />
+          <NutritionProgress
+            calories={{
+              eaten: caloriesIn,
+              burned: caloriesOut,
+              goal: calorieGoal,
+            }}
+            exercise={{
+              done: todaysExerciseGoals.filter((goal) => goal.completed).length,
+              total: todaysExerciseGoals.length,
+            }}
+            macros={macroItems}
+            limits={limitItems}
+          />
         </CardContent>
       </Card>
 
