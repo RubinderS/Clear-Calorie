@@ -33,6 +33,7 @@ export default async function DashboardPage() {
     todaysExercise,
     recentWeights,
     weekFood,
+    weekExercise,
     plannedGoals,
   ] = await Promise.all([
     prisma.goal.findUnique({where: {userId}}),
@@ -50,6 +51,10 @@ export default async function DashboardPage() {
       take: 7,
     }),
     prisma.foodLog.findMany({
+      where: {userId, loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd}},
+      orderBy: {loggedAt: 'asc'},
+    }),
+    prisma.exerciseLog.findMany({
       where: {userId, loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd}},
       orderBy: {loggedAt: 'asc'},
     }),
@@ -107,25 +112,43 @@ export default async function DashboardPage() {
     },
   ];
 
-  const weekMap = new Map<string, {calories: Decimal; protein: Decimal}>();
+  const weekMap = new Map<
+    string,
+    {calories: Decimal; protein: Decimal; exercise: Decimal}
+  >();
   for (let i = 6; i >= 0; i--) {
     const date = format(subDays(todayStart, i), 'yyyy-MM-dd');
-    weekMap.set(date, {calories: new Decimal(0), protein: new Decimal(0)});
+    weekMap.set(date, {
+      calories: new Decimal(0),
+      protein: new Decimal(0),
+      exercise: new Decimal(0),
+    });
   }
   for (const item of weekFood) {
     const date = format(toZoned(item.loggedAt, timeZone), 'yyyy-MM-dd');
     const totals = weekMap.get(date) ?? {
       calories: new Decimal(0),
       protein: new Decimal(0),
+      exercise: new Decimal(0),
     };
     totals.calories = totals.calories.plus(item.calories);
     totals.protein = totals.protein.plus(item.protein);
     weekMap.set(date, totals);
   }
+  for (const item of weekExercise) {
+    const date = format(toZoned(item.loggedAt, timeZone), 'yyyy-MM-dd');
+    const totals = weekMap.get(date) ?? {
+      calories: new Decimal(0),
+      protein: new Decimal(0),
+      exercise: new Decimal(0),
+    };
+    totals.exercise = totals.exercise.plus(item.calories);
+    weekMap.set(date, totals);
+  }
   // parseISO keeps date-only keys at local midnight; new Date() would read them as UTC.
   const caloriesData = Array.from(weekMap.entries()).map(([date, totals]) => ({
     date: format(parseISO(date), 'MMM dd'),
-    calories: totals.calories.toNumber(),
+    calories: totals.calories.minus(totals.exercise).toNumber(),
   }));
   const proteinData = Array.from(weekMap.entries()).map(([date, totals]) => ({
     date: format(parseISO(date), 'MMM dd'),
@@ -178,7 +201,7 @@ export default async function DashboardPage() {
           <CardHeader>
             <CardTitle>Calories this week</CardTitle>
             <CardDescription>
-              Your daily intake over the last 7 days
+              Net calories (intake minus exercise) over the last 7 days
             </CardDescription>
           </CardHeader>
           <CardContent>

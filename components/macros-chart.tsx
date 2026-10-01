@@ -27,14 +27,18 @@ export function MacrosChart({data, dataKey, color, goal}: MacrosChartProps) {
       : undefined;
   const resolvedColor = color ?? colorFromData;
 
-  // avoid clipping bars that exceed the goal
+  // avoid clipping bars that exceed the goal, or dip below zero (net calories)
   const maxDataValue = data.reduce((max, entry) => {
     const value = entry[dataKey];
     return typeof value === 'number' ? Decimal.max(max, value) : max;
   }, new Decimal(0));
+  const minDataValue = data.reduce((min, entry) => {
+    const value = entry[dataKey];
+    return typeof value === 'number' ? Decimal.min(min, value) : min;
+  }, new Decimal(0));
   const yDomain: [number, number] | undefined =
     goal !== undefined
-      ? [0, Decimal.max(goal, maxDataValue).toNumber()]
+      ? [minDataValue.toNumber(), Decimal.max(goal, maxDataValue).toNumber()]
       : undefined;
 
   return (
