@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import {THEME_COLORS} from '@/lib/theme-colors';
 
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -21,6 +22,14 @@ function applyTheme(theme: Theme) {
     (theme === 'system' &&
       window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.classList.toggle('dark', isDark);
+  // iOS standalone apps ignore content changes on an existing tag; they only pick up a new element.
+  document
+    .querySelectorAll('meta[name="theme-color"]')
+    .forEach((meta) => meta.remove());
+  const meta = document.createElement('meta');
+  meta.name = 'theme-color';
+  meta.content = isDark ? THEME_COLORS.dark : THEME_COLORS.light;
+  document.head.appendChild(meta);
 }
 
 const listeners = new Set<() => void>();
