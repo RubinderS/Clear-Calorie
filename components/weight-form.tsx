@@ -7,7 +7,11 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 
-export function WeightForm() {
+type WeightFormProps = {
+  onLogCreated?: () => void;
+};
+
+export function WeightForm({onLogCreated}: WeightFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -30,6 +34,7 @@ export function WeightForm() {
 
     if (response.ok) {
       (event.target as HTMLFormElement)?.reset();
+      onLogCreated?.();
       router.refresh();
     }
   }

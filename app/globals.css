@@ -86,6 +86,10 @@ body {
   background-attachment: fixed;
 }
 
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+
 /* iOS Safari auto-zooms on focus when a form control's font-size is below 16px. */
 @media (max-width: 767px) {
   input,

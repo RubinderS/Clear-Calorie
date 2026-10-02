@@ -15,7 +15,7 @@ import {MacrosChart} from '@/components/macros-chart';
 import {macroColors} from '@/lib/chart-colors';
 import {WeightChart} from '@/components/weight-chart';
 import {NutritionProgress} from '@/components/nutrition-progress';
-import {TodaysExerciseGoals} from '@/components/todays-exercise-goals';
+import {QuickLog} from '@/components/quick-log';
 import {Decimal, sumNumbers} from '@/lib/decimal';
 import {getPlannedExerciseGoals} from '@/lib/exercise-plan';
 
@@ -194,7 +194,19 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      <TodaysExerciseGoals goals={todaysExerciseGoals} />
+      <QuickLog
+        plannedExercises={todaysExerciseGoals.map((goal) => ({
+          id: goal.id,
+          name: goal.name,
+          type: goal.type,
+          calories: goal.calories,
+          durationMin: goal.durationMin,
+          sets: goal.sets,
+          reps: goal.reps,
+          weight: goal.weight,
+          completed: goal.completed,
+        }))}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
