@@ -273,7 +273,7 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
                 type="number"
                 min={0}
                 step="any"
-                defaultValue={0}
+                placeholder="0"
               />
             </div>
             <div className="flex flex-col space-y-2">
@@ -284,7 +284,7 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
                 type="number"
                 min={0}
                 step="any"
-                defaultValue={0}
+                placeholder="0"
               />
             </div>
             <div className="flex flex-col space-y-2">
@@ -295,7 +295,7 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
                 type="number"
                 min={0}
                 step="any"
-                defaultValue={0}
+                placeholder="0"
               />
               <div className="flex flex-col space-y-2 pl-4 border-l-2 border-border/50">
                 <Label
@@ -310,7 +310,7 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
                   type="number"
                   min={0}
                   step="any"
-                  defaultValue={0}
+                  placeholder="0"
                   aria-invalid={error ? true : undefined}
                   aria-describedby={error ? 'saturatedFat-error' : undefined}
                 />
