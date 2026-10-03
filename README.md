@@ -55,6 +55,28 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## AI Food Estimates (optional)
+
+When configured, the food form shows an **Estimate** button. Describe what you
+ate (e.g. "2 eggs on toast with butter" or "Coles chicken caesar wrap") and the
+AI fills in calories, protein, carbs, fat and saturated fat for you to review
+before logging. The prompt is tuned for Australian foods, brands and serving
+sizes.
+
+The feature is off unless both `AI_BASE_URL` and `AI_MODEL` are set. It works
+with any OpenAI-compatible `/chat/completions` endpoint (OpenAI, OpenRouter,
+Groq, Gemini's OpenAI-compatible API, Ollama, LM Studio):
+
+```bash
+AI_BASE_URL="https://api.openai.com/v1"
+AI_API_KEY="sk-xxxxxxxx"   # optional for local servers
+AI_MODEL="gpt-4o-mini"
+```
+
+These are read at runtime, so the Docker image picks them up from the container
+environment without a rebuild (see `docker-compose.yml`). Requests are limited to
+20 per user every 10 minutes when Upstash rate limiting is configured.
+
 ## Demo Credentials
 
 - Email: `demo@example.com`

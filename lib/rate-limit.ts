@@ -35,14 +35,28 @@ export const authRateLimit = redis
     })
   : noOpRateLimit;
 
+export const aiRateLimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(20, '10 m'),
+      analytics: true,
+      prefix: '@upstash/ratelimit/ai',
+    })
+  : noOpRateLimit;
+
 export async function rateLimitByIp(
   request: Request,
   limiter: Ratelimit | typeof noOpRateLimit = authRateLimit,
 ) {
   const forwardedFor = request.headers.get('x-forwarded-for');
   const ip = forwardedFor?.split(',')[0]?.trim() ?? 'unknown';
-  const identifier = `ip:${ip}`;
+  return rateLimitByKey(`ip:${ip}`, limiter);
+}
 
+export async function rateLimitByKey(
+  identifier: string,
+  limiter: Ratelimit | typeof noOpRateLimit,
+) {
   const {success, limit, reset, remaining} = await limiter.limit(identifier);
 
   return {

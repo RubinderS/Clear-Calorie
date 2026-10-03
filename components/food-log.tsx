@@ -20,15 +20,24 @@ type FoodLogProps = {
   entries: FoodEntry[];
   timeZone: string;
   today: string;
+  aiEnabled?: boolean;
 };
 
-export function FoodLog({entries, timeZone, today}: FoodLogProps) {
+export function FoodLog({
+  entries,
+  timeZone,
+  today,
+  aiEnabled,
+}: FoodLogProps) {
   const log = useDailyLog({endpoint: '/api/food', initialEntries: entries, today});
   const totalCalories = sumNumbers(log.entries.map((entry) => entry.calories));
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <FoodForm onLogCreated={log.showTodayAndRefresh} />
+      <FoodForm
+        onLogCreated={log.showTodayAndRefresh}
+        aiEnabled={aiEnabled}
+      />
 
       <DailyLogCard
         log={log}

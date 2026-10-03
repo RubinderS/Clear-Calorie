@@ -2,6 +2,7 @@
 
 import {useEffect, useMemo, useState} from 'react';
 import {useRouter} from 'next/navigation';
+import {Loader2, Sparkles} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
@@ -18,14 +19,22 @@ type SavedFoodItem = {
   isPinned: boolean;
 };
 
+type Nutrition = Pick<
+  SavedFoodItem,
+  'calories' | 'protein' | 'carbs' | 'fat' | 'saturatedFat'
+>;
+
+type AiEstimate = Nutrition & {name: string; assumptions: string};
+
 const SATURATED_FAT_ERROR = 'Saturated fat cannot exceed total fat.';
 const MAX_SUGGESTIONS = 8;
 
 type FoodFormProps = {
   onLogCreated?: () => void;
+  aiEnabled?: boolean;
 };
 
-export function FoodForm({onLogCreated}: FoodFormProps) {
+export function FoodForm({onLogCreated, aiEnabled}: FoodFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [savedFoods, setSavedFoods] = useState<SavedFoodItem[]>([]);
@@ -37,6 +46,9 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
   const [isSaved, setIsSaved] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [estimating, setEstimating] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiAssumptions, setAiAssumptions] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/saved-food')
@@ -65,24 +77,29 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
       .slice(0, MAX_SUGGESTIONS);
   }, [name, savedFoods]);
 
-  function applySuggestion(item: SavedFoodItem) {
+  function fillNutrition(values: Nutrition) {
     const form = document.getElementById('food-form') as HTMLFormElement | null;
-    if (!form) return;
+    if (!form) return false;
 
     (form.elements.namedItem('calories') as HTMLInputElement).value = String(
-      item.calories,
+      values.calories,
     );
     (form.elements.namedItem('protein') as HTMLInputElement).value = String(
-      item.protein,
+      values.protein,
     );
     (form.elements.namedItem('carbs') as HTMLInputElement).value = String(
-      item.carbs,
+      values.carbs,
     );
     (form.elements.namedItem('fat') as HTMLInputElement).value = String(
-      item.fat,
+      values.fat,
     );
     (form.elements.namedItem('saturatedFat') as HTMLInputElement).value =
-      String(item.saturatedFat);
+      String(values.saturatedFat);
+    return true;
+  }
+
+  function applySuggestion(item: SavedFoodItem) {
+    if (!fillNutrition(item)) return;
 
     setName(item.name);
     setSelectedId(item.id);
@@ -91,6 +108,44 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
     setShowSuggestions(false);
     setError(null);
     setSaveError(null);
+    setAiError(null);
+    setAiAssumptions(null);
+  }
+
+  async function estimateWithAi() {
+    const description = name.trim();
+    if (!description) return;
+
+    setEstimating(true);
+    setAiError(null);
+    setShowSuggestions(false);
+
+    try {
+      const response = await fetch('/api/food/estimate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({description}),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setAiError(payload?.error ?? 'Could not estimate this food');
+        return;
+      }
+
+      const estimate = payload as AiEstimate;
+      if (!fillNutrition(estimate)) return;
+
+      setName(estimate.name);
+      setSelectedId(null);
+      setAiAssumptions(estimate.assumptions || '');
+      setError(null);
+      setSaveError(null);
+    } catch {
+      setAiError('Could not reach the AI service');
+    } finally {
+      setEstimating(false);
+    }
   }
 
   async function deleteSavedFood(item: SavedFoodItem, event: React.MouseEvent) {
@@ -198,6 +253,8 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
       setSelectedId(null);
       setIsSaved(false);
       setIsPinned(false);
+      setAiError(null);
+      setAiAssumptions(null);
       onLogCreated?.();
       router.refresh();
     }
@@ -210,47 +267,86 @@ export function FoodForm({onLogCreated}: FoodFormProps) {
       </CardHeader>
       <CardContent>
         <form id="food-form" onSubmit={handleSubmit} className="space-y-4">
-          <div className="relative flex flex-col space-y-2">
+          <div className="flex flex-col space-y-2">
             <Label htmlFor="name">Food name</Label>
-            <Input
-              id="name"
-              name="name"
-              value={name}
-              onChange={handleNameChange}
-              onFocus={() => setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-              autoComplete="off"
-              required
-            />
-            {showSuggestions && suggestions.length > 0 && (
-              <ul className="absolute top-full z-10 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-border/50 bg-background shadow-lg">
-                {suggestions.map((item) => (
-                  <li
-                    key={item.id}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      applySuggestion(item);
-                    }}
-                    className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-muted/50"
+            <div className="relative">
+              <div className="flex gap-2">
+                <Input
+                  id="name"
+                  name="name"
+                  value={name}
+                  onChange={handleNameChange}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowSuggestions(false), 150)
+                  }
+                  placeholder={
+                    aiEnabled ? 'e.g. 2 eggs on toast with butter' : undefined
+                  }
+                  autoComplete="off"
+                  className="min-w-0 flex-1"
+                  required
+                />
+                {aiEnabled && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={estimateWithAi}
+                    disabled={estimating || !name.trim()}
+                    aria-label="Estimate nutrition with AI"
+                    className="shrink-0 px-3"
                   >
-                    <span className="min-w-0 flex-1 truncate">
-                      {item.isPinned && '📌 '}
-                      {item.name}
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {item.calories} kcal
-                      </span>
-                    </span>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${item.name}`}
-                      onMouseDown={(event) => deleteSavedFood(item, event)}
-                      className="shrink-0 rounded px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    {estimating ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <Sparkles />
+                    )}
+                    {estimating ? 'Estimating...' : 'Estimate'}
+                  </Button>
+                )}
+              </div>
+              {showSuggestions && suggestions.length > 0 && (
+                <ul className="absolute top-full z-10 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-border/50 bg-background shadow-lg">
+                  {suggestions.map((item) => (
+                    <li
+                      key={item.id}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        applySuggestion(item);
+                      }}
+                      className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-muted/50"
                     >
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                      <span className="min-w-0 flex-1 truncate">
+                        {item.isPinned && '📌 '}
+                        {item.name}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {item.calories} kcal
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${item.name}`}
+                        onMouseDown={(event) => deleteSavedFood(item, event)}
+                        className="shrink-0 rounded px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {aiError && (
+              <p role="alert" className="text-sm text-red-500">
+                {aiError}
+              </p>
+            )}
+            {aiAssumptions !== null && (
+              <p className="text-xs text-muted-foreground">
+                <Sparkles className="mr-1 inline size-3" />
+                AI estimate. Check before logging.
+                {aiAssumptions && ` ${aiAssumptions}`}
+              </p>
             )}
           </div>
           <div className="grid grid-cols-2 gap-4">

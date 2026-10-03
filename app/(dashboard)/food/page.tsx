@@ -6,6 +6,7 @@ import {prisma} from '@/lib/prisma';
 import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {FoodLog} from '@/components/food-log';
 import {sumNumbers} from '@/lib/decimal';
+import {isAiEnabled} from '@/lib/ai';
 
 export default async function FoodPage() {
   const session = await getServerSession(authOptions);
@@ -30,7 +31,12 @@ export default async function FoodPage() {
         <p className="text-muted-foreground">Today: {totalCalories} calories</p>
       </div>
 
-      <FoodLog entries={entries} timeZone={timeZone} today={today} />
+      <FoodLog
+        entries={entries}
+        timeZone={timeZone}
+        today={today}
+        aiEnabled={isAiEnabled()}
+      />
     </div>
   );
 }

@@ -22,6 +22,14 @@ services:
       # RESEND_API_KEY: re_xxxxxxxx
       # RESEND_FROM_EMAIL: noreply@yourdomain.com
       #
+      # AI food estimates are hidden unless BOTH AI_BASE_URL and AI_MODEL are set.
+      # Any OpenAI-compatible endpoint works; AI_API_KEY is optional for local servers.
+      # For Ollama on the Docker host use http://host.docker.internal:11434/v1
+      # (on Linux also add: extra_hosts: ["host.docker.internal:host-gateway"])
+      # AI_BASE_URL: https://api.openai.com/v1
+      # AI_API_KEY: sk-xxxxxxxx
+      # AI_MODEL: gpt-4o-mini
+      #
       # Only to move the database off the mounted volume
       # DATABASE_URL: file:/app/data/dev.db
     volumes:

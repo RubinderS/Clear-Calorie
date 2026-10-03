@@ -17,9 +17,10 @@ type PlannedExerciseStatus = PlannedExercise & {completed: boolean};
 
 type QuickLogProps = {
   plannedExercises: PlannedExerciseStatus[];
+  aiEnabled?: boolean;
 };
 
-export function QuickLog({plannedExercises}: QuickLogProps) {
+export function QuickLog({plannedExercises, aiEnabled}: QuickLogProps) {
   const [panel, setPanel] = useState<'food' | 'exercise' | 'weight' | null>(
     null,
   );
@@ -57,7 +58,7 @@ export function QuickLog({plannedExercises}: QuickLogProps) {
       </div>
 
       <Dialog open={panel === 'food'} onClose={close} label="Log food">
-        <FoodForm onLogCreated={close} />
+        <FoodForm onLogCreated={close} aiEnabled={aiEnabled} />
       </Dialog>
       <Dialog open={panel === 'exercise'} onClose={close} label="Log exercise">
         <ExercisePanel goals={plannedExercises} onLogCreated={close} />

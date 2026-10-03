@@ -18,6 +18,7 @@ import {NutritionProgress} from '@/components/nutrition-progress';
 import {QuickLog} from '@/components/quick-log';
 import {Decimal, sumNumbers} from '@/lib/decimal';
 import {getPlannedExerciseGoals} from '@/lib/exercise-plan';
+import {isAiEnabled} from '@/lib/ai';
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -195,6 +196,7 @@ export default async function DashboardPage() {
       </Card>
 
       <QuickLog
+        aiEnabled={isAiEnabled()}
         plannedExercises={todaysExerciseGoals.map((goal) => ({
           id: goal.id,
           name: goal.name,
