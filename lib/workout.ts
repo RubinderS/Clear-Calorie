@@ -28,8 +28,9 @@ export type WorkoutCue =
 
 export const DEFAULT_REST_MS = 60_000;
 export const REST_ADJUST_MS = 15_000;
-export const LEAD_IN_MS = 3_000;
-export const LEAD_IN_BEAT_MS = 1_000;
+// Slow enough for each "3, 2, 1" to be spoken in full before the next.
+export const LEAD_IN_BEAT_MS = 2_000;
+export const LEAD_IN_MS = 3 * LEAD_IN_BEAT_MS;
 export const DEFAULT_TEMPO_MS = 3_000;
 export const MIN_TEMPO_MS = 1_000;
 export const MAX_TEMPO_MS = 6_000;

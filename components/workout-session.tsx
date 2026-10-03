@@ -49,7 +49,7 @@ const MAX_CUE_LATE_MS = 400;
 const PREFS_KEY = 'clearcalorie:workout-prefs';
 
 const SOUND_OPTIONS: {mode: SoundMode; label: string}[] = [
-  {mode: 'beep', label: 'Chimes'},
+  {mode: 'tones', label: 'Tones'},
   {mode: 'count', label: 'Count'},
 ];
 
@@ -59,11 +59,11 @@ function loadPrefs(): WorkoutPrefs {
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null');
     return {
-      mode: saved?.mode === 'count' ? 'count' : 'beep',
+      mode: saved?.mode === 'count' ? 'count' : 'tones',
       tempoMs: clampTempo(Number(saved?.tempoMs) || DEFAULT_TEMPO_MS),
     };
   } catch {
-    return {mode: 'beep', tempoMs: DEFAULT_TEMPO_MS};
+    return {mode: 'tones', tempoMs: DEFAULT_TEMPO_MS};
   }
 }
 
@@ -217,7 +217,7 @@ export function WorkoutSession({
       ? null
       : {
           initial: startWorkout(buildWorkoutSteps(goal), startedAt),
-          mode: 'beep',
+          mode: 'tones',
           sound: null,
         },
   );
@@ -346,7 +346,7 @@ function ActiveWorkout({
       const cue = currentCue(current, time);
       if (!cue || cue.key === lastCueKey.current) return;
       lastCueKey.current = cue.key;
-      if (cue.lateMs <= MAX_CUE_LATE_MS) sound?.play(cue.cue, mode);
+      if (cue.lateMs <= MAX_CUE_LATE_MS) sound?.play(cue.cue, mode, current.tempoMs);
     },
     [sound, mode],
   );
@@ -363,7 +363,7 @@ function ActiveWorkout({
       );
       if (next !== previous && isRunning(next.timer)) playCue(next, time);
       const endCue = setEndCue(previous, next);
-      if (endCue) sound?.play(endCue, mode);
+      if (endCue) sound?.play(endCue, mode, next.tempoMs);
       stateRef.current = next;
       setState(next);
       setNow(time);
