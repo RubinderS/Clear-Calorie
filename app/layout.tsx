@@ -27,6 +27,9 @@ const themeInitScript = `(function(){try{var t=localStorage.getItem('clearcalori
 // Mobile browsers restore the pre-refresh offset under the sticky header; start reloads at the top but keep back/forward restoration.
 const reloadScrollResetScript = `(function(){try{var n=performance.getEntriesByType('navigation')[0];if(!n||n.type!=='reload'||!('scrollRestoration' in history))return;history.scrollRestoration='manual';window.addEventListener('load',function(){setTimeout(function(){window.scrollTo(0,0);history.scrollRestoration='auto';},0);});}catch(e){}})();`;
 
+// iOS hides the keyboard when the app is backgrounded but keeps the input focused, leaving an orphaned accessory bar on return; blur so focus state matches.
+const blurOnHideScript = `(function(){document.addEventListener('visibilitychange',function(){if(document.visibilityState!=='hidden')return;var a=document.activeElement;if(a&&a!==document.body&&typeof a.blur==='function')a.blur();});})();`;
+
 export default function RootLayout({children}: LayoutProps<'/'>) {
   return (
     <html
@@ -44,6 +47,11 @@ export default function RootLayout({children}: LayoutProps<'/'>) {
           id="reload-scroll-reset"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{__html: reloadScrollResetScript}}
+        />
+        <Script
+          id="blur-on-hide"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{__html: blurOnHideScript}}
         />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
