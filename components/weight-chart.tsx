@@ -14,7 +14,28 @@ interface WeightChartProps {
   data: {date: string; weight: number}[];
 }
 
+// Minimum visible range on the Y axis so small day-to-day fluctuations
+// don't get stretched into dramatic swings.
+const MIN_Y_SPAN = 10;
+
+function getYDomain(data: WeightChartProps['data']): [number, number] {
+  const weights = data.map((d) => d.weight).filter(Number.isFinite);
+  if (weights.length === 0) return [0, MIN_Y_SPAN];
+
+  const min = Math.min(...weights);
+  const max = Math.max(...weights);
+  const padding = (max - min) * 0.1;
+  const span = Math.max(max - min + padding * 2, MIN_Y_SPAN);
+  const mid = (min + max) / 2;
+
+  const lower = Math.max(0, Math.floor(mid - span / 2));
+  const upper = Math.ceil(lower + span);
+  return [lower, upper];
+}
+
 export function WeightChart({data}: WeightChartProps) {
+  const yDomain = getYDomain(data);
+
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -48,7 +69,8 @@ export function WeightChart({data}: WeightChartProps) {
             tickLine={false}
           />
           <YAxis
-            domain={['auto', 'auto']}
+            domain={yDomain}
+            allowDecimals={false}
             tick={{fill: 'hsl(var(--muted-foreground))', fontSize: 12}}
             axisLine={false}
             tickLine={false}
