@@ -7,7 +7,13 @@ import {isActiveOn} from '@/lib/exercise';
 import {prisma} from '@/lib/prisma';
 import {getTodayDate, getTodayWeekday, getUserTimeZone} from '@/lib/timezone';
 
-const tickSchema = z.object({goalId: z.string().min(1)});
+// Sets and reps override the goal's for strength goals, e.g. from a workout
+// session where the user changed them.
+const tickSchema = z.object({
+  goalId: z.string().min(1),
+  sets: z.number().int().min(1).optional(),
+  reps: z.number().int().min(1).optional(),
+});
 
 /** Ticks off a planned exercise for today by logging it from the goal. */
 export async function POST(request: Request) {
@@ -22,7 +28,7 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
-    const {goalId} = parsed.data;
+    const {goalId, sets, reps} = parsed.data;
 
     const goal = await prisma.exerciseGoal.findFirst({
       where: {id: goalId, userId},
@@ -50,8 +56,9 @@ export async function POST(request: Request) {
           type: goal.type,
           calories: goal.calories,
           durationMin: goal.durationMin ?? 0,
-          sets: goal.sets,
-          reps: goal.reps,
+          ...(goal.type === 'STRENGTH'
+            ? {sets: sets ?? goal.sets, reps: reps ?? goal.reps}
+            : {sets: goal.sets, reps: goal.reps}),
           weight: goal.weight,
         },
       });

@@ -97,7 +97,9 @@ function ExercisePanel({
           completedIds={plan.completedIds}
           pendingId={plan.pendingId}
           error={plan.error}
-          onToggle={(goal, checked) => void plan.toggle(goal, checked)}
+          onToggle={(goal, checked, result) =>
+            void plan.toggle(goal, checked, result)
+          }
           hideCompleted
         />
       )}

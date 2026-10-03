@@ -66,8 +66,8 @@ export function ExerciseLog({
           completedIds={plan.completedIds}
           pendingId={plan.pendingId}
           error={plan.error}
-          onToggle={(goal, checked) =>
-            void plan.toggle(goal, checked).then((ok) => {
+          onToggle={(goal, checked, result) =>
+            void plan.toggle(goal, checked, result).then((ok) => {
               if (ok) log.showTodayAndRefresh();
             })
           }

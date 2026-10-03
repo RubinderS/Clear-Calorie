@@ -3,6 +3,8 @@
 import {useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
+import {Play} from 'lucide-react';
+import {Button} from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -10,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {WorkoutSession, type WorkoutResult} from '@/components/workout-session';
 import {formatExerciseDetail} from '@/lib/exercise';
 
 export type PlannedExercise = {
@@ -40,7 +43,11 @@ export function usePlannedExerciseToggle(initialCompletedIds: string[]) {
     });
   }
 
-  async function toggle(goal: PlannedExercise, checked: boolean) {
+  async function toggle(
+    goal: PlannedExercise,
+    checked: boolean,
+    result?: WorkoutResult,
+  ) {
     setPendingId(goal.id);
     setError(null);
     try {
@@ -48,7 +55,7 @@ export function usePlannedExerciseToggle(initialCompletedIds: string[]) {
         ? await fetch('/api/exercise-goals/log', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({goalId: goal.id}),
+            body: JSON.stringify({goalId: goal.id, ...result}),
           })
         : await fetch(`/api/exercise-goals/log?goalId=${goal.id}`, {
             method: 'DELETE',
@@ -77,7 +84,11 @@ type TodaysExercisePlanProps = {
   completedIds: ReadonlySet<string>;
   pendingId: string | null;
   error: string | null;
-  onToggle: (goal: PlannedExercise, checked: boolean) => void;
+  onToggle: (
+    goal: PlannedExercise,
+    checked: boolean,
+    result?: WorkoutResult,
+  ) => void;
   hideCompleted?: boolean;
 };
 
@@ -89,10 +100,36 @@ export function TodaysExercisePlan({
   onToggle,
   hideCompleted = false,
 }: TodaysExercisePlanProps) {
+  const [workout, setWorkout] = useState<{
+    goal: PlannedExercise;
+    startedAt: number;
+  } | null>(null);
   const doneCount = goals.filter((goal) => completedIds.has(goal.id)).length;
   const visibleGoals = hideCompleted
     ? goals.filter((goal) => !completedIds.has(goal.id))
     : goals;
+
+  if (workout) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="truncate">{workout.goal.name}</CardTitle>
+          <CardDescription>Workout in progress</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <WorkoutSession
+            goal={workout.goal}
+            startedAt={workout.startedAt}
+            onComplete={(result) => {
+              setWorkout(null);
+              onToggle(workout.goal, true, result);
+            }}
+            onCancel={() => setWorkout(null)}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -122,10 +159,13 @@ export function TodaysExercisePlan({
               const checked = completedIds.has(goal.id);
               const inputId = `planned-${goal.id}`;
               return (
-                <li key={goal.id}>
+                <li
+                  key={goal.id}
+                  className="flex items-center rounded-xl border border-border/50 bg-muted/30 transition-colors hover:bg-muted/50"
+                >
                   <label
                     htmlFor={inputId}
-                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3 transition-colors hover:bg-muted/50"
+                    className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 p-3"
                   >
                     <input
                       id={inputId}
@@ -150,6 +190,20 @@ export function TodaysExercisePlan({
                       </span>
                     </span>
                   </label>
+                  {!checked && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mr-3"
+                      aria-label={`Start ${goal.name}`}
+                      disabled={pendingId === goal.id}
+                      onClick={() => setWorkout({goal, startedAt: Date.now()})}
+                    >
+                      <Play />
+                      Start
+                    </Button>
+                  )}
                 </li>
               );
             })}
