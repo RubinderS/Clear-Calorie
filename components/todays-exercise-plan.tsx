@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {WorkoutSession, type WorkoutResult} from '@/components/workout-session';
+import {unlockAudio} from '@/lib/workout-sound';
 import {formatExerciseDetail} from '@/lib/exercise';
 
 export type PlannedExercise = {
@@ -198,7 +199,11 @@ export function TodaysExercisePlan({
                       className="mr-3"
                       aria-label={`Start ${goal.name}`}
                       disabled={pendingId === goal.id}
-                      onClick={() => setWorkout({goal, startedAt: Date.now()})}
+                      onClick={() => {
+                        // Lets timed workouts start music without another tap.
+                        unlockAudio();
+                        setWorkout({goal, startedAt: Date.now()});
+                      }}
                     >
                       <Play />
                       Start

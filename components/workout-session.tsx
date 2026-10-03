@@ -1,13 +1,23 @@
 'use client';
 
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {Check, Minus, Pause, Play, Plus, SkipForward, X} from 'lucide-react';
+import {
+  Check,
+  Minus,
+  Music,
+  Pause,
+  Play,
+  Plus,
+  SkipForward,
+  X,
+} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {ProgressRing} from '@/components/ui/progress-ring';
 import type {PlannedExercise} from '@/components/todays-exercise-plan';
 import {formatExerciseDetail} from '@/lib/exercise';
 import {
   DEFAULT_TEMPO_MS,
+  LEAD_IN_MS,
   MAX_REPS,
   MAX_TEMPO_MS,
   MIN_TEMPO_MS,
@@ -34,7 +44,13 @@ import {
   type WorkoutStep,
 } from '@/lib/workout';
 import {
+  createWorkoutMusic,
+  preloadWorkoutMusic,
+  type WorkoutMusic,
+} from '@/lib/workout-music';
+import {
   createWorkoutSound,
+  unlockAudio,
   type SoundMode,
   type WorkoutSound,
 } from '@/lib/workout-sound';
@@ -53,7 +69,7 @@ const SOUND_OPTIONS: {mode: SoundMode; label: string}[] = [
   {mode: 'count', label: 'Count'},
 ];
 
-type WorkoutPrefs = {mode: SoundMode; tempoMs: number};
+type WorkoutPrefs = {mode: SoundMode; tempoMs: number; music: boolean};
 
 function loadPrefs(): WorkoutPrefs {
   try {
@@ -61,9 +77,10 @@ function loadPrefs(): WorkoutPrefs {
     return {
       mode: saved?.mode === 'count' ? 'count' : 'tones',
       tempoMs: clampTempo(Number(saved?.tempoMs) || DEFAULT_TEMPO_MS),
+      music: saved?.music === true,
     };
   } catch {
-    return {mode: 'tones', tempoMs: DEFAULT_TEMPO_MS};
+    return {mode: 'tones', tempoMs: DEFAULT_TEMPO_MS, music: false};
   }
 }
 
@@ -75,6 +92,37 @@ function savePrefs(prefs: WorkoutPrefs) {
 
 function formatTempo(tempoMs: number) {
   return `${tempoMs / 1000} s / rep`;
+}
+
+/** Plays background music while enabled, following the workout's state. */
+function useWorkoutMusic(enabled: boolean, playing: boolean, resting: boolean) {
+  const [music, setMusic] = useState<WorkoutMusic | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    let created: WorkoutMusic | null = null;
+    createWorkoutMusic()
+      .then((instance) => {
+        if (cancelled) return instance.dispose();
+        created = instance;
+        setMusic(instance);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      created?.dispose();
+      setMusic(null);
+    };
+  }, [enabled]);
+
+  useEffect(() => {
+    music?.setPlaying(playing);
+  }, [music, playing]);
+
+  useEffect(() => {
+    music?.setIntensity(resting ? 'rest' : 'set');
+  }, [music, resting]);
 }
 
 /** Keeps the screen awake while enabled, re-acquiring after the tab is shown again. */
@@ -196,6 +244,7 @@ type Session = {
   initial: WorkoutState;
   mode: SoundMode;
   sound: WorkoutSound | null;
+  music: boolean;
 };
 
 type WorkoutSessionProps = {
@@ -219,6 +268,7 @@ export function WorkoutSession({
           initial: startWorkout(buildWorkoutSteps(goal), startedAt),
           mode: 'tones',
           sound: null,
+          music: loadPrefs().music,
         },
   );
 
@@ -258,8 +308,13 @@ function StrengthSetup({
       }),
       mode: prefs.mode,
       sound: createWorkoutSound(),
+      music: prefs.music,
     });
   }
+
+  useEffect(() => {
+    if (prefs.music) void preloadWorkoutMusic().catch(() => {});
+  }, [prefs.music]);
 
   return (
     <div className="space-y-4">
@@ -276,6 +331,16 @@ function StrengthSetup({
           </Button>
         ))}
       </div>
+      <Button
+        type="button"
+        variant={prefs.music ? 'default' : 'outline'}
+        className="w-full"
+        aria-pressed={prefs.music}
+        onClick={() => setPrefs({...prefs, music: !prefs.music})}
+      >
+        <Music />
+        Music {prefs.music ? 'on' : 'off'}
+      </Button>
       <TempoStepper
         tempoMs={prefs.tempoMs}
         onChange={(tempoMs) =>
@@ -330,6 +395,7 @@ function ActiveWorkout({
 }) {
   const {initial, mode, sound} = session;
   const [state, setState] = useState(initial);
+  const [musicOn, setMusicOn] = useState(session.music);
   const [now, setNow] = useState(() => initial.timer.startedAt ?? 0);
   const stateRef = useRef(initial);
   const lastCueKey = useRef<string | null>(null);
@@ -340,6 +406,16 @@ function ActiveWorkout({
   const inSet = step.kind === 'set';
 
   useWakeLock(!state.done);
+  // Music loads during the first countdown and kicks in once it's done.
+  const firstCountdown =
+    state.index === 0 && inSet && elapsedMs(state.timer, now) < LEAD_IN_MS;
+  useWorkoutMusic(musicOn, running && !firstCountdown, step.kind === 'rest');
+
+  function toggleMusic() {
+    unlockAudio();
+    setMusicOn(!musicOn);
+    savePrefs({...loadPrefs(), music: !musicOn});
+  }
 
   const playCue = useCallback(
     (current: WorkoutState, time: number) => {
@@ -388,7 +464,7 @@ function ActiveWorkout({
   }, [state.done, state.setsCompleted, state.reps, goal.type, onComplete]);
 
   function changeTempo(tempoMs: number) {
-    savePrefs({mode, tempoMs: clampTempo(tempoMs)});
+    savePrefs({...loadPrefs(), mode, tempoMs: clampTempo(tempoMs)});
     advance((current, time) => setTempo(current, tempoMs, time));
   }
 
@@ -491,10 +567,22 @@ function ActiveWorkout({
         </Button>
       </div>
 
-      <Button variant="ghost" size="sm" onClick={onCancel}>
-        <X />
-        Cancel without logging
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-pressed={musicOn}
+          className={musicOn ? undefined : 'text-muted-foreground'}
+          onClick={toggleMusic}
+        >
+          <Music />
+          Music {musicOn ? 'on' : 'off'}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          <X />
+          Cancel without logging
+        </Button>
+      </div>
     </div>
   );
 }

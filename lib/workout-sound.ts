@@ -93,7 +93,7 @@ function speechRate(cue: WorkoutCue, tempoMs: number): number {
 // unmount would silence a remount (React Strict Mode mounts effects twice).
 let sharedContext: AudioContext | null = null;
 
-function getAudioContext(): AudioContext | null {
+export function getAudioContext(): AudioContext | null {
   if (sharedContext && sharedContext.state !== "closed") return sharedContext;
   const AudioContextClass =
     window.AudioContext ??
@@ -109,10 +109,10 @@ function wake(context: AudioContext) {
 }
 
 /**
- * Must be called from a tap: iOS only allows audio and speech that a user
- * gesture started, after which later cues can play on their own.
+ * Must be called from a tap: iOS only allows audio that a user gesture
+ * started, after which later sounds can play on their own.
  */
-export function createWorkoutSound(): WorkoutSound {
+export function unlockAudio(): AudioContext | null {
   const context = getAudioContext();
   if (context) {
     wake(context);
@@ -122,6 +122,15 @@ export function createWorkoutSound(): WorkoutSound {
     unlock.connect(context.destination);
     unlock.start();
   }
+  return context;
+}
+
+/**
+ * Must be called from a tap: iOS only allows audio and speech that a user
+ * gesture started, after which later cues can play on their own.
+ */
+export function createWorkoutSound(): WorkoutSound {
+  const context = unlockAudio();
 
   const speech = "speechSynthesis" in window ? window.speechSynthesis : null;
   if (speech) {
