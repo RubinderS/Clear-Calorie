@@ -12,7 +12,6 @@ type DialogProps = {
 
 export function Dialog({open, onClose, label, children}: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
-  const pressedBackdrop = useRef(false);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -33,15 +32,6 @@ export function Dialog({open, onClose, label, children}: DialogProps) {
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           event.preventDefault();
-          onClose();
-        }
-      }}
-      // Require press and release on the backdrop so drag-selecting text doesn't close it.
-      onMouseDown={(event) => {
-        pressedBackdrop.current = event.target === event.currentTarget;
-      }}
-      onClick={(event) => {
-        if (pressedBackdrop.current && event.target === event.currentTarget) {
           onClose();
         }
       }}
