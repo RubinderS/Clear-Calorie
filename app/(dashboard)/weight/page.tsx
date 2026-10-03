@@ -7,6 +7,7 @@ import {getUserTimeZone, toZoned} from '@/lib/timezone';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {WeightForm} from '@/components/weight-form';
 import {WeightChart} from '@/components/weight-chart';
+import {WeightDeleteButton} from '@/components/weight-delete-button';
 
 export default async function WeightPage() {
   const session = await getServerSession(authOptions);
@@ -59,12 +60,21 @@ export default async function WeightPage() {
                       </div>
                       <p className="font-semibold">{entry.weight}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {format(
-                        toZoned(entry.loggedAt, timeZone),
-                        'MMM dd, yyyy',
-                      )}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        {format(
+                          toZoned(entry.loggedAt, timeZone),
+                          'MMM dd, yyyy',
+                        )}
+                      </p>
+                      <WeightDeleteButton
+                        entryId={entry.id}
+                        label={`weight entry from ${format(
+                          toZoned(entry.loggedAt, timeZone),
+                          'MMM dd, yyyy',
+                        )}`}
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>

@@ -34,3 +34,25 @@ export async function POST(request: Request) {
     return NextResponse.json({error: 'Failed to log weight'}, {status: 500});
   }
 }
+
+export async function DELETE(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({error: 'Unauthorized'}, {status: 401});
+  }
+
+  const entryId = new URL(request.url).searchParams.get('id');
+  if (!entryId) {
+    return NextResponse.json({error: 'Entry ID is required'}, {status: 400});
+  }
+
+  const result = await prisma.weightLog.deleteMany({
+    where: {id: entryId, userId: session.user.id},
+  });
+
+  if (result.count === 0) {
+    return NextResponse.json({error: 'Entry not found'}, {status: 404});
+  }
+
+  return new NextResponse(null, {status: 204});
+}
