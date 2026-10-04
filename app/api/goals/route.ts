@@ -11,6 +11,13 @@ const goalsSchema = z.object({
   fatGoal: z.number().int().min(0).optional(),
   saturatedFatGoal: z.number().int().min(0).optional(),
   weightGoal: z.number().positive().nullable().optional(),
+  healthNotes: z
+    .string()
+    .trim()
+    .max(500)
+    .nullable()
+    .optional()
+    .transform((value) => (value === '' ? null : value)),
 });
 
 export async function POST(request: Request) {

@@ -10,14 +10,17 @@ import {Goal} from '@prisma/client';
 
 interface FoodGoalsFormProps {
   goals: Goal | null;
+  aiEnabled?: boolean;
 }
 
 const SATURATED_FAT_ERROR = 'Saturated fat goal cannot exceed total fat goal.';
+const HEALTH_NOTES_MAX = 500;
 
-export function FoodGoalsForm({goals}: FoodGoalsFormProps) {
+export function FoodGoalsForm({goals, aiEnabled}: FoodGoalsFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [healthNotes, setHealthNotes] = useState(goals?.healthNotes ?? '');
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,6 +32,8 @@ export function FoodGoalsForm({goals}: FoodGoalsFormProps) {
       carbsGoal: Number(formData.get('carbsGoal')),
       fatGoal: Number(formData.get('fatGoal')),
       saturatedFatGoal: Number(formData.get('saturatedFatGoal')),
+      // Only sent when AI is on, so notes saved earlier survive AI being disabled.
+      ...(aiEnabled && {healthNotes: healthNotes.trim() || null}),
     };
 
     if (data.saturatedFatGoal > data.fatGoal) {
@@ -132,6 +137,35 @@ export function FoodGoalsForm({goals}: FoodGoalsFormProps) {
             >
               {error}
             </p>
+          )}
+          {aiEnabled && (
+            <div className="flex flex-col space-y-2">
+              <Label htmlFor="healthNotes">Health notes</Label>
+              <textarea
+                id="healthNotes"
+                name="healthNotes"
+                value={healthNotes}
+                onChange={(event) => setHealthNotes(event.target.value)}
+                maxLength={HEALTH_NOTES_MAX}
+                rows={3}
+                placeholder="e.g. High LDL cholesterol, keep sodium low"
+                aria-describedby="healthNotes-help"
+                className="w-full rounded-xl border border-input bg-background/60 px-4 py-2 text-sm shadow-sm transition-all placeholder:text-muted-foreground focus-visible:border-primary/40 focus-visible:bg-background focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10"
+              />
+              <p
+                id="healthNotes-help"
+                className="flex justify-between gap-4 text-xs text-muted-foreground"
+              >
+                <span>
+                  When you use AI Estimate, foods that may not suit these notes
+                  are flagged. Notes are sent to the AI service. Not medical
+                  advice.
+                </span>
+                <span className="shrink-0 tabular-nums">
+                  {healthNotes.length}/{HEALTH_NOTES_MAX}
+                </span>
+              </p>
+            </div>
           )}
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? 'Saving...' : 'Save food goal'}

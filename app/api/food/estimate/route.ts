@@ -3,6 +3,7 @@ import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {AiError, estimateFood, isAiEnabled} from '@/lib/ai';
+import {prisma} from '@/lib/prisma';
 import {aiRateLimit, rateLimitByKey} from '@/lib/rate-limit';
 
 const estimateRequestSchema = z.object({
@@ -37,7 +38,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const estimate = await estimateFood(parsed.data.description);
+    // Read from the DB rather than the request so notes can't be spoofed per call.
+    const goal = await prisma.goal.findUnique({
+      where: {userId: session.user.id},
+      select: {healthNotes: true},
+    });
+    const estimate = await estimateFood(
+      parsed.data.description,
+      goal?.healthNotes,
+    );
     return NextResponse.json(estimate);
   } catch (error) {
     if (error instanceof AiError) {

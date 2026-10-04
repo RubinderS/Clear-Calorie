@@ -63,6 +63,11 @@ AI fills in calories, protein, carbs, fat and saturated fat for you to review
 before logging. The prompt is tuned for Australian foods, brands and serving
 sizes.
 
+On the Goals page you can add **Health notes** (e.g. "high LDL cholesterol").
+When notes are set, each AI estimate also checks the food against them and shows
+a "Heads up" alert if it may not suit you. Notes are sent to the configured AI
+service with each estimate. The field is hidden when AI is off.
+
 The feature is off unless both `AI_BASE_URL` and `AI_MODEL` are set. It works
 with any OpenAI-compatible `/chat/completions` endpoint (OpenAI, OpenRouter,
 Groq, Gemini's OpenAI-compatible API, Ollama, LM Studio):

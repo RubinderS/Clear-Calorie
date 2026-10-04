@@ -2,6 +2,7 @@ import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
 import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
+import {isAiEnabled} from '@/lib/ai';
 import {FoodGoalsForm} from '@/components/food-goals-form';
 import {WeightGoalForm} from '@/components/weight-goal-form';
 import {ExerciseGoalsForm} from '@/components/exercise-goals-form';
@@ -28,7 +29,7 @@ export default async function GoalsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <FoodGoalsForm goals={goals} />
+        <FoodGoalsForm goals={goals} aiEnabled={isAiEnabled()} />
         <WeightGoalForm goals={goals} />
       </div>
 

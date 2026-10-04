@@ -188,6 +188,7 @@ model Goal {
   fatGoal          Int     @default(70)
   saturatedFatGoal Int     @default(20)
   weightGoal       Float?
+  healthNotes      String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

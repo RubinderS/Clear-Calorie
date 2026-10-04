@@ -2,7 +2,7 @@
 
 import {useEffect, useMemo, useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {Loader2, Sparkles} from 'lucide-react';
+import {AlertTriangle, Loader2, Sparkles} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
@@ -24,7 +24,13 @@ type Nutrition = Pick<
   'calories' | 'protein' | 'carbs' | 'fat' | 'saturatedFat'
 >;
 
-type AiEstimate = Nutrition & {name: string; assumptions: string};
+type HealthAlert = {level: 'caution' | 'avoid'; message: string};
+
+type AiEstimate = Nutrition & {
+  name: string;
+  assumptions: string;
+  healthAlert?: HealthAlert;
+};
 
 const SATURATED_FAT_ERROR = 'Saturated fat cannot exceed total fat.';
 const MAX_SUGGESTIONS = 8;
@@ -49,6 +55,7 @@ export function FoodForm({onLogCreated, aiEnabled}: FoodFormProps) {
   const [estimating, setEstimating] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiAssumptions, setAiAssumptions] = useState<string | null>(null);
+  const [healthAlert, setHealthAlert] = useState<HealthAlert | null>(null);
 
   useEffect(() => {
     fetch('/api/saved-food')
@@ -110,6 +117,7 @@ export function FoodForm({onLogCreated, aiEnabled}: FoodFormProps) {
     setSaveError(null);
     setAiError(null);
     setAiAssumptions(null);
+    setHealthAlert(null);
   }
 
   async function estimateWithAi() {
@@ -118,6 +126,7 @@ export function FoodForm({onLogCreated, aiEnabled}: FoodFormProps) {
 
     setEstimating(true);
     setAiError(null);
+    setHealthAlert(null);
     setShowSuggestions(false);
 
     try {
@@ -139,6 +148,7 @@ export function FoodForm({onLogCreated, aiEnabled}: FoodFormProps) {
       setName(estimate.name);
       setSelectedId(null);
       setAiAssumptions(estimate.assumptions || '');
+      setHealthAlert(estimate.healthAlert ?? null);
       setError(null);
       setSaveError(null);
     } catch {
@@ -177,6 +187,7 @@ export function FoodForm({onLogCreated, aiEnabled}: FoodFormProps) {
     setSelectedId(null);
     setShowSuggestions(true);
     setSaveError(null);
+    setHealthAlert(null);
   }
 
   function handleSaveChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -255,6 +266,7 @@ export function FoodForm({onLogCreated, aiEnabled}: FoodFormProps) {
       setIsPinned(false);
       setAiError(null);
       setAiAssumptions(null);
+      setHealthAlert(null);
       onLogCreated?.();
       router.refresh();
     }
@@ -347,6 +359,22 @@ export function FoodForm({onLogCreated, aiEnabled}: FoodFormProps) {
                 AI estimate. Check before logging.
                 {aiAssumptions && ` ${aiAssumptions}`}
               </p>
+            )}
+            {healthAlert && (
+              <div
+                role="alert"
+                className={
+                  healthAlert.level === 'avoid'
+                    ? 'flex gap-2 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300'
+                    : 'flex gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200'
+                }
+              >
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <p>
+                  <span className="font-medium">Heads up: </span>
+                  {healthAlert.message}
+                </p>
+              </div>
             )}
           </div>
           <div className="grid grid-cols-2 gap-4">
