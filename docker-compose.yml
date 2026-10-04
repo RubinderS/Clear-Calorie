@@ -31,7 +31,7 @@ services:
       # AI_MODEL: gpt-4o-mini
       #
       # Only to move the database off the mounted volume
-      # DATABASE_URL: file:/app/data/dev.db
+      # DATABASE_URL: file:/app/data/Clear-Calorie.db
     volumes:
       - ~/clearcalorie:/app/data
     restart: unless-stopped

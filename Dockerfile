@@ -61,7 +61,7 @@ ENV TZ=UTC
 # HTTP deployments must pin the origin with NEXTAUTH_URL.
 ENV AUTH_TRUST_HOST=1
 # Absolute path: a relative file: URL would resolve against prisma/ in the read-only image layer
-ENV DATABASE_URL="file:/app/data/dev.db"
+ENV DATABASE_URL="file:/app/data/Clear-Calorie.db"
 # Stop the Prisma CLI from phoning home for version checks at container start
 ENV CHECKPOINT_DISABLE=1
 ENV PRISMA_HIDE_UPDATE_MESSAGE=1
