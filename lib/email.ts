@@ -40,7 +40,7 @@ export async function sendVerificationEmail(
   await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL,
     to: email,
-    subject: 'Verify your ClearCalorie account',
+    subject: 'Verify your Clear Calorie account',
     html: `
       <p>Click the link below to verify your email address:</p>
       <p><a href="${url}">${url}</a></p>

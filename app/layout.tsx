@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'ClearCalorie — Calorie & Health Tracking',
+  title: 'Clear Calorie — Calorie & Health Tracking',
   description: 'Track calories, exercise, weight, and health goals.',
-  appleWebApp: {capable: true, title: 'ClearCalorie'},
+  appleWebApp: {capable: true, title: 'Clear Calorie'},
 };
 
 // Runs before hydration so the correct theme (and status bar color) applies without a flash.

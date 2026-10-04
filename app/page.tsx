@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {NutritionProgress} from '@/components/nutrition-progress';
+import {BRAND_GRADIENT, LogoGlyph} from '@/lib/app-icon';
 import {ArrowRight, HeartPulse} from 'lucide-react';
 
 // Sample data used only to preview the dashboard's progress UI for logged-out visitors.
@@ -46,6 +47,15 @@ export default async function Home() {
 
   return (
     <div className="flex min-h-full flex-col items-center justify-center p-4 text-center">
+      <div className="mb-8 flex items-center gap-3 text-2xl font-bold tracking-tight">
+        <span
+          className="flex h-12 w-12 items-center justify-center rounded-xl shadow-md"
+          style={{background: BRAND_GRADIENT}}
+        >
+          <LogoGlyph size={34} />
+        </span>
+        Clear Calorie
+      </div>
       <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
         <HeartPulse className="h-4 w-4" />
         Your personal health companion

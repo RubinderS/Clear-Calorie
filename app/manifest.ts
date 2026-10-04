@@ -2,8 +2,8 @@ import type {MetadataRoute} from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'ClearCalorie',
-    short_name: 'ClearCalorie',
+    name: 'Clear Calorie',
+    short_name: 'Clear Calorie',
     description: 'Track calories, exercise, weight, and health goals.',
     start_url: '/dashboard',
     // Without an explicit scope, iOS limits the web app to the page it was added from.

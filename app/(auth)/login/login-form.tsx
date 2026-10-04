@@ -54,7 +54,7 @@ export function LoginForm() {
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Sign in</CardTitle>
-        <CardDescription>Welcome back to ClearCalorie</CardDescription>
+        <CardDescription>Welcome back to Clear Calorie</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">

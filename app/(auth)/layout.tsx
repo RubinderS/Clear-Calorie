@@ -1,4 +1,5 @@
 import {ThemeToggle} from '@/components/theme-toggle';
+import {BRAND_GRADIENT, LogoGlyph} from '@/lib/app-icon';
 
 export default function AuthLayout({children}: {children: React.ReactNode}) {
   return (
@@ -7,10 +8,13 @@ export default function AuthLayout({children}: {children: React.ReactNode}) {
         <ThemeToggle />
       </div>
       <div className="mb-6 flex items-center gap-2 text-xl font-bold tracking-tight">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm">
-          C
+        <span
+          className="flex h-8 w-8 items-center justify-center rounded-lg shadow-sm"
+          style={{background: BRAND_GRADIENT}}
+        >
+          <LogoGlyph size={22} />
         </span>
-        ClearCalorie
+        Clear Calorie
       </div>
       <div className="w-full max-w-sm">{children}</div>
     </div>

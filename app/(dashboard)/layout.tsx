@@ -2,6 +2,7 @@ import Link from 'next/link';
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
 import {authOptions} from '@/lib/auth-options';
+import {BRAND_GRADIENT, LogoGlyph} from '@/lib/app-icon';
 import {MobileNav} from '@/components/mobile-nav';
 import {DesktopNav} from '@/components/desktop-nav';
 import {ThemeToggle} from '@/components/theme-toggle';
@@ -36,10 +37,13 @@ export default async function DashboardLayout({
             href="/dashboard"
             className="flex items-center gap-2 text-lg font-bold tracking-tight"
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm">
-              C
+            <span
+              className="flex h-7 w-7 items-center justify-center rounded-lg shadow-sm"
+              style={{background: BRAND_GRADIENT}}
+            >
+              <LogoGlyph size={20} />
             </span>
-            ClearCalorie
+            Clear Calorie
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
             <DesktopNav items={navItems} />
