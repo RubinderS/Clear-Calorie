@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
 import {format} from 'date-fns';
@@ -5,8 +6,6 @@ import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
 import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {FoodLog} from '@/components/food-log';
-import {sumNumbers} from '@/lib/decimal';
-import {isAiEnabled} from '@/lib/ai';
 
 export default async function FoodPage() {
   const session = await getServerSession(authOptions);
@@ -21,22 +20,22 @@ export default async function FoodPage() {
     orderBy: {loggedAt: 'desc'},
   });
 
-  const totalCalories = sumNumbers(entries.map((entry) => entry.calories));
   const today = format(toZoned(new Date(), timeZone), 'yyyy-MM-dd');
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Food log</h1>
-        <p className="text-muted-foreground">Today: {totalCalories} calories</p>
+        <h1 className="text-3xl font-bold">Food logs</h1>
+        <p className="text-muted-foreground">
+          Your logged meals. Add new entries from the{' '}
+          <Link href="/dashboard" className="underline underline-offset-4">
+            Dashboard
+          </Link>
+          .
+        </p>
       </div>
 
-      <FoodLog
-        entries={entries}
-        timeZone={timeZone}
-        today={today}
-        aiEnabled={isAiEnabled()}
-      />
+      <FoodLog entries={entries} timeZone={timeZone} today={today} />
     </div>
   );
 }

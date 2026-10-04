@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
 import {format} from 'date-fns';
@@ -5,7 +6,6 @@ import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
 import {getUserTimeZone, toZoned} from '@/lib/timezone';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
-import {WeightForm} from '@/components/weight-form';
 import {WeightChart} from '@/components/weight-chart';
 import {WeightDeleteButton} from '@/components/weight-delete-button';
 
@@ -31,13 +31,17 @@ export default async function WeightPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Weight log</h1>
-        <p className="text-muted-foreground">Track your weight over time</p>
+        <h1 className="text-3xl font-bold">Weight logs</h1>
+        <p className="text-muted-foreground">
+          Your logged weights. Add new entries from the{' '}
+          <Link href="/dashboard" className="underline underline-offset-4">
+            Dashboard
+          </Link>
+          .
+        </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <WeightForm />
-
         <Card>
           <CardHeader>
             <CardTitle>Recent entries</CardTitle>
@@ -81,16 +85,16 @@ export default async function WeightPage() {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Weight trend</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <WeightChart data={chartData} />
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Weight trend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WeightChart data={chartData} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
