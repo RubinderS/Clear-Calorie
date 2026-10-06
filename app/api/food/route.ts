@@ -13,6 +13,12 @@ const foodSchema = z
     carbs: z.number().finite().min(0).default(0),
     fat: z.number().finite().min(0).default(0),
     saturatedFat: z.number().finite().min(0).default(0),
+    healthAlert: z
+      .object({
+        level: z.enum(['caution', 'avoid']),
+        message: z.string().trim().min(1).max(200),
+      })
+      .nullish(),
   })
   .superRefine((data, ctx) => {
     if (data.saturatedFat > data.fat) {
@@ -63,9 +69,12 @@ export async function POST(request: Request) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
 
+    const {healthAlert, ...food} = parsed.data;
     const entry = await prisma.foodLog.create({
       data: {
-        ...parsed.data,
+        ...food,
+        healthAlertLevel: healthAlert?.level ?? null,
+        healthAlertMessage: healthAlert?.message ?? null,
         userId: session.user.id,
       },
     });

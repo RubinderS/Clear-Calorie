@@ -113,6 +113,7 @@ type DailyLogCardProps<T extends DailyLogEntry> = {
   icon: LucideIcon;
   iconClassName: string;
   renderDetail: (entry: T) => ReactNode;
+  renderBadge?: (entry: T) => ReactNode;
 };
 
 export function DailyLogCard<T extends DailyLogEntry>({
@@ -126,6 +127,7 @@ export function DailyLogCard<T extends DailyLogEntry>({
   icon: Icon,
   iconClassName,
   renderDetail,
+  renderBadge,
 }: DailyLogCardProps<T>) {
   const {
     today,
@@ -195,12 +197,12 @@ export function DailyLogCard<T extends DailyLogEntry>({
             {entries.map((entry) => (
               <li
                 key={entry.id}
-                className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/30 p-4 transition-colors hover:bg-muted/50"
+                className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-muted/30 p-4 transition-colors hover:bg-muted/50"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <div
                     className={cn(
-                      'flex h-10 w-10 items-center justify-center rounded-xl',
+                      'hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:flex',
                       iconClassName,
                     )}
                   >
@@ -213,7 +215,7 @@ export function DailyLogCard<T extends DailyLogEntry>({
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <div className="text-right">
                     <p className="font-semibold">{entry.calories} kcal</p>
                     <p className="text-xs text-muted-foreground">
@@ -223,18 +225,21 @@ export function DailyLogCard<T extends DailyLogEntry>({
                       )}
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Delete ${entry.name}`}
-                    title={`Delete ${entry.name}`}
-                    disabled={!isToday || deletingEntryId === entry.id}
-                    onClick={() => void deleteEntry(entry)}
-                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-red-500/30 dark:hover:text-red-200"
-                  >
-                    <Trash2 aria-hidden="true" />
-                  </Button>
+                  <div className="flex flex-col items-center gap-1 sm:flex-row">
+                    {renderBadge?.(entry)}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Delete ${entry.name}`}
+                      title={`Delete ${entry.name}`}
+                      disabled={!isToday || deletingEntryId === entry.id}
+                      onClick={() => void deleteEntry(entry)}
+                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-red-500/30 dark:hover:text-red-200"
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
+                  </div>
                 </div>
               </li>
             ))}

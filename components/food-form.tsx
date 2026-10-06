@@ -253,7 +253,7 @@ export function FoodForm({onLogCreated, aiEnabled}: FoodFormProps) {
     const response = await fetch('/api/food', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(data),
+      body: JSON.stringify({...data, healthAlert}),
     });
 
     setLoading(false);
