@@ -84,12 +84,12 @@ export function resumeTimer(timer: Timer, now: number): Timer {
   return {...timer, startedAt: now};
 }
 
-/** A set lasts its lead-in plus one tempo beat per rep. */
+/** Sets and timed work start with a lead-in; a set then runs one tempo beat per rep. */
 export function currentStepDurationMs(state: WorkoutState): number {
   const step = state.steps[state.index];
-  return step.kind === 'set'
-    ? LEAD_IN_MS + state.reps * state.tempoMs
-    : step.durationMs;
+  if (step.kind === 'set') return LEAD_IN_MS + state.reps * state.tempoMs;
+  if (step.kind === 'work') return LEAD_IN_MS + step.durationMs;
+  return step.durationMs;
 }
 
 export function remainingMs(state: WorkoutState, now: number): number {
@@ -174,12 +174,15 @@ export function adjustRest(state: WorkoutState, deltaMs: number): WorkoutState {
   };
 }
 
-/** Beat 0-2 are the lead-in, beat 3 is "go" and beat 3 + k is rep k. */
+/** Beat 0-2 are the lead-in and beat 3 is "go". */
+function leadInBeat(elapsed: number) {
+  const beat = Math.min(3, Math.floor(elapsed / LEAD_IN_BEAT_MS));
+  return {beat, startMs: beat * LEAD_IN_BEAT_MS};
+}
+
+/** Lead-in beats, then beat 3 + k is rep k. */
 function setBeat(state: WorkoutState, elapsed: number) {
-  if (elapsed < LEAD_IN_MS) {
-    const beat = Math.floor(elapsed / LEAD_IN_BEAT_MS);
-    return {beat, startMs: beat * LEAD_IN_BEAT_MS};
-  }
+  if (elapsed < LEAD_IN_MS) return leadInBeat(elapsed);
   const rep = Math.min(
     state.reps,
     Math.floor((elapsed - LEAD_IN_MS) / state.tempoMs),
@@ -195,22 +198,23 @@ export function repsDone(state: WorkoutState, now: number): number {
 }
 
 /**
- * The latest cue reached in the current set, with how late `now` is for it.
- * Time past the end of the set counts toward its final rep, so the last
- * count still sounds when the set ends between ticks. `key` is stable for a
- * beat so callers can play each cue once.
+ * The latest cue reached in the current set or timed work, with how late
+ * `now` is for it. Timed work only counts in, then stays on "go". Time past
+ * the end of a set counts toward its final rep, so the last count still
+ * sounds when the set ends between ticks. `key` is stable for a beat so
+ * callers can play each cue once.
  */
 export function currentCue(
   state: WorkoutState,
   now: number,
 ): {key: string; cue: WorkoutCue; lateMs: number} | null {
   const step = state.steps[state.index];
-  if (state.done || step.kind !== 'set') return null;
+  if (state.done || step.kind === 'rest') return null;
   const elapsed = elapsedMs(state.timer, now);
-  const {beat, startMs} = setBeat(
-    state,
-    Math.min(elapsed, currentStepDurationMs(state)),
-  );
+  const {beat, startMs} =
+    step.kind === 'work'
+      ? leadInBeat(elapsed)
+      : setBeat(state, Math.min(elapsed, currentStepDurationMs(state)));
   const cue: WorkoutCue =
     beat < 3
       ? {type: 'leadIn', n: 3 - beat}

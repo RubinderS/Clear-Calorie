@@ -404,11 +404,12 @@ function ActiveWorkout({
   const step = state.steps[state.index];
   const running = isRunning(state.timer) && !state.done;
   const inSet = step.kind === 'set';
+  const leadingIn =
+    step.kind !== 'rest' && elapsedMs(state.timer, now) < LEAD_IN_MS;
 
   useWakeLock(!state.done);
   // Music loads during the first countdown and kicks in once it's done.
-  const firstCountdown =
-    state.index === 0 && inSet && elapsedMs(state.timer, now) < LEAD_IN_MS;
+  const firstCountdown = state.index === 0 && leadingIn;
   useWorkoutMusic(musicOn, running && !firstCountdown, step.kind === 'rest');
 
   function toggleMusic() {
@@ -449,9 +450,10 @@ function ActiveWorkout({
 
   useEffect(() => {
     if (!running) return;
-    const id = setInterval(() => advance(), inSet ? SET_TICK_MS : TICK_MS);
+    const fast = inSet || leadingIn;
+    const id = setInterval(() => advance(), fast ? SET_TICK_MS : TICK_MS);
     return () => clearInterval(id);
-  }, [running, inSet, advance]);
+  }, [running, inSet, leadingIn, advance]);
 
   useEffect(() => {
     if (!state.done || completed.current) return;
@@ -468,20 +470,23 @@ function ActiveWorkout({
     advance((current, time) => setTempo(current, tempoMs, time));
   }
 
-  const cue = inSet ? currentCue(state, now)?.cue : undefined;
+  const cue = currentCue(state, now)?.cue;
   const isLastStep = state.index === state.steps.length - 1;
   const progress = inSet
     ? cue?.type === 'rep'
       ? (100 * cue.n) / state.reps
       : 0
-    : (100 * elapsedMs(state.timer, now)) / currentStepDurationMs(state);
+    : step.kind === 'work'
+      ? (100 * Math.max(0, elapsedMs(state.timer, now) - LEAD_IN_MS)) /
+        step.durationMs
+      : (100 * elapsedMs(state.timer, now)) / currentStepDurationMs(state);
 
   let display = formatClock(remainingMs(state, now));
   let caption = 'Remaining';
   if (cue?.type === 'leadIn') {
     display = String(cue.n);
     caption = 'Get ready';
-  } else if (cue?.type === 'go') {
+  } else if (cue?.type === 'go' && inSet) {
     display = 'Go';
     caption = `of ${state.reps} reps`;
   } else if (cue?.type === 'rep') {

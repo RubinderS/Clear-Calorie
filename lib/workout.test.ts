@@ -43,20 +43,36 @@ test('pausing freezes elapsed time and resuming continues it', () => {
     buildWorkoutSteps({type: 'TIME', durationMin: 1}),
     0,
   );
-  state = togglePause(state, 10_000);
-  assert.equal(elapsedMs(state.timer, 50_000), 10_000);
+  state = togglePause(state, LEAD_IN_MS + 10_000);
+  assert.equal(elapsedMs(state.timer, 50_000), LEAD_IN_MS + 10_000);
   assert.equal(remainingMs(state, 50_000), 50_000);
   state = togglePause(state, 50_000);
   assert.equal(remainingMs(state, 55_000), 45_000);
 });
 
-test('tickWorkout finishes a time workout once the countdown runs out', () => {
+test('tickWorkout finishes a time workout once its lead-in and countdown run out', () => {
   const state = startWorkout(
     buildWorkoutSteps({type: 'TIME', durationMin: 1}),
     0,
   );
-  assert.equal(tickWorkout(state, 59_999), state);
-  assert.equal(tickWorkout(state, 60_000).done, true);
+  assert.equal(tickWorkout(state, LEAD_IN_MS + 59_999), state);
+  assert.equal(tickWorkout(state, LEAD_IN_MS + 60_000).done, true);
+});
+
+test('currentCue counts a time workout in, then stays on go', () => {
+  const state = startWorkout(
+    buildWorkoutSteps({type: 'TIME', durationMin: 1}),
+    0,
+  );
+  assert.deepEqual(currentCue(state, 0)?.cue, {type: 'leadIn', n: 3});
+  assert.deepEqual(currentCue(state, LEAD_IN_BEAT_MS * 2)?.cue, {
+    type: 'leadIn',
+    n: 1,
+  });
+  const go = currentCue(state, LEAD_IN_MS + 30_000);
+  assert.deepEqual(go?.cue, {type: 'go'});
+  assert.equal(go?.key, currentCue(state, LEAD_IN_MS)?.key);
+  assert.equal(remainingMs(state, LEAD_IN_MS), 60_000);
 });
 
 test('tickWorkout does not expire a paused countdown', () => {
@@ -148,12 +164,7 @@ test('currentCue keeps the final rep after the set ends between ticks', () => {
   assert.equal(cue?.lateMs, 40);
 });
 
-test('currentCue is silent outside sets', () => {
-  const time = startWorkout(
-    buildWorkoutSteps({type: 'TIME', durationMin: 1}),
-    0,
-  );
-  assert.equal(currentCue(time, 1_000), null);
+test('currentCue is silent during rests', () => {
   const resting = nextStep(strength(2, 3), 4_000);
   assert.equal(currentCue(resting, 5_000), null);
 });
