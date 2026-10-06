@@ -31,7 +31,7 @@ export default async function WeightPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Weight logs</h1>
+        <h1 className="hidden text-3xl font-bold md:block">Weight logs</h1>
         <p className="text-muted-foreground">
           Your logged weights. Add new entries from the{' '}
           <Link href="/dashboard" className="underline underline-offset-4">

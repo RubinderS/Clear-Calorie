@@ -8,6 +8,7 @@ import {DesktopNav} from '@/components/desktop-nav';
 import {ThemeToggle} from '@/components/theme-toggle';
 import {SignOutButton} from '@/components/sign-out-button';
 import {TimezoneSync} from '@/components/timezone-sync';
+import {HeaderTitle} from '@/components/header-title';
 
 export default async function DashboardLayout({
   children,
@@ -35,7 +36,7 @@ export default async function DashboardLayout({
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link
             href="/dashboard"
-            className="flex items-center gap-2 text-lg font-bold tracking-tight"
+            className="flex min-w-0 items-center gap-2 text-lg font-bold tracking-tight"
           >
             <span
               className="flex h-7 w-7 items-center justify-center rounded-lg shadow-sm"
@@ -43,7 +44,7 @@ export default async function DashboardLayout({
             >
               <LogoGlyph size={20} />
             </span>
-            Clear Calorie
+            <HeaderTitle items={navItems} />
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
             <DesktopNav items={navItems} />

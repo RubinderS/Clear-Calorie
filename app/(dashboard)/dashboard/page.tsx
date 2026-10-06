@@ -166,10 +166,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Today&apos;s summary</p>
-      </div>
+      <h1 className="hidden text-3xl font-bold md:block">Dashboard</h1>
 
       <Card>
         <CardHeader>

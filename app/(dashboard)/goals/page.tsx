@@ -22,7 +22,7 @@ export default async function GoalsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Goals</h1>
+        <h1 className="hidden text-3xl font-bold md:block">Goals</h1>
         <p className="text-muted-foreground">
           Set your daily nutrition, weight, and exercise targets
         </p>
