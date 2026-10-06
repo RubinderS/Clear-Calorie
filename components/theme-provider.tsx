@@ -30,6 +30,10 @@ function applyTheme(theme: Theme) {
   meta.name = 'theme-color';
   meta.content = isDark ? THEME_COLORS.dark : THEME_COLORS.light;
   document.head.appendChild(meta);
+  // iOS home-screen apps restyle the status bar live when this tag changes; black-translucent shows white text over the dark page.
+  document
+    .querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
+    ?.setAttribute('content', isDark ? 'black-translucent' : 'default');
 }
 
 const listeners = new Set<() => void>();
