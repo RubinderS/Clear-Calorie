@@ -13,7 +13,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {WorkoutSession, type WorkoutResult} from '@/components/workout-session';
-import {unlockAudio} from '@/lib/workout-sound';
+import {
+  createWorkoutSound,
+  unlockAudio,
+  type WorkoutSound,
+} from '@/lib/workout-sound';
 import {formatExerciseDetail} from '@/lib/exercise';
 
 export type PlannedExercise = {
@@ -104,6 +108,7 @@ export function TodaysExercisePlan({
   const [workout, setWorkout] = useState<{
     goal: PlannedExercise;
     startedAt: number;
+    sound: WorkoutSound | null;
   } | null>(null);
   const doneCount = goals.filter((goal) => completedIds.has(goal.id)).length;
   const visibleGoals = hideCompleted
@@ -121,6 +126,7 @@ export function TodaysExercisePlan({
           <WorkoutSession
             goal={workout.goal}
             startedAt={workout.startedAt}
+            sound={workout.sound}
             onComplete={(result) => {
               setWorkout(null);
               onToggle(workout.goal, true, result);
@@ -201,9 +207,15 @@ export function TodaysExercisePlan({
                       aria-label={`Start ${goal.name}`}
                       disabled={pendingId === goal.id}
                       onClick={() => {
-                        // Lets timed workouts start music without another tap.
-                        unlockAudio();
-                        setWorkout({goal, startedAt: Date.now()});
+                        // Timed workouts start right away, so their countdown
+                        // voice and music must be unlocked by this tap.
+                        let sound: WorkoutSound | null = null;
+                        if (goal.type === 'STRENGTH') {
+                          unlockAudio();
+                        } else {
+                          sound = createWorkoutSound();
+                        }
+                        setWorkout({goal, startedAt: Date.now(), sound});
                       }}
                     >
                       <Play />

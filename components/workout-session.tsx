@@ -251,6 +251,8 @@ type WorkoutSessionProps = {
   goal: PlannedExercise;
   /** When the Start tap happened; time goals begin right away. */
   startedAt: number;
+  /** Created in the Start tap for time goals; strength goals make their own. */
+  sound: WorkoutSound | null;
   onComplete: (result?: WorkoutResult) => void;
   onCancel: () => void;
 };
@@ -258,6 +260,7 @@ type WorkoutSessionProps = {
 export function WorkoutSession({
   goal,
   startedAt,
+  sound,
   onComplete,
   onCancel,
 }: WorkoutSessionProps) {
@@ -266,8 +269,9 @@ export function WorkoutSession({
       ? null
       : {
           initial: startWorkout(buildWorkoutSteps(goal), startedAt),
-          mode: 'tones',
-          sound: null,
+          // Timed work only has the lead-in, so speak "3, 2, 1, Go".
+          mode: 'count',
+          sound,
           music: loadPrefs().music,
         },
   );
