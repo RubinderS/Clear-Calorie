@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import type {ExerciseType} from './exercise';
 
 // Any OpenAI-compatible /chat/completions endpoint (OpenAI, OpenRouter, Groq,
 // Gemini's compat layer, local Ollama/LM Studio). Read per call so a Docker
@@ -95,10 +96,11 @@ export function parseEstimate(raw: unknown): FoodEstimate | null {
   return result;
 }
 
-export async function estimateFood(
-  description: string,
-  healthNotes?: string | null,
-): Promise<FoodEstimate> {
+// Sends one system + user message and returns the model's parsed JSON object.
+async function requestJson(
+  systemPrompt: string,
+  userContent: string,
+): Promise<unknown> {
   const config = getConfig();
   if (!config) {
     throw new AiError('AI is not configured');
@@ -119,13 +121,8 @@ export async function estimateFood(
         temperature: 0.2,
         response_format: {type: 'json_object'},
         messages: [
-          {
-            role: 'system',
-            content: healthNotes?.trim()
-              ? SYSTEM_PROMPT + buildHealthPrompt(healthNotes.trim())
-              : SYSTEM_PROMPT,
-          },
-          {role: 'user', content: description},
+          {role: 'system', content: systemPrompt},
+          {role: 'user', content: userContent},
         ],
       }),
       signal: AbortSignal.timeout(20_000),
@@ -150,14 +147,97 @@ export async function estimateFood(
 
   // Some models wrap JSON in a markdown fence despite response_format.
   const json = content.match(/\{[\s\S]*\}/)?.[0];
-  let raw: unknown;
   try {
-    raw = JSON.parse(json ?? '');
+    return JSON.parse(json ?? '');
   } catch {
     throw new AiError('AI returned an invalid response');
   }
+}
+
+export async function estimateFood(
+  description: string,
+  healthNotes?: string | null,
+): Promise<FoodEstimate> {
+  const raw = await requestJson(
+    healthNotes?.trim()
+      ? SYSTEM_PROMPT + buildHealthPrompt(healthNotes.trim())
+      : SYSTEM_PROMPT,
+    description,
+  );
 
   const estimate = parseEstimate(raw);
+  if (!estimate) {
+    throw new AiError('AI returned an invalid response');
+  }
+  return estimate;
+}
+
+const EXERCISE_SYSTEM_PROMPT = `You are an exercise energy expenditure estimator for a calorie tracking app.
+The user describes one exercise session. Estimate the total calories burned for the whole session.
+- Use MET values: kcal = MET x body weight (kg) x hours. Pick a MET that suits the exercise as named, assuming moderate intensity unless stated.
+- For sets and reps, estimate a realistic working time for the session including rest between sets.
+- "Load" is the weight lifted, not the user's body weight. Weights are in kilograms.
+- If body weight is not known, assume an average adult and say what you assumed.
+- Calories are kilocalories (kcal), gross for the whole session.
+Respond with only a JSON object with these keys:
+{"calories": number, "assumptions": one short sentence naming the assumed intensity or MET, duration and body weight used}`;
+
+export type ExerciseEstimateInput = {
+  name: string;
+  type: ExerciseType;
+  durationMin?: number | null;
+  sets?: number | null;
+  reps?: number | null;
+  weight?: number | null;
+};
+
+export function buildExerciseDescription(
+  input: ExerciseEstimateInput,
+  bodyWeightKg: number | null,
+): string {
+  const lines = [`Exercise: ${input.name}`];
+  if (input.type === 'STRENGTH') {
+    if (input.sets) lines.push(`Sets: ${input.sets}`);
+    if (input.reps) lines.push(`Reps: ${input.reps}`);
+    if (input.weight) lines.push(`Load: ${input.weight} kg`);
+  } else if (input.durationMin) {
+    lines.push(`Duration: ${input.durationMin} min`);
+  }
+  lines.push(
+    bodyWeightKg
+      ? `Body weight: ${bodyWeightKg} kg`
+      : 'Body weight: not known; assume an average adult.',
+  );
+  return lines.join('\n');
+}
+
+const exerciseEstimateSchema = z.object({
+  calories: nutrient,
+  assumptions: z.string().trim().optional().default(''),
+});
+
+export type ExerciseEstimate = z.infer<typeof exerciseEstimateSchema>;
+
+export function parseExerciseEstimate(raw: unknown): ExerciseEstimate | null {
+  const parsed = exerciseEstimateSchema.safeParse(raw);
+  if (!parsed.success) return null;
+
+  return {
+    calories: Math.round(parsed.data.calories),
+    assumptions: parsed.data.assumptions.slice(0, 300),
+  };
+}
+
+export async function estimateExercise(
+  input: ExerciseEstimateInput,
+  bodyWeightKg: number | null,
+): Promise<ExerciseEstimate> {
+  const raw = await requestJson(
+    EXERCISE_SYSTEM_PROMPT,
+    buildExerciseDescription(input, bodyWeightKg),
+  );
+
+  const estimate = parseExerciseEstimate(raw);
   if (!estimate) {
     throw new AiError('AI returned an invalid response');
   }

@@ -2,7 +2,7 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {Pencil, Trash2} from 'lucide-react';
+import {Loader2, Pencil, Sparkles, Trash2} from 'lucide-react';
 import type {ExerciseGoal} from '@prisma/client';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
@@ -30,9 +30,14 @@ import {
 
 type ExerciseGoalsFormProps = {
   goals: ExerciseGoal[];
+  aiEnabled?: boolean;
 };
 
-export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
+function optionalNumber(value: string) {
+  return Number(value) > 0 ? Number(value) : null;
+}
+
+export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +46,9 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
   const [calories, setCalories] = useState('');
   const [details, setDetails] = useState(EMPTY_EXERCISE_DETAILS);
   const [days, setDays] = useState<number[]>([]);
+  const [estimating, setEstimating] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiAssumptions, setAiAssumptions] = useState<string | null>(null);
 
   const allDaysSelected = days.length === WEEKDAYS.length;
   const someDaysSelected = days.length > 0 && !allDaysSelected;
@@ -52,6 +60,8 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
     setDetails(EMPTY_EXERCISE_DETAILS);
     setDays([]);
     setError(null);
+    setAiError(null);
+    setAiAssumptions(null);
   }
 
   function startEdit(goal: ExerciseGoal) {
@@ -61,6 +71,47 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
     setDetails(toDetailValues(goal));
     setDays(maskToDays(goal.daysMask));
     setError(null);
+    setAiError(null);
+    setAiAssumptions(null);
+  }
+
+  async function estimateWithAi() {
+    const exerciseName = name.trim();
+    if (!exerciseName) return;
+
+    setEstimating(true);
+    setAiError(null);
+
+    try {
+      const response = await fetch('/api/exercise/estimate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          name: exerciseName,
+          type: details.type,
+          ...(details.type === 'STRENGTH'
+            ? {
+                sets: optionalNumber(details.sets),
+                reps: optionalNumber(details.reps),
+                weight: optionalNumber(details.weight),
+              }
+            : {durationMin: optionalNumber(details.durationMin)}),
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setAiError(payload?.error ?? 'Could not estimate this exercise');
+        return;
+      }
+
+      setCalories(String(payload.calories));
+      setAiAssumptions(payload.assumptions || '');
+    } catch {
+      setAiError('Could not reach the AI service');
+    } finally {
+      setEstimating(false);
+    }
   }
 
   function toggleDay(day: number, checked: boolean) {
@@ -201,13 +252,48 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
                 (optional)
               </span>
             </Label>
-            <Input
-              id="exerciseGoalCalories"
-              type="number"
-              min={0}
-              value={calories}
-              onChange={(event) => setCalories(event.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="exerciseGoalCalories"
+                type="number"
+                min={0}
+                value={calories}
+                onChange={(event) => {
+                  setCalories(event.target.value);
+                  setAiAssumptions(null);
+                }}
+                className="min-w-0 flex-1"
+              />
+              {aiEnabled && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={estimateWithAi}
+                  disabled={estimating || !name.trim()}
+                  aria-label="Estimate calories burned with AI"
+                  className="shrink-0 px-3"
+                >
+                  {estimating ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <Sparkles />
+                  )}
+                  {estimating ? 'Estimating...' : 'Estimate'}
+                </Button>
+              )}
+            </div>
+            {aiError && (
+              <p role="alert" className="text-sm text-red-500">
+                {aiError}
+              </p>
+            )}
+            {aiAssumptions !== null && (
+              <p className="text-xs text-muted-foreground">
+                <Sparkles className="mr-1 inline size-3" />
+                AI estimate. Check before saving.
+                {aiAssumptions && ` ${aiAssumptions}`}
+              </p>
+            )}
           </div>
           <fieldset className="space-y-3 rounded-xl border border-border/50 bg-muted/30 p-3">
             <legend className="px-1 text-sm font-medium">Days</legend>

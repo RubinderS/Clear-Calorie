@@ -33,7 +33,7 @@ export default async function GoalsPage() {
         <WeightGoalForm goals={goals} />
       </div>
 
-      <ExerciseGoalsForm goals={exerciseGoals} />
+      <ExerciseGoalsForm goals={exerciseGoals} aiEnabled={isAiEnabled()} />
     </div>
   );
 }

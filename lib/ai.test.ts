@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {parseEstimate} from './ai';
+import {
+  buildExerciseDescription,
+  parseEstimate,
+  parseExerciseEstimate,
+} from './ai';
 
 const base = {
   name: 'Bacon and eggs',
@@ -64,4 +68,45 @@ test('truncates long health alert messages', () => {
 test('rejects estimates without a name or calories', () => {
   assert.equal(parseEstimate({calories: 100}), null);
   assert.equal(parseEstimate({name: 'Apple'}), null);
+});
+
+test('normalises exercise estimates', () => {
+  assert.deepEqual(
+    parseExerciseEstimate({calories: 312.6, assumptions: ' MET 9.8 '}),
+    {calories: 313, assumptions: 'MET 9.8'},
+  );
+  assert.equal(
+    parseExerciseEstimate({calories: 100, assumptions: 'x'.repeat(500)})
+      ?.assumptions.length,
+    300,
+  );
+});
+
+test('rejects exercise estimates without valid calories', () => {
+  assert.equal(parseExerciseEstimate({assumptions: 'Running'}), null);
+  assert.equal(parseExerciseEstimate({calories: -50}), null);
+});
+
+test('describes time based exercise with body weight', () => {
+  assert.equal(
+    buildExerciseDescription(
+      {name: 'Running', type: 'TIME', durationMin: 30},
+      78,
+    ),
+    'Exercise: Running\nDuration: 30 min\nBody weight: 78 kg',
+  );
+});
+
+test('describes strength exercise without body weight', () => {
+  assert.equal(
+    buildExerciseDescription(
+      {name: 'Squats', type: 'STRENGTH', sets: 3, reps: 10, weight: 60},
+      null,
+    ),
+    'Exercise: Squats\nSets: 3\nReps: 10\nLoad: 60 kg\nBody weight: not known; assume an average adult.',
+  );
+  assert.equal(
+    buildExerciseDescription({name: 'Push ups', type: 'STRENGTH'}, null),
+    'Exercise: Push ups\nBody weight: not known; assume an average adult.',
+  );
 });
