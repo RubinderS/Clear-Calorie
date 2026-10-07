@@ -7,7 +7,9 @@ import {
   exerciseDetailsSchema,
   toExerciseFields,
 } from '@/lib/exercise';
+import {freezePastPlanDays} from '@/lib/exercise-plan';
 import {prisma} from '@/lib/prisma';
+import {getUserTimeZone} from '@/lib/timezone';
 
 const exerciseGoalSchema = z
   .object({
@@ -57,6 +59,8 @@ export async function POST(request: Request) {
       ...toExerciseFields(parsed.data),
     };
 
+    await freezePastPlanDays(session.user.id, await getUserTimeZone());
+
     if (id) {
       const result = await prisma.exerciseGoal.updateMany({
         where: {id, userId: session.user.id},
@@ -92,6 +96,8 @@ export async function DELETE(request: Request) {
   if (!id) {
     return NextResponse.json({error: 'Goal ID is required'}, {status: 400});
   }
+
+  await freezePastPlanDays(session.user.id, await getUserTimeZone());
 
   const result = await prisma.exerciseGoal.deleteMany({
     where: {id, userId: session.user.id},

@@ -201,6 +201,8 @@ async function main() {
     })),
   });
 
+  // Backdated so the weekly exercise chart has a plan for past days.
+  const planStart = subDays(today, 14);
   const morningRun = await prisma.exerciseGoal.create({
     data: {
       userId: user.id,
@@ -209,6 +211,7 @@ async function main() {
       calories: 320,
       durationMin: 30,
       daysMask: daysToMask([1, 3, 5]),
+      createdAt: planStart,
     },
   });
 
@@ -258,6 +261,7 @@ async function main() {
         sets: 3,
         reps: 10,
         daysMask: daysToMask([2, 4]),
+        createdAt: planStart,
       },
       {
         userId: user.id,
@@ -266,6 +270,7 @@ async function main() {
         calories: 150,
         durationMin: 20,
         daysMask: EVERYDAY_MASK,
+        createdAt: planStart,
       },
     ],
   });

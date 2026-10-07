@@ -44,15 +44,16 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts       Account[]
-  sessions       Session[]
-  foods          FoodLog[]
-  savedFoods     SavedFoodItem[]
-  exercises      ExerciseLog[]
-  savedExercises SavedExerciseItem[]
-  exerciseGoals  ExerciseGoal[]
-  weights        WeightLog[]
-  goals          Goal?
+  accounts         Account[]
+  sessions         Session[]
+  foods            FoodLog[]
+  savedFoods       SavedFoodItem[]
+  exercises        ExerciseLog[]
+  savedExercises   SavedExerciseItem[]
+  exerciseGoals    ExerciseGoal[]
+  exercisePlanDays ExercisePlanDay[]
+  weights          WeightLog[]
+  goals            Goal?
 }
 
 model VerificationToken {
@@ -167,6 +168,20 @@ model ExerciseGoal {
   logs ExerciseLog[]
 
   @@index([userId])
+}
+
+// Frozen count of planned exercises for a past day, written before the plan
+// changes so history isn't rewritten. Days without a row derive from current goals.
+model ExercisePlanDay {
+  id           String @id @default(cuid())
+  userId       String
+  // User-local yyyy-MM-dd
+  date         String
+  plannedCount Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
 }
 
 model WeightLog {

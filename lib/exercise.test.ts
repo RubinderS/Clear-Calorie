@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {
   EVERYDAY_MASK,
+  countPlannedOn,
   daysToMask,
   exerciseDetailsSchema,
   formatDays,
@@ -26,6 +27,19 @@ test('isActiveOn checks individual weekdays', () => {
   assert.equal(isActiveOn(mask, 4), true);
   assert.equal(isActiveOn(mask, 0), false);
   assert.equal(isActiveOn(EVERYDAY_MASK, 6), true);
+});
+
+test('countPlannedOn counts active goals that existed by the end of the day', () => {
+  const dayEnd = new Date('2026-10-05T23:59:59.999Z');
+  const goals = [
+    {daysMask: daysToMask([1]), createdAt: new Date('2026-09-01T00:00:00Z')},
+    {daysMask: EVERYDAY_MASK, createdAt: new Date('2026-10-05T08:00:00Z')},
+    {daysMask: EVERYDAY_MASK, createdAt: new Date('2026-10-06T08:00:00Z')},
+    {daysMask: daysToMask([2]), createdAt: new Date('2026-09-01T00:00:00Z')},
+  ];
+  assert.equal(countPlannedOn(goals, 1, dayEnd), 2);
+  assert.equal(countPlannedOn(goals, 0, dayEnd), 1);
+  assert.equal(countPlannedOn([], 1, dayEnd), 0);
 });
 
 test('formatDays shows "Every day" or Monday-first labels', () => {

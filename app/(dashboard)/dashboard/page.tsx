@@ -3,7 +3,12 @@ import {redirect} from 'next/navigation';
 import {format, parseISO, subDays} from 'date-fns';
 import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
-import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
+import {
+  getTodayDate,
+  getTodayRange,
+  getUserTimeZone,
+  toZoned,
+} from '@/lib/timezone';
 import {
   Card,
   CardContent,
@@ -14,10 +19,14 @@ import {
 import {MacrosChart} from '@/components/macros-chart';
 import {macroColors} from '@/lib/chart-colors';
 import {WeightChart} from '@/components/weight-chart';
+import {
+  ExerciseChart,
+  type ExerciseChartDatum,
+} from '@/components/exercise-chart';
 import {NutritionProgress} from '@/components/nutrition-progress';
 import {QuickLog} from '@/components/quick-log';
 import {Decimal, sumNumbers} from '@/lib/decimal';
-import {getPlannedExerciseGoals} from '@/lib/exercise-plan';
+import {getPlannedCounts, getPlannedExerciseGoals} from '@/lib/exercise-plan';
 import {isAiEnabled} from '@/lib/ai';
 
 export default async function DashboardPage() {
@@ -27,6 +36,10 @@ export default async function DashboardPage() {
   const userId = session.user.id;
   const timeZone = await getUserTimeZone();
   const {start: todayStart, end: todayEnd} = getTodayRange(timeZone);
+  const today = getTodayDate(timeZone);
+  const weekDates = Array.from({length: 7}, (_, i) =>
+    format(subDays(todayStart, 6 - i), 'yyyy-MM-dd'),
+  );
 
   const [
     goals,
@@ -36,6 +49,7 @@ export default async function DashboardPage() {
     weekFood,
     weekExercise,
     plannedGoals,
+    weekPlannedCounts,
   ] = await Promise.all([
     prisma.goal.findUnique({where: {userId}}),
     prisma.foodLog.findMany({
@@ -52,14 +66,21 @@ export default async function DashboardPage() {
       take: 7,
     }),
     prisma.foodLog.findMany({
-      where: {userId, loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd}},
+      where: {
+        userId,
+        loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd},
+      },
       orderBy: {loggedAt: 'asc'},
     }),
     prisma.exerciseLog.findMany({
-      where: {userId, loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd}},
+      where: {
+        userId,
+        loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd},
+      },
       orderBy: {loggedAt: 'asc'},
     }),
     getPlannedExerciseGoals(userId, timeZone),
+    getPlannedCounts(userId, weekDates, timeZone),
   ]);
 
   const todaysExerciseGoals = plannedGoals.map((goal) => ({
@@ -117,8 +138,7 @@ export default async function DashboardPage() {
     string,
     {calories: Decimal; protein: Decimal; exercise: Decimal}
   >();
-  for (let i = 6; i >= 0; i--) {
-    const date = format(subDays(todayStart, i), 'yyyy-MM-dd');
+  for (const date of weekDates) {
     weekMap.set(date, {
       calories: new Decimal(0),
       protein: new Decimal(0),
@@ -155,6 +175,29 @@ export default async function DashboardPage() {
     date: format(parseISO(date), 'MMM dd'),
     protein: totals.protein.toNumber(),
   }));
+
+  // Ticked planned exercises keep goalDate even if the goal is later deleted.
+  const exerciseCounts = new Map(
+    weekDates.map((date) => [date, {done: 0, extra: 0}]),
+  );
+  for (const item of weekExercise) {
+    const date = format(toZoned(item.loggedAt, timeZone), 'yyyy-MM-dd');
+    const counts = exerciseCounts.get(date);
+    if (!counts) continue;
+    if (item.goalDate) counts.done++;
+    else counts.extra++;
+  }
+  const exerciseData: ExerciseChartDatum[] = weekDates.map((date) => {
+    const {done, extra} = exerciseCounts.get(date)!;
+    const planned = weekPlannedCounts.get(date) ?? 0;
+    return {
+      date: format(parseISO(date), 'MMM dd'),
+      done,
+      missed: Math.max(planned - done, 0),
+      extra,
+      isToday: date === today,
+    };
+  });
 
   const weightData = recentWeights
     .slice()
@@ -240,6 +283,18 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Exercise this week</CardTitle>
+          <CardDescription>
+            Planned exercises done and missed, plus extras, over the last 7 days
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ExerciseChart data={exerciseData} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

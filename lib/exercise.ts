@@ -84,6 +84,17 @@ export function isActiveOn(mask: number, day: number): boolean {
   return (mask & (1 << day)) !== 0;
 }
 
+/** Goals planned for a weekday, ignoring goals created after the day ended. */
+export function countPlannedOn(
+  goals: readonly {daysMask: number; createdAt: Date}[],
+  day: number,
+  dayEnd: Date,
+): number {
+  return goals.filter(
+    (goal) => isActiveOn(goal.daysMask, day) && goal.createdAt <= dayEnd,
+  ).length;
+}
+
 export function formatDays(mask: number): string {
   if ((mask & EVERYDAY_MASK) === EVERYDAY_MASK) return 'Every day';
   return WEEKDAYS.filter(({day}) => isActiveOn(mask, day))
