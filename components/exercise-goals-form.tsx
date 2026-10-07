@@ -57,7 +57,7 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
   function startEdit(goal: ExerciseGoal) {
     setEditingId(goal.id);
     setName(goal.name);
-    setCalories(String(goal.calories));
+    setCalories(goal.calories > 0 ? String(goal.calories) : '');
     setDetails(toDetailValues(goal));
     setDays(maskToDays(goal.daysMask));
     setError(null);
@@ -97,9 +97,11 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
       body: JSON.stringify({
         id: editingId ?? undefined,
         name: name.trim(),
-        calories: new Decimal(Number(calories))
-          .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
-          .toNumber(),
+        calories: calories.trim()
+          ? new Decimal(Number(calories))
+              .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
+              .toNumber()
+          : 0,
         days,
         ...toDetailsPayload(details),
       }),
@@ -142,7 +144,8 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
                   <div className="min-w-0">
                     <p className="truncate font-medium">{goal.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatExerciseDetail(goal)} · {goal.calories} kcal ·{' '}
+                      {formatExerciseDetail(goal)} ·{' '}
+                      {goal.calories > 0 && `${goal.calories} kcal · `}
                       {formatDays(goal.daysMask)}
                     </p>
                   </div>
@@ -192,14 +195,18 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
             onChange={setDetails}
           />
           <div className="flex flex-col space-y-2">
-            <Label htmlFor="exerciseGoalCalories">Calories burned</Label>
+            <Label htmlFor="exerciseGoalCalories">
+              Calories burned{' '}
+              <span className="font-normal text-muted-foreground">
+                (optional)
+              </span>
+            </Label>
             <Input
               id="exerciseGoalCalories"
               type="number"
               min={0}
               value={calories}
               onChange={(event) => setCalories(event.target.value)}
-              required
             />
           </div>
           <fieldset className="space-y-3 rounded-xl border border-border/50 bg-muted/30 p-3">

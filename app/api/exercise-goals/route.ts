@@ -13,7 +13,7 @@ const exerciseGoalSchema = z
   .object({
     id: z.string().optional(),
     name: z.string().trim().min(1).max(100),
-    calories: z.number().int().min(0),
+    calories: z.number().int().min(0).default(0),
     days: z
       .array(z.number().int().min(0).max(6))
       .min(1)

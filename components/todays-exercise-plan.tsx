@@ -187,7 +187,8 @@ export function TodaysExercisePlan({
                         {goal.name}
                       </span>
                       <span className="block text-xs text-muted-foreground">
-                        {formatExerciseDetail(goal)} · {goal.calories} kcal
+                        {formatExerciseDetail(goal)}
+                        {goal.calories > 0 && ` · ${goal.calories} kcal`}
                       </span>
                     </span>
                   </label>
