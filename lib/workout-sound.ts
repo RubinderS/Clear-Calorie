@@ -113,6 +113,11 @@ function wake(context: AudioContext) {
  * started, after which later sounds can play on their own.
  */
 export function unlockAudio(): AudioContext | null {
+  // iOS mutes "ambient" web audio on silent mode; workout cues should still
+  // sound, like a timer app. Safari 16.4+ only.
+  const session = (navigator as { audioSession?: { type: string } })
+    .audioSession;
+  if (session) session.type = "playback";
   const context = getAudioContext();
   if (context) {
     wake(context);
