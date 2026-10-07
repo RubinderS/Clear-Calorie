@@ -536,8 +536,14 @@ function ActiveWorkout({
         <div className="grid w-full grid-cols-2 gap-3">
           <Button
             variant="outline"
+            // Cutting a rest past its end would start the next set in the past.
+            disabled={remainingMs(state, now) <= REST_ADJUST_MS}
             onClick={() =>
-              advance((current) => adjustRest(current, -REST_ADJUST_MS))
+              advance((current, time) =>
+                remainingMs(current, time) > REST_ADJUST_MS
+                  ? adjustRest(current, -REST_ADJUST_MS)
+                  : current,
+              )
             }
           >
             −{REST_ADJUST_MS / 1000}s
