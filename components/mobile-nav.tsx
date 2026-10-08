@@ -14,15 +14,18 @@ interface MobileNavProps {
 
 export function MobileNav({items}: MobileNavProps) {
   const pathname = usePathname();
-  // Tie the open state to the route it was opened on so navigation closes it.
-  const [openPath, setOpenPath] = React.useState<string | null>(null);
-  const open = openPath === pathname;
-  const setOpen = (next: boolean) => setOpenPath(next ? pathname : null);
+  const [open, setOpen] = React.useState(false);
+  // Close the menu whenever the route changes, however the navigation happened.
+  const [prevPathname, setPrevPathname] = React.useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setOpen(false);
+  }
 
   React.useEffect(() => {
     const media = window.matchMedia('(min-width: 768px)');
     const handleChange = (e: MediaQueryListEvent) => {
-      if (e.matches) setOpenPath(null);
+      if (e.matches) setOpen(false);
     };
     media.addEventListener('change', handleChange);
     return () => media.removeEventListener('change', handleChange);
@@ -112,6 +115,7 @@ export function MobileNav({items}: MobileNavProps) {
                     <li key={item.href}>
                       <Link
                         href={item.href}
+                        onClick={() => setOpen(false)}
                         className={cn(
                           'block rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                           pathname === item.href
