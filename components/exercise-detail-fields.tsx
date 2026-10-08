@@ -19,7 +19,7 @@ export type ExerciseDetailValues = {
 };
 
 export const EMPTY_EXERCISE_DETAILS: ExerciseDetailValues = {
-  type: 'TIME',
+  type: 'STRENGTH',
   durationMin: '',
   sets: '',
   reps: '',
@@ -27,8 +27,8 @@ export const EMPTY_EXERCISE_DETAILS: ExerciseDetailValues = {
 };
 
 const TYPE_OPTIONS: {type: ExerciseType; label: string}[] = [
-  {type: 'TIME', label: 'Time based'},
   {type: 'STRENGTH', label: 'Sets & reps'},
+  {type: 'TIME', label: 'Time based'},
 ];
 
 function toInt(value: string) {
