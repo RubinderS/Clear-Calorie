@@ -63,30 +63,62 @@ const TICK_MS = 250;
 // Cues this late (e.g. after returning from the background) are skipped.
 const MAX_CUE_LATE_MS = 400;
 const PREFS_KEY = 'clearcalorie:workout-prefs';
+const TEMPOS_KEY = 'clearcalorie:workout-tempos';
 
 const SOUND_OPTIONS: {mode: SoundMode; label: string}[] = [
   {mode: 'tones', label: 'Tones'},
   {mode: 'count', label: 'Count'},
 ];
 
-type WorkoutPrefs = {mode: SoundMode; tempoMs: number; music: boolean};
+type WorkoutPrefs = {mode: SoundMode; music: boolean};
 
 function loadPrefs(): WorkoutPrefs {
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null');
     return {
       mode: saved?.mode === 'count' ? 'count' : 'tones',
-      tempoMs: clampTempo(Number(saved?.tempoMs) || DEFAULT_TEMPO_MS),
       music: saved?.music === true,
     };
   } catch {
-    return {mode: 'tones', tempoMs: DEFAULT_TEMPO_MS, music: false};
+    return {mode: 'tones', music: false};
   }
 }
 
 function savePrefs(prefs: WorkoutPrefs) {
   try {
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch {}
+}
+
+/** Tempos are remembered per exercise, keyed by its name. */
+function tempoKey(exerciseName: string) {
+  return exerciseName.trim().toLowerCase();
+}
+
+function loadTempos(): Record<string, number> {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TEMPOS_KEY) ?? 'null');
+    return saved && typeof saved === 'object' ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+function loadTempo(exerciseName: string): number {
+  return clampTempo(
+    Number(loadTempos()[tempoKey(exerciseName)]) || DEFAULT_TEMPO_MS,
+  );
+}
+
+function saveTempo(exerciseName: string, tempoMs: number) {
+  try {
+    localStorage.setItem(
+      TEMPOS_KEY,
+      JSON.stringify({
+        ...loadTempos(),
+        [tempoKey(exerciseName)]: clampTempo(tempoMs),
+      }),
+    );
   } catch {}
 }
 
@@ -301,14 +333,16 @@ function StrengthSetup({
   onCancel: () => void;
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
+  const [tempoMs, setTempoMs] = useState(() => loadTempo(goal.name));
   const [reps, setRepsValue] = useState(() => clampReps(goal.reps ?? 10));
 
   function start() {
     savePrefs(prefs);
+    saveTempo(goal.name, tempoMs);
     onStart({
       initial: startWorkout(buildWorkoutSteps(goal), Date.now(), {
         reps,
-        tempoMs: prefs.tempoMs,
+        tempoMs,
       }),
       mode: prefs.mode,
       sound: createWorkoutSound(),
@@ -346,10 +380,8 @@ function StrengthSetup({
         Music {prefs.music ? 'on' : 'off'}
       </Button>
       <TempoStepper
-        tempoMs={prefs.tempoMs}
-        onChange={(tempoMs) =>
-          setPrefs({...prefs, tempoMs: clampTempo(tempoMs)})
-        }
+        tempoMs={tempoMs}
+        onChange={(value) => setTempoMs(clampTempo(value))}
       />
       <RepsStepper
         reps={reps}
@@ -470,7 +502,7 @@ function ActiveWorkout({
   }, [state.done, state.setsCompleted, state.reps, goal.type, onComplete]);
 
   function changeTempo(tempoMs: number) {
-    savePrefs({...loadPrefs(), mode, tempoMs: clampTempo(tempoMs)});
+    saveTempo(goal.name, tempoMs);
     advance((current, time) => setTempo(current, tempoMs, time));
   }
 
