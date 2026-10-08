@@ -3,16 +3,33 @@ import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
-import {getDateRange, getUserTimeZone} from '@/lib/timezone';
+import {getDateRange, getTodayRange, getUserTimeZone} from '@/lib/timezone';
+
+const nutritionFields = {
+  name: z.string().trim().min(1),
+  calories: z.number().finite().min(0),
+  protein: z.number().finite().min(0).default(0),
+  carbs: z.number().finite().min(0).default(0),
+  fat: z.number().finite().min(0).default(0),
+  saturatedFat: z.number().finite().min(0).default(0),
+};
+
+function refineSaturatedFat(
+  data: {fat: number; saturatedFat: number},
+  ctx: z.RefinementCtx,
+) {
+  if (data.saturatedFat > data.fat) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Saturated fat cannot exceed total fat',
+      path: ['saturatedFat'],
+    });
+  }
+}
 
 const foodSchema = z
   .object({
-    name: z.string().min(1),
-    calories: z.number().finite().min(0),
-    protein: z.number().finite().min(0).default(0),
-    carbs: z.number().finite().min(0).default(0),
-    fat: z.number().finite().min(0).default(0),
-    saturatedFat: z.number().finite().min(0).default(0),
+    ...nutritionFields,
     healthAlert: z
       .object({
         level: z.enum(['caution', 'avoid']),
@@ -20,15 +37,7 @@ const foodSchema = z
       })
       .nullish(),
   })
-  .superRefine((data, ctx) => {
-    if (data.saturatedFat > data.fat) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Saturated fat cannot exceed total fat',
-        path: ['saturatedFat'],
-      });
-    }
-  });
+  .superRefine(refineSaturatedFat);
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -105,4 +114,49 @@ export async function DELETE(request: Request) {
   }
 
   return new NextResponse(null, {status: 204});
+}
+
+// Corrects a logged entry, e.g. a smaller portion or better nutrition numbers.
+const updateSchema = z
+  .object({id: z.string().min(1), ...nutritionFields})
+  .superRefine(refineSaturatedFat);
+
+export async function PATCH(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({error: 'Unauthorized'}, {status: 401});
+  }
+
+  try {
+    const parsed = updateSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({error: 'Invalid input'}, {status: 400});
+    }
+    const {id, ...food} = parsed.data;
+
+    const entry = await prisma.foodLog.findFirst({
+      where: {id, userId: session.user.id},
+      select: {loggedAt: true},
+    });
+    if (!entry) {
+      return NextResponse.json({error: 'Entry not found'}, {status: 404});
+    }
+
+    const {start, end} = getTodayRange(await getUserTimeZone());
+    if (entry.loggedAt < start || entry.loggedAt > end) {
+      return NextResponse.json(
+        {error: "Only today's entries can be edited"},
+        {status: 403},
+      );
+    }
+
+    const updated = await prisma.foodLog.update({
+      where: {id},
+      data: food,
+    });
+
+    return NextResponse.json(updated);
+  } catch {
+    return NextResponse.json({error: 'Failed to update food'}, {status: 500});
+  }
 }
