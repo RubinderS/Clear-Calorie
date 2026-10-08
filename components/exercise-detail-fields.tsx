@@ -67,12 +67,14 @@ type ExerciseDetailFieldsProps = {
   idPrefix: string;
   value: ExerciseDetailValues;
   onChange: (value: ExerciseDetailValues) => void;
+  lockType?: boolean;
 };
 
 export function ExerciseDetailFields({
   idPrefix,
   value,
   onChange,
+  lockType = false,
 }: ExerciseDetailFieldsProps) {
   function update(field: keyof Omit<ExerciseDetailValues, 'type'>) {
     return (event: React.ChangeEvent<HTMLInputElement>) =>
@@ -81,23 +83,25 @@ export function ExerciseDetailFields({
 
   return (
     <div className="space-y-4">
-      <div
-        role="group"
-        aria-label="Exercise type"
-        className="grid grid-cols-2 gap-2"
-      >
-        {TYPE_OPTIONS.map((option) => (
-          <Button
-            key={option.type}
-            type="button"
-            variant={value.type === option.type ? 'default' : 'outline'}
-            aria-pressed={value.type === option.type}
-            onClick={() => onChange({...value, type: option.type})}
-          >
-            {option.label}
-          </Button>
-        ))}
-      </div>
+      {!lockType && (
+        <div
+          role="group"
+          aria-label="Exercise type"
+          className="grid grid-cols-2 gap-2"
+        >
+          {TYPE_OPTIONS.map((option) => (
+            <Button
+              key={option.type}
+              type="button"
+              variant={value.type === option.type ? 'default' : 'outline'}
+              aria-pressed={value.type === option.type}
+              onClick={() => onChange({...value, type: option.type})}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+      )}
       {value.type === 'STRENGTH' ? (
         <div className="grid grid-cols-3 gap-4">
           <div className="flex flex-col space-y-2">

@@ -3,7 +3,13 @@
 import {useEffect, useState, type ReactNode} from 'react';
 import {addDays, format, parseISO} from 'date-fns';
 import {TZDate} from '@date-fns/tz';
-import {ChevronLeft, ChevronRight, Trash2, type LucideIcon} from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Trash2,
+  type LucideIcon,
+} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {cn} from '@/lib/utils';
@@ -81,6 +87,14 @@ export function useDailyLog<T extends DailyLogEntry>({
     }
   }
 
+  function replaceEntry(updated: T) {
+    setEntries((currentEntries) =>
+      currentEntries.map((entry) =>
+        entry.id === updated.id ? updated : entry,
+      ),
+    );
+  }
+
   return {
     today,
     selectedDate,
@@ -90,6 +104,7 @@ export function useDailyLog<T extends DailyLogEntry>({
     isLoading,
     deletingEntryId,
     deleteEntry,
+    replaceEntry,
     showTodayAndRefresh,
   };
 }
@@ -114,6 +129,7 @@ type DailyLogCardProps<T extends DailyLogEntry> = {
   iconClassName: string;
   renderDetail: (entry: T) => ReactNode;
   renderBadge?: (entry: T) => ReactNode;
+  onEdit?: (entry: T) => void;
 };
 
 export function DailyLogCard<T extends DailyLogEntry>({
@@ -128,6 +144,7 @@ export function DailyLogCard<T extends DailyLogEntry>({
   iconClassName,
   renderDetail,
   renderBadge,
+  onEdit,
 }: DailyLogCardProps<T>) {
   const {
     today,
@@ -227,6 +244,20 @@ export function DailyLogCard<T extends DailyLogEntry>({
                   </div>
                   <div className="flex flex-col items-center gap-1 sm:flex-row">
                     {renderBadge?.(entry)}
+                    {onEdit && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Edit ${entry.name}`}
+                        title={`Edit ${entry.name}`}
+                        disabled={!isToday}
+                        onClick={() => onEdit(entry)}
+                        className="text-muted-foreground"
+                      >
+                        <Pencil aria-hidden="true" />
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"

@@ -122,3 +122,66 @@ export async function DELETE(request: Request) {
 
   return new NextResponse(null, {status: 204});
 }
+
+// Corrects what was actually done, e.g. fewer reps or a lighter weight than planned.
+const updateSchema = z
+  .object({
+    id: z.string().min(1),
+    calories: z.number().int().min(0),
+  })
+  .and(exerciseDetailsSchema);
+
+export async function PATCH(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({error: 'Unauthorized'}, {status: 401});
+  }
+
+  try {
+    const parsed = updateSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({error: 'Invalid input'}, {status: 400});
+    }
+    const {id, calories} = parsed.data;
+
+    const entry = await prisma.exerciseLog.findFirst({
+      where: {id, userId: session.user.id},
+      select: {loggedAt: true, type: true},
+    });
+    if (!entry) {
+      return NextResponse.json({error: 'Entry not found'}, {status: 404});
+    }
+
+    const {start, end} = getTodayRange(await getUserTimeZone());
+    if (entry.loggedAt < start || entry.loggedAt > end) {
+      return NextResponse.json(
+        {error: "Only today's entries can be edited"},
+        {status: 403},
+      );
+    }
+
+    if (parsed.data.type !== entry.type) {
+      return NextResponse.json(
+        {error: 'Exercise type cannot be changed'},
+        {status: 400},
+      );
+    }
+
+    const fields = toExerciseFields(parsed.data);
+    const updated = await prisma.exerciseLog.update({
+      where: {id},
+      data: {
+        calories,
+        ...fields,
+        durationMin: fields.durationMin ?? 0,
+      },
+    });
+
+    return NextResponse.json(updated);
+  } catch {
+    return NextResponse.json(
+      {error: 'Failed to update exercise'},
+      {status: 500},
+    );
+  }
+}
