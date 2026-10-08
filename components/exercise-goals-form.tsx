@@ -179,7 +179,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
           them off on the exercise page
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-6 lg:grid-cols-2">
+      <CardContent className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
           {goals.length === 0 ? (
             <p className="text-sm text-muted-foreground">
