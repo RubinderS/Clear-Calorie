@@ -9,6 +9,7 @@ import type {
   ExerciseFields,
   ExerciseType,
 } from '@/lib/exercise';
+import {MAX_REPS} from '@/lib/workout';
 
 export type ExerciseDetailValues = {
   type: ExerciseType;
@@ -121,6 +122,7 @@ export function ExerciseDetailFields({
               id={`${idPrefix}-reps`}
               type="number"
               min={1}
+              max={MAX_REPS}
               value={value.reps}
               onChange={update('reps')}
               required

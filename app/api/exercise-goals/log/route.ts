@@ -5,6 +5,7 @@ import {Prisma} from '@prisma/client';
 import {authOptions} from '@/lib/auth-options';
 import {isActiveOn} from '@/lib/exercise';
 import {prisma} from '@/lib/prisma';
+import {MAX_REPS} from '@/lib/workout';
 import {getTodayDate, getTodayWeekday, getUserTimeZone} from '@/lib/timezone';
 
 // Sets and reps override the goal's for strength goals, e.g. from a workout
@@ -12,7 +13,7 @@ import {getTodayDate, getTodayWeekday, getUserTimeZone} from '@/lib/timezone';
 const tickSchema = z.object({
   goalId: z.string().min(1),
   sets: z.number().int().min(1).optional(),
-  reps: z.number().int().min(1).optional(),
+  reps: z.number().int().min(1).max(MAX_REPS).optional(),
 });
 
 /** Ticks off a planned exercise for today by logging it from the goal. */

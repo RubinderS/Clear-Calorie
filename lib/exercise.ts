@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {MAX_REPS} from '@/lib/workout';
 
 export const EXERCISE_TYPES = ['TIME', 'STRENGTH'] as const;
 export type ExerciseType = (typeof EXERCISE_TYPES)[number];
@@ -11,7 +12,7 @@ export const exerciseDetailsSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('STRENGTH'),
     sets: z.number().int().min(1),
-    reps: z.number().int().min(1),
+    reps: z.number().int().min(1).max(MAX_REPS),
     weight: z.number().positive().nullish(),
   }),
 ]);
