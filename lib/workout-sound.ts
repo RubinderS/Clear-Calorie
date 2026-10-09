@@ -227,8 +227,10 @@ export function unlockAudio(): AudioContext | null {
 export function createWorkoutSound(): WorkoutSound {
   const context = unlockAudio();
 
-  // The clip being spoken; a new one cuts it off, as a new count would.
-  let speaking: {name: string; source: AudioBufferSourceNode} | null = null;
+  // Clips playing or queued, latest last; a new one cuts them off, as a new
+  // count would. endS is when a clip finishes, on the context's clock.
+  let speaking: {name: string; source: AudioBufferSourceNode; endS: number}[] =
+    [];
 
   function chime({frequency, durationMs, gain: toneGain = 1}: Tone) {
     if (!context) return;
@@ -253,38 +255,56 @@ export function createWorkoutSound(): WorkoutSound {
   }
 
   function stop() {
-    if (!speaking) return;
-    speaking.source.onended = null;
-    speaking.source.stop();
-    speaking = null;
+    for (const {source} of speaking) {
+      source.onended = null;
+      source.stop();
+    }
+    speaking = [];
   }
 
-  function say({name, offsetMs}: VoiceClip): boolean {
+  /** afterCount queues the clip behind a count still being spoken. */
+  function say({name, offsetMs}: VoiceClip, afterCount: boolean): boolean {
     const clip = clips.get(name);
     if (!context || !clip) return false;
+    const last = speaking[speaking.length - 1];
     // A countdown already playing has this beat's word in it.
-    if (speaking?.name === name && name.startsWith('countdown-')) return true;
+    if (last?.name === name && name.startsWith('countdown-')) return true;
     const offsetS = clip.startS + offsetMs / 1000;
     if (offsetS >= clip.buffer.duration) return false;
     wake(context);
-    stop();
+    const follows =
+      afterCount && last && !last.name.startsWith('countdown-') ? last : null;
+    if (!follows) stop();
+    const startS = Math.max(
+      context.currentTime,
+      follows ? follows.endS + COUNT_GAP_MS / 1000 : 0,
+    );
     const source = context.createBufferSource();
     source.buffer = clip.buffer;
     source.connect(context.destination);
-    source.start(0, offsetS);
-    const current = {name, source};
-    source.onended = () => {
-      if (speaking === current) speaking = null;
+    source.start(startS, offsetS);
+    const current = {
+      name,
+      source,
+      endS: startS + clip.buffer.duration - offsetS,
     };
-    speaking = current;
+    source.onended = () => {
+      speaking = speaking.filter((s) => s !== current);
+    };
+    speaking.push(current);
     return true;
   }
 
   return {
     play(cue, mode, tempoMs, leadInBeats) {
+      // The final count lands as the set ends; the set-end phrase follows it
+      // rather than cutting it off.
       if (
         mode === 'count' &&
-        say(voiceClip(cue, tempoMs, leadInBeats, clipLengthMs))
+        say(
+          voiceClip(cue, tempoMs, leadInBeats, clipLengthMs),
+          cue.type === 'setEnd',
+        )
       ) {
         return;
       }
@@ -292,7 +312,7 @@ export function createWorkoutSound(): WorkoutSound {
     },
     stop,
     endCountdown() {
-      if (speaking?.name.startsWith('countdown-')) stop();
+      if (speaking.some((s) => s.name.startsWith('countdown-'))) stop();
     },
   };
 }
