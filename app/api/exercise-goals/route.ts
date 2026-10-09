@@ -10,6 +10,7 @@ import {
 import {freezePastPlanDays} from '@/lib/exercise-plan';
 import {prisma} from '@/lib/prisma';
 import {getUserTimeZone} from '@/lib/timezone';
+import {MAX_TEMPO_MS, MIN_TEMPO_MS} from '@/lib/workout';
 
 const exerciseGoalSchema = z
   .object({
@@ -22,6 +23,11 @@ const exerciseGoalSchema = z
       .refine((days) => new Set(days).size === days.length),
   })
   .and(exerciseDetailsSchema);
+
+const tempoSchema = z.object({
+  id: z.string().min(1),
+  tempoMs: z.number().int().min(MIN_TEMPO_MS).max(MAX_TEMPO_MS),
+});
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -83,6 +89,34 @@ export async function POST(request: Request) {
       {error: 'Failed to save exercise goal'},
       {status: 500},
     );
+  }
+}
+
+/** Remembers the workout tempo for a goal; it isn't part of the plan, so no freeze. */
+export async function PATCH(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({error: 'Unauthorized'}, {status: 401});
+  }
+
+  try {
+    const parsed = tempoSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({error: 'Invalid input'}, {status: 400});
+    }
+
+    const {id, tempoMs} = parsed.data;
+    const result = await prisma.exerciseGoal.updateMany({
+      where: {id, userId: session.user.id},
+      data: {tempoMs},
+    });
+    if (result.count === 0) {
+      return NextResponse.json({error: 'Goal not found'}, {status: 404});
+    }
+
+    return new NextResponse(null, {status: 204});
+  } catch {
+    return NextResponse.json({error: 'Failed to save tempo'}, {status: 500});
   }
 }
 

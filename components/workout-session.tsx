@@ -63,7 +63,6 @@ const TICK_MS = 250;
 // Cues this late (e.g. after returning from the background) are skipped.
 const MAX_CUE_LATE_MS = 400;
 const PREFS_KEY = 'clearcalorie:workout-prefs';
-const TEMPOS_KEY = 'clearcalorie:workout-tempos';
 
 const SOUND_OPTIONS: {mode: SoundMode; label: string}[] = [
   {mode: 'tones', label: 'Tones'},
@@ -90,36 +89,26 @@ function savePrefs(prefs: WorkoutPrefs) {
   } catch {}
 }
 
-/** Tempos are remembered per exercise, keyed by its name. */
-function tempoKey(exerciseName: string) {
-  return exerciseName.trim().toLowerCase();
-}
+// Tempos saved since the page loaded, so a rerun doesn't use the stale prop.
+const savedTempos = new Map<string, number>();
 
-function loadTempos(): Record<string, number> {
-  try {
-    const saved = JSON.parse(localStorage.getItem(TEMPOS_KEY) ?? 'null');
-    return saved && typeof saved === 'object' ? saved : {};
-  } catch {
-    return {};
-  }
-}
-
-function loadTempo(exerciseName: string): number {
+function loadTempo(goal: PlannedExercise): number {
   return clampTempo(
-    Number(loadTempos()[tempoKey(exerciseName)]) || DEFAULT_TEMPO_MS,
+    savedTempos.get(goal.id) ?? goal.tempoMs ?? DEFAULT_TEMPO_MS,
   );
 }
 
-function saveTempo(exerciseName: string, tempoMs: number) {
-  try {
-    localStorage.setItem(
-      TEMPOS_KEY,
-      JSON.stringify({
-        ...loadTempos(),
-        [tempoKey(exerciseName)]: clampTempo(tempoMs),
-      }),
-    );
-  } catch {}
+/** Remembers the tempo on the goal so it follows the user across devices. */
+function saveTempo(goalId: string, tempoMs: number) {
+  const value = clampTempo(tempoMs);
+  if (savedTempos.get(goalId) === value) return;
+  savedTempos.set(goalId, value);
+  void fetch('/api/exercise-goals', {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: goalId, tempoMs: value}),
+    keepalive: true,
+  }).catch(() => {});
 }
 
 function formatTempo(tempoMs: number) {
@@ -333,12 +322,12 @@ function StrengthSetup({
   onCancel: () => void;
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
-  const [tempoMs, setTempoMs] = useState(() => loadTempo(goal.name));
+  const [tempoMs, setTempoMs] = useState(() => loadTempo(goal));
   const [reps, setRepsValue] = useState(() => clampReps(goal.reps ?? 10));
 
   function start() {
     savePrefs(prefs);
-    saveTempo(goal.name, tempoMs);
+    saveTempo(goal.id, tempoMs);
     onStart({
       initial: startWorkout(buildWorkoutSteps(goal), Date.now(), {
         reps,
@@ -502,7 +491,7 @@ function ActiveWorkout({
   }, [state.done, state.setsCompleted, state.reps, goal.type, onComplete]);
 
   function changeTempo(tempoMs: number) {
-    saveTempo(goal.name, tempoMs);
+    saveTempo(goal.id, tempoMs);
     advance((current, time) => setTempo(current, tempoMs, time));
   }
 

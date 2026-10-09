@@ -29,6 +29,7 @@ export type PlannedExercise = {
   sets: number | null;
   reps: number | null;
   weight: number | null;
+  tempoMs: number | null;
 };
 
 export function usePlannedExerciseToggle(initialCompletedIds: string[]) {

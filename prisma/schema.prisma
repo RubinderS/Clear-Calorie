@@ -159,6 +159,8 @@ model ExerciseGoal {
   sets        Int?
   reps        Int?
   weight      Float?
+  // Workout rep tempo; null uses the app default
+  tempoMs     Int?
   // Bit n set = active on JS getDay() n (0 = Sunday)
   daysMask    Int
   createdAt   DateTime @default(now())
