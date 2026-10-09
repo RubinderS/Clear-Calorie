@@ -214,9 +214,6 @@ export default async function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Today&apos;s progress</CardTitle>
-          <CardDescription>
-            Calories, exercise, and macros vs. your daily goals
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <NutritionProgress

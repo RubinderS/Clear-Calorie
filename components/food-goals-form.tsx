@@ -5,7 +5,7 @@ import {useRouter} from 'next/navigation';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {Card, CardContent} from '@/components/ui/card';
 import {Goal} from '@prisma/client';
 
 interface FoodGoalsFormProps {
@@ -58,10 +58,7 @@ export function FoodGoalsForm({goals, aiEnabled}: FoodGoalsFormProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Food goal</CardTitle>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col space-y-2">

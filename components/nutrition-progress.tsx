@@ -137,7 +137,7 @@ function ExerciseSummary({done, total}: ExerciseTotals) {
     <div className="flex flex-col items-center gap-2 text-center">
       <div
         role="progressbar"
-        aria-label="Exercise goals completed"
+        aria-label="Exercise plan completed"
         aria-valuemin={0}
         aria-valuemax={total}
         aria-valuenow={done}
@@ -158,7 +158,7 @@ function ExerciseSummary({done, total}: ExerciseTotals) {
       </div>
       <div>
         <p className="text-sm font-medium">Exercise</p>
-        <p className="text-xs text-muted-foreground">Today&apos;s goals</p>
+        <p className="text-xs text-muted-foreground">Today&apos;s plan</p>
       </div>
     </div>
   );

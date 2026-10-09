@@ -16,7 +16,7 @@ export default async function FoodGoalsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="hidden text-3xl font-bold md:block">Food Goals</h1>
+        <h1 className="hidden text-3xl font-bold md:block">Food Goal</h1>
         <p className="text-muted-foreground">
           Set your daily nutrition targets
         </p>

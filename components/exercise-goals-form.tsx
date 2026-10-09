@@ -201,7 +201,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
     <Card>
       <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
         <div className="space-y-1.5">
-          <CardTitle>Exercise goals</CardTitle>
+          <CardTitle>Weekly schedule</CardTitle>
           <CardDescription>
             Save the exercises you plan to do on each day of the week, then tick
             them off on the exercise page
@@ -218,9 +218,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
       </CardHeader>
       <CardContent>
         {goals.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No exercise goals yet.
-          </p>
+          <p className="text-sm text-muted-foreground">No exercise plan yet.</p>
         ) : (
           <div className="space-y-4">
             <div className="flex justify-end">
