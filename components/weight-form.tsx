@@ -9,9 +9,11 @@ import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 
 type WeightFormProps = {
   onLogCreated?: () => void;
+  /** Shown under the title, e.g. a link to past logs. */
+  headerAction?: React.ReactNode;
 };
 
-export function WeightForm({onLogCreated}: WeightFormProps) {
+export function WeightForm({onLogCreated, headerAction}: WeightFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -43,6 +45,7 @@ export function WeightForm({onLogCreated}: WeightFormProps) {
     <Card>
       <CardHeader className="pr-14">
         <CardTitle>Log weight</CardTitle>
+        {headerAction}
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">

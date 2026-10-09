@@ -45,7 +45,6 @@ export default async function LogsPage({
           <Link href="/dashboard" className="underline underline-offset-4">
             Dashboard
           </Link>
-          .
         </p>
       </div>
 

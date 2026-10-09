@@ -33,11 +33,14 @@ const NO_PLANNED_NAMES: string[] = [];
 type ExerciseFormProps = {
   plannedNames?: string[];
   onLogCreated?: () => void;
+  /** Shown under the title, e.g. a link to past logs. */
+  headerAction?: React.ReactNode;
 };
 
 export function ExerciseForm({
   plannedNames = NO_PLANNED_NAMES,
   onLogCreated,
+  headerAction,
 }: ExerciseFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -224,6 +227,7 @@ export function ExerciseForm({
     <Card>
       <CardHeader className="pr-14">
         <CardTitle>Add custom exercise</CardTitle>
+        {headerAction}
       </CardHeader>
       <CardContent>
         <form id="exercise-form" onSubmit={handleSubmit} className="space-y-4">

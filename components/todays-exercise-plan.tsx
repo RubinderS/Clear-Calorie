@@ -97,6 +97,8 @@ type TodaysExercisePlanProps = {
     result?: WorkoutResult,
   ) => void;
   hideCompleted?: boolean;
+  /** Shown under the title, e.g. a link to past logs. */
+  headerAction?: React.ReactNode;
 };
 
 export function TodaysExercisePlan({
@@ -106,6 +108,7 @@ export function TodaysExercisePlan({
   error,
   onToggle,
   hideCompleted = false,
+  headerAction,
 }: TodaysExercisePlanProps) {
   const [workout, setWorkout] = useState<{
     goal: PlannedExercise;
@@ -152,6 +155,7 @@ export function TodaysExercisePlan({
             {doneCount} of {goals.length} done
           </CardDescription>
         )}
+        {headerAction}
       </CardHeader>
       <CardContent>
         {goals.length === 0 ? (

@@ -38,9 +38,15 @@ const MAX_SUGGESTIONS = 8;
 type FoodFormProps = {
   onLogCreated?: () => void;
   aiEnabled?: boolean;
+  /** Shown under the title, e.g. a link to past logs. */
+  headerAction?: React.ReactNode;
 };
 
-export function FoodForm({onLogCreated, aiEnabled}: FoodFormProps) {
+export function FoodForm({
+  onLogCreated,
+  aiEnabled,
+  headerAction,
+}: FoodFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [savedFoods, setSavedFoods] = useState<SavedFoodItem[]>([]);
@@ -276,6 +282,7 @@ export function FoodForm({onLogCreated, aiEnabled}: FoodFormProps) {
     <Card>
       <CardHeader className="pr-14">
         <CardTitle>Add food</CardTitle>
+        {headerAction}
       </CardHeader>
       <CardContent>
         <form id="food-form" onSubmit={handleSubmit} className="space-y-4">

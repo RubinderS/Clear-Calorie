@@ -1,7 +1,8 @@
 'use client';
 
 import {useEffect, useRef, useState} from 'react';
-import {Dumbbell, Plus, Scale, Utensils} from 'lucide-react';
+import Link from 'next/link';
+import {Dumbbell, List, Plus, Scale, Utensils} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
 import {FoodForm} from '@/components/food-form';
@@ -58,24 +59,60 @@ export function QuickLog({plannedExercises, aiEnabled}: QuickLogProps) {
       </div>
 
       <Dialog open={panel === 'food'} onClose={close} label="Log food">
-        <FoodForm onLogCreated={close} aiEnabled={aiEnabled} />
+        <FoodForm
+          onLogCreated={close}
+          aiEnabled={aiEnabled}
+          headerAction={<LogsLink tab="food" onNavigate={close} />}
+        />
       </Dialog>
       <Dialog open={panel === 'exercise'} onClose={close} label="Log exercise">
-        <ExercisePanel goals={plannedExercises} onLogCreated={close} />
+        <ExercisePanel
+          goals={plannedExercises}
+          onLogCreated={close}
+          headerAction={<LogsLink tab="exercise" onNavigate={close} />}
+        />
       </Dialog>
       <Dialog open={panel === 'weight'} onClose={close} label="Log weight">
-        <WeightForm onLogCreated={close} />
+        <WeightForm
+          onLogCreated={close}
+          headerAction={<LogsLink tab="weight" onNavigate={close} />}
+        />
       </Dialog>
     </>
+  );
+}
+
+/** Link button to the matching tab of the Logs page, for past entries. */
+function LogsLink({
+  tab,
+  onNavigate,
+}: {
+  tab: 'food' | 'exercise' | 'weight';
+  onNavigate: () => void;
+}) {
+  return (
+    <Button
+      asChild
+      variant="link"
+      size="sm"
+      className="h-auto self-start px-0"
+    >
+      <Link href={`/logs?tab=${tab}`} onClick={onNavigate}>
+        <List />
+        View logs
+      </Link>
+    </Button>
   );
 }
 
 function ExercisePanel({
   goals,
   onLogCreated,
+  headerAction,
 }: {
   goals: PlannedExerciseStatus[];
   onLogCreated: () => void;
+  headerAction: React.ReactNode;
 }) {
   const hasPlan = goals.length > 0;
   const [showCustom, setShowCustom] = useState(!hasPlan);
@@ -102,6 +139,7 @@ function ExercisePanel({
             void plan.toggle(goal, checked, result)
           }
           hideCompleted
+          headerAction={headerAction}
         />
       )}
       {showCustom ? (
@@ -109,6 +147,7 @@ function ExercisePanel({
           <ExerciseForm
             plannedNames={goals.map((goal) => goal.name)}
             onLogCreated={onLogCreated}
+            headerAction={hasPlan ? undefined : headerAction}
           />
         </div>
       ) : (
