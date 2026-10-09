@@ -65,7 +65,13 @@ export function QuickLog({plannedExercises, aiEnabled}: QuickLogProps) {
           headerAction={<LogsLink tab="food" onNavigate={close} />}
         />
       </Dialog>
-      <Dialog open={panel === 'exercise'} onClose={close} label="Log exercise">
+      {/* Wider on desktop so long exercise names fit. */}
+      <Dialog
+        open={panel === 'exercise'}
+        onClose={close}
+        label="Log exercise"
+        className="md:max-w-3xl lg:max-w-4xl"
+      >
         <ExercisePanel
           goals={plannedExercises}
           onLogCreated={close}

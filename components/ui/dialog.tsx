@@ -2,15 +2,24 @@
 
 import {useEffect, useRef} from 'react';
 import {X} from 'lucide-react';
+import {cn} from '@/lib/utils';
 
 type DialogProps = {
   open: boolean;
   onClose: () => void;
   label: string;
+  /** Extra classes, e.g. a wider max-width. */
+  className?: string;
   children: React.ReactNode;
 };
 
-export function Dialog({open, onClose, label, children}: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  label,
+  className,
+  children,
+}: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -35,7 +44,10 @@ export function Dialog({open, onClose, label, children}: DialogProps) {
           onClose();
         }
       }}
-      className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-background p-0 text-foreground shadow-xl outline-none backdrop:bg-black/50 backdrop:backdrop-blur-sm"
+      className={cn(
+        'm-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-background p-0 text-foreground shadow-xl outline-none backdrop:bg-black/50 backdrop:backdrop-blur-sm',
+        className,
+      )}
     >
       <button
         type="button"
