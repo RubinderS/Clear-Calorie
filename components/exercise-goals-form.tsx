@@ -2,7 +2,14 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {Loader2, Pencil, Plus, Sparkles, Trash2} from 'lucide-react';
+import {
+  ChevronDown,
+  Loader2,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 import type {ExerciseGoal} from '@prisma/client';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
@@ -22,9 +29,10 @@ import {
   toDetailsPayload,
 } from '@/components/exercise-detail-fields';
 import {Decimal} from '@/lib/decimal';
+import {cn} from '@/lib/utils';
 import {
   WEEKDAYS,
-  formatDays,
+  isActiveOn,
   formatExerciseDetail,
   maskToDays,
 } from '@/lib/exercise';
@@ -43,6 +51,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [collapsedDays, setCollapsedDays] = useState<number[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [calories, setCalories] = useState('');
@@ -51,6 +60,16 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   const [estimating, setEstimating] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiAssumptions, setAiAssumptions] = useState<string | null>(null);
+
+  const allCollapsed = collapsedDays.length === WEEKDAYS.length;
+
+  function toggleCollapsed(day: number) {
+    setCollapsedDays((current) =>
+      current.includes(day)
+        ? current.filter((d) => d !== day)
+        : [...current, day],
+    );
+  }
 
   const allDaysSelected = days.length === WEEKDAYS.length;
   const someDaysSelected = days.length > 0 && !allDaysSelected;
@@ -125,7 +144,12 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   }
 
   async function handleDelete(goal: ExerciseGoal) {
-    if (!window.confirm(`Delete goal "${goal.name}"?`)) return;
+    // A goal can be listed under several days; deleting removes it from all.
+    const message =
+      maskToDays(goal.daysMask).length > 1
+        ? `Delete "${goal.name}" from all its days?`
+        : `Delete "${goal.name}"?`;
+    if (!window.confirm(message)) return;
 
     const response = await fetch(`/api/exercise-goals?id=${goal.id}`, {
       method: 'DELETE',
@@ -198,46 +222,109 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
             No exercise goals yet.
           </p>
         ) : (
-          <ul className="space-y-3">
-            {goals.map((goal) => (
-              <li
-                key={goal.id}
-                className="flex items-center justify-between gap-2 rounded-xl border border-border/50 bg-muted/30 p-4"
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setCollapsedDays(
+                    allCollapsed ? [] : WEEKDAYS.map(({day}) => day),
+                  )
+                }
               >
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{goal.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatExerciseDetail(goal)} ·{' '}
-                    {goal.calories > 0 && `${goal.calories} kcal · `}
-                    {formatDays(goal.daysMask)}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Edit ${goal.name}`}
-                    title={`Edit ${goal.name}`}
-                    onClick={() => startEdit(goal)}
+                {allCollapsed ? 'Expand all' : 'Collapse all'}
+              </Button>
+            </div>
+            {WEEKDAYS.map(({day, name}) => {
+              const dayGoals = goals.filter((goal) =>
+                isActiveOn(goal.daysMask, day),
+              );
+              const collapsed = collapsedDays.includes(day);
+              return (
+                <section key={day}>
+                  <h3>
+                    <button
+                      type="button"
+                      aria-expanded={!collapsed}
+                      aria-controls={`exerciseGoalsDay-${day}`}
+                      onClick={() => toggleCollapsed(day)}
+                      className="flex w-full items-center gap-2 rounded-lg py-1 text-left text-sm font-semibold text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <ChevronDown
+                        aria-hidden="true"
+                        className={cn(
+                          'size-4 shrink-0 transition-transform',
+                          collapsed && '-rotate-90',
+                        )}
+                      />
+                      {name}
+                      {collapsed && (
+                        <span className="ml-auto font-normal">
+                          {dayGoals.length === 0
+                            ? 'Rest day'
+                            : `${dayGoals.length} ${dayGoals.length === 1 ? 'exercise' : 'exercises'}`}
+                        </span>
+                      )}
+                    </button>
+                  </h3>
+                  <div
+                    id={`exerciseGoalsDay-${day}`}
+                    hidden={collapsed}
+                    className="mt-2"
                   >
-                    <Pencil aria-hidden="true" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Delete ${goal.name}`}
-                    title={`Delete ${goal.name}`}
-                    onClick={() => void handleDelete(goal)}
-                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-red-500/30 dark:hover:text-red-200"
-                  >
-                    <Trash2 aria-hidden="true" />
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                    {dayGoals.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Rest day</p>
+                    ) : (
+                      <ul className="space-y-3">
+                        {dayGoals.map((goal) => (
+                          <li
+                            key={goal.id}
+                            className="flex items-center justify-between gap-2 rounded-xl border border-border/50 bg-muted/30 p-4"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">
+                                {goal.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatExerciseDetail(goal)}
+                                {goal.calories > 0 &&
+                                  ` · ${goal.calories} kcal`}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Edit ${goal.name}`}
+                                title={`Edit ${goal.name}`}
+                                onClick={() => startEdit(goal)}
+                              >
+                                <Pencil aria-hidden="true" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Delete ${goal.name}`}
+                                title={`Delete ${goal.name}`}
+                                onClick={() => void handleDelete(goal)}
+                                className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-red-500/30 dark:hover:text-red-200"
+                              >
+                                <Trash2 aria-hidden="true" />
+                              </Button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
         )}
       </CardContent>
 

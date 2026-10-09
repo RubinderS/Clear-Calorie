@@ -86,6 +86,11 @@ body {
   background-attachment: fixed;
 }
 
+/* Reserve the scrollbar's space so content doesn't shift when it appears or hides. */
+html {
+  scrollbar-gutter: stable;
+}
+
 html:has(dialog[open]) {
   overflow: hidden;
 }

@@ -5,7 +5,6 @@ import {
   countPlannedOn,
   daysToMask,
   exerciseDetailsSchema,
-  formatDays,
   formatExerciseDetail,
   isActiveOn,
   isSameExerciseName,
@@ -40,12 +39,6 @@ test('countPlannedOn counts active goals that existed by the end of the day', ()
   assert.equal(countPlannedOn(goals, 1, dayEnd), 2);
   assert.equal(countPlannedOn(goals, 0, dayEnd), 1);
   assert.equal(countPlannedOn([], 1, dayEnd), 0);
-});
-
-test('formatDays shows "Every day" or Monday-first labels', () => {
-  assert.equal(formatDays(EVERYDAY_MASK), 'Every day');
-  assert.equal(formatDays(daysToMask([0, 1, 3])), 'Mon, Wed, Sun');
-  assert.equal(formatDays(0), '');
 });
 
 test('formatExerciseDetail renders strength and time entries', () => {

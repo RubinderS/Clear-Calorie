@@ -61,13 +61,13 @@ export function formatExerciseDetail(item: {
 
 // Monday-first for display; `day` matches Date#getDay() (0 = Sunday).
 export const WEEKDAYS = [
-  {day: 1, label: 'Mon'},
-  {day: 2, label: 'Tue'},
-  {day: 3, label: 'Wed'},
-  {day: 4, label: 'Thu'},
-  {day: 5, label: 'Fri'},
-  {day: 6, label: 'Sat'},
-  {day: 0, label: 'Sun'},
+  {day: 1, label: 'Mon', name: 'Monday'},
+  {day: 2, label: 'Tue', name: 'Tuesday'},
+  {day: 3, label: 'Wed', name: 'Wednesday'},
+  {day: 4, label: 'Thu', name: 'Thursday'},
+  {day: 5, label: 'Fri', name: 'Friday'},
+  {day: 6, label: 'Sat', name: 'Saturday'},
+  {day: 0, label: 'Sun', name: 'Sunday'},
 ] as const;
 
 export const EVERYDAY_MASK = 0b1111111;
@@ -93,13 +93,6 @@ export function countPlannedOn(
   return goals.filter(
     (goal) => isActiveOn(goal.daysMask, day) && goal.createdAt <= dayEnd,
   ).length;
-}
-
-export function formatDays(mask: number): string {
-  if ((mask & EVERYDAY_MASK) === EVERYDAY_MASK) return 'Every day';
-  return WEEKDAYS.filter(({day}) => isActiveOn(mask, day))
-    .map(({label}) => label)
-    .join(', ');
 }
 
 export function isSameExerciseName(a: string, b: string): boolean {
