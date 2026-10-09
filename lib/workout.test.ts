@@ -15,9 +15,13 @@ import {
   startWorkout,
   tickWorkout,
   togglePause,
+  FIRST_LEAD_IN_BEATS,
+  LEAD_IN_BEATS,
   LEAD_IN_BEAT_MS,
-  LEAD_IN_MS,
 } from './workout';
+
+const LEAD_IN_MS = FIRST_LEAD_IN_BEATS * LEAD_IN_BEAT_MS;
+const LATER_LEAD_IN_MS = LEAD_IN_BEATS * LEAD_IN_BEAT_MS;
 
 test('buildWorkoutSteps makes one countdown for time goals', () => {
   assert.deepEqual(buildWorkoutSteps({type: 'TIME', durationMin: 20}), [
@@ -64,8 +68,8 @@ test('currentCue counts a time workout in, then stays on go', () => {
     buildWorkoutSteps({type: 'TIME', durationMin: 1}),
     0,
   );
-  assert.deepEqual(currentCue(state, 0)?.cue, {type: 'leadIn', n: 3});
-  assert.deepEqual(currentCue(state, LEAD_IN_BEAT_MS * 2)?.cue, {
+  assert.deepEqual(currentCue(state, 0)?.cue, {type: 'leadIn', n: 5});
+  assert.deepEqual(currentCue(state, LEAD_IN_BEAT_MS * 4)?.cue, {
     type: 'leadIn',
     n: 1,
   });
@@ -137,7 +141,7 @@ test('a set lasts its lead-in plus one tempo beat per rep, then rests', () => {
   assert.equal(resting.setsCompleted, 1);
   const next = tickWorkout(state, setMs + 60_000);
   assert.deepEqual(next.steps[next.index], {kind: 'set', set: 2, sets: 2});
-  const end = 2 * setMs + 60_000;
+  const end = setMs + 60_000 + LATER_LEAD_IN_MS + 5 * 2_000;
   assert.equal(tickWorkout(state, end).done, true);
   assert.equal(tickWorkout(state, end).setsCompleted, 2);
 });
@@ -146,15 +150,25 @@ test('currentCue counts a lead-in, go, then each rep', () => {
   const state = strength(1, 3);
   const cueAt = (now: number) => currentCue(state, now)?.cue;
   const at = (ms: number) => LEAD_IN_MS + ms;
-  assert.deepEqual(cueAt(0), {type: 'leadIn', n: 3});
-  assert.deepEqual(cueAt(LEAD_IN_BEAT_MS * 1.5), {type: 'leadIn', n: 2});
-  assert.deepEqual(cueAt(LEAD_IN_BEAT_MS * 2), {type: 'leadIn', n: 1});
+  assert.deepEqual(cueAt(0), {type: 'leadIn', n: 5});
+  assert.deepEqual(cueAt(LEAD_IN_BEAT_MS * 1.5), {type: 'leadIn', n: 4});
+  assert.deepEqual(cueAt(LEAD_IN_BEAT_MS * 4), {type: 'leadIn', n: 1});
   assert.deepEqual(cueAt(at(0)), {type: 'go'});
   assert.deepEqual(cueAt(at(2_000)), {type: 'rep', n: 1});
   assert.deepEqual(cueAt(at(3_999)), {type: 'rep', n: 1});
   assert.deepEqual(cueAt(at(6_000)), {type: 'rep', n: 3});
   assert.equal(currentCue(state, at(2_100))?.lateMs, 100);
-  assert.equal(currentCue(state, at(2_100))?.key, '0:4');
+  assert.equal(currentCue(state, at(2_100))?.key, '0:6');
+});
+
+test('later sets count in from 3', () => {
+  const state = strength(2, 3);
+  const nextSet = tickWorkout(state, LEAD_IN_MS + 6_000 + 60_000);
+  const start = LEAD_IN_MS + 66_000;
+  assert.deepEqual(currentCue(nextSet, start)?.cue, {type: 'leadIn', n: 3});
+  assert.deepEqual(currentCue(nextSet, start + LATER_LEAD_IN_MS)?.cue, {
+    type: 'go',
+  });
 });
 
 test('currentCue keeps the final rep after the set ends between ticks', () => {

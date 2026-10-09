@@ -17,7 +17,7 @@ import type {PlannedExercise} from '@/components/todays-exercise-plan';
 import {formatExerciseDetail} from '@/lib/exercise';
 import {
   DEFAULT_TEMPO_MS,
-  LEAD_IN_MS,
+  leadInMs,
   MAX_REPS,
   MAX_TEMPO_MS,
   MIN_TEMPO_MS,
@@ -441,7 +441,7 @@ function ActiveWorkout({
   const running = isRunning(state.timer) && !state.done;
   const inSet = step.kind === 'set';
   const leadingIn =
-    step.kind !== 'rest' && elapsedMs(state.timer, now) < LEAD_IN_MS;
+    step.kind !== 'rest' && elapsedMs(state.timer, now) < leadInMs(state);
 
   useWakeLock(!state.done);
   // Music loads during the first countdown and kicks in once it's done.
@@ -513,7 +513,7 @@ function ActiveWorkout({
       ? (100 * cue.n) / state.reps
       : 0
     : step.kind === 'work'
-      ? (100 * Math.max(0, elapsedMs(state.timer, now) - LEAD_IN_MS)) /
+      ? (100 * Math.max(0, elapsedMs(state.timer, now) - leadInMs(state))) /
         step.durationMs
       : (100 * elapsedMs(state.timer, now)) / currentStepDurationMs(state);
 

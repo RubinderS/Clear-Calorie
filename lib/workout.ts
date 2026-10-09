@@ -30,7 +30,9 @@ export const DEFAULT_REST_MS = 60_000;
 export const REST_ADJUST_MS = 15_000;
 // Slow enough for each "3, 2, 1" to be spoken in full before the next.
 export const LEAD_IN_BEAT_MS = 2_000;
-export const LEAD_IN_MS = 3 * LEAD_IN_BEAT_MS;
+// The first count-in is longer to leave time to get set up.
+export const FIRST_LEAD_IN_BEATS = 5;
+export const LEAD_IN_BEATS = 3;
 export const DEFAULT_TEMPO_MS = 3_000;
 export const MIN_TEMPO_MS = 1_000;
 export const MAX_TEMPO_MS = 6_000;
@@ -84,11 +86,19 @@ export function resumeTimer(timer: Timer, now: number): Timer {
   return {...timer, startedAt: now};
 }
 
+export function leadInBeats(state: WorkoutState): number {
+  return state.index === 0 ? FIRST_LEAD_IN_BEATS : LEAD_IN_BEATS;
+}
+
+export function leadInMs(state: WorkoutState): number {
+  return leadInBeats(state) * LEAD_IN_BEAT_MS;
+}
+
 /** Sets and timed work start with a lead-in; a set then runs one tempo beat per rep. */
 export function currentStepDurationMs(state: WorkoutState): number {
   const step = state.steps[state.index];
-  if (step.kind === 'set') return LEAD_IN_MS + state.reps * state.tempoMs;
-  if (step.kind === 'work') return LEAD_IN_MS + step.durationMs;
+  if (step.kind === 'set') return leadInMs(state) + state.reps * state.tempoMs;
+  if (step.kind === 'work') return leadInMs(state) + step.durationMs;
   return step.durationMs;
 }
 
@@ -174,27 +184,31 @@ export function adjustRest(state: WorkoutState, deltaMs: number): WorkoutState {
   };
 }
 
-/** Beat 0-2 are the lead-in and beat 3 is "go". */
-function leadInBeat(elapsed: number) {
-  const beat = Math.min(3, Math.floor(elapsed / LEAD_IN_BEAT_MS));
+/** Beats before `leadInBeats` are the lead-in and beat `leadInBeats` is "go". */
+function leadInBeat(state: WorkoutState, elapsed: number) {
+  const beat = Math.min(
+    leadInBeats(state),
+    Math.floor(elapsed / LEAD_IN_BEAT_MS),
+  );
   return {beat, startMs: beat * LEAD_IN_BEAT_MS};
 }
 
-/** Lead-in beats, then beat 3 + k is rep k. */
+/** Lead-in beats, then beat `leadInBeats` + k is rep k. */
 function setBeat(state: WorkoutState, elapsed: number) {
-  if (elapsed < LEAD_IN_MS) return leadInBeat(elapsed);
+  const leadIn = leadInMs(state);
+  if (elapsed < leadIn) return leadInBeat(state, elapsed);
   const rep = Math.min(
     state.reps,
-    Math.floor((elapsed - LEAD_IN_MS) / state.tempoMs),
+    Math.floor((elapsed - leadIn) / state.tempoMs),
   );
-  return {beat: 3 + rep, startMs: LEAD_IN_MS + rep * state.tempoMs};
+  return {beat: leadInBeats(state) + rep, startMs: leadIn + rep * state.tempoMs};
 }
 
 /** Reps finished in the current set (0 outside a set). */
 export function repsDone(state: WorkoutState, now: number): number {
   if (state.done || state.steps[state.index].kind !== 'set') return 0;
   const {beat} = setBeat(state, elapsedMs(state.timer, now));
-  return Math.max(0, beat - 3);
+  return Math.max(0, beat - leadInBeats(state));
 }
 
 /**
@@ -213,14 +227,15 @@ export function currentCue(
   const elapsed = elapsedMs(state.timer, now);
   const {beat, startMs} =
     step.kind === 'work'
-      ? leadInBeat(elapsed)
+      ? leadInBeat(state, elapsed)
       : setBeat(state, Math.min(elapsed, currentStepDurationMs(state)));
+  const beats = leadInBeats(state);
   const cue: WorkoutCue =
-    beat < 3
-      ? {type: 'leadIn', n: 3 - beat}
-      : beat === 3
+    beat < beats
+      ? {type: 'leadIn', n: beats - beat}
+      : beat === beats
         ? {type: 'go'}
-        : {type: 'rep', n: beat - 3};
+        : {type: 'rep', n: beat - beats};
   return {key: `${state.index}:${beat}`, cue, lateMs: elapsed - startMs};
 }
 
@@ -249,15 +264,16 @@ export function setTempo(
   const nextTempo = clampTempo(tempoMs);
   const step = state.steps[state.index];
   const elapsed = elapsedMs(state.timer, now);
-  if (state.done || step.kind !== 'set' || elapsed < LEAD_IN_MS) {
+  const leadIn = leadInMs(state);
+  if (state.done || step.kind !== 'set' || elapsed < leadIn) {
     return {...state, tempoMs: nextTempo};
   }
-  const repsIn = Math.min(state.reps, (elapsed - LEAD_IN_MS) / state.tempoMs);
+  const repsIn = Math.min(state.reps, (elapsed - leadIn) / state.tempoMs);
   return {
     ...state,
     tempoMs: nextTempo,
     timer: {
-      accumulatedMs: LEAD_IN_MS + repsIn * nextTempo,
+      accumulatedMs: leadIn + repsIn * nextTempo,
       startedAt: isRunning(state.timer) ? now : null,
     },
   };
