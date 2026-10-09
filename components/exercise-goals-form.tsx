@@ -2,9 +2,10 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {Loader2, Pencil, Sparkles, Trash2} from 'lucide-react';
+import {Loader2, Pencil, Plus, Sparkles, Trash2} from 'lucide-react';
 import type {ExerciseGoal} from '@prisma/client';
 import {Button} from '@/components/ui/button';
+import {Dialog} from '@/components/ui/dialog';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {
@@ -41,6 +42,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [calories, setCalories] = useState('');
@@ -53,7 +55,8 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   const allDaysSelected = days.length === WEEKDAYS.length;
   const someDaysSelected = days.length > 0 && !allDaysSelected;
 
-  function resetForm() {
+  function closeDialog() {
+    setDialogOpen(false);
     setEditingId(null);
     setName('');
     setCalories('');
@@ -65,6 +68,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   }
 
   function startEdit(goal: ExerciseGoal) {
+    setDialogOpen(true);
     setEditingId(goal.id);
     setName(goal.name);
     setCalories(goal.calories > 0 ? String(goal.calories) : '');
@@ -127,7 +131,6 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
       method: 'DELETE',
     });
     if (response.ok) {
-      if (editingId === goal.id) resetForm();
       router.refresh();
     }
   }
@@ -166,70 +169,92 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
       return;
     }
 
-    resetForm();
+    closeDialog();
     router.refresh();
   }
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Exercise goals</CardTitle>
-        <CardDescription>
-          Save the exercises you plan to do on each day of the week, then tick
-          them off on the exercise page
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div>
-          {goals.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No exercise goals yet.
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {goals.map((goal) => (
-                <li
-                  key={goal.id}
-                  className="flex items-center justify-between gap-2 rounded-xl border border-border/50 bg-muted/30 p-4"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{goal.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatExerciseDetail(goal)} ·{' '}
-                      {goal.calories > 0 && `${goal.calories} kcal · `}
-                      {formatDays(goal.daysMask)}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Edit ${goal.name}`}
-                      title={`Edit ${goal.name}`}
-                      onClick={() => startEdit(goal)}
-                    >
-                      <Pencil aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Delete ${goal.name}`}
-                      title={`Delete ${goal.name}`}
-                      onClick={() => void handleDelete(goal)}
-                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-red-500/30 dark:hover:text-red-200"
-                    >
-                      <Trash2 aria-hidden="true" />
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+      <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
+        <div className="space-y-1.5">
+          <CardTitle>Exercise goals</CardTitle>
+          <CardDescription>
+            Save the exercises you plan to do on each day of the week, then tick
+            them off on the exercise page
+          </CardDescription>
         </div>
+        <Button
+          type="button"
+          onClick={() => setDialogOpen(true)}
+          className="shrink-0"
+        >
+          <Plus aria-hidden="true" />
+          Add exercise
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {goals.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No exercise goals yet.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {goals.map((goal) => (
+              <li
+                key={goal.id}
+                className="flex items-center justify-between gap-2 rounded-xl border border-border/50 bg-muted/30 p-4"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{goal.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatExerciseDetail(goal)} ·{' '}
+                    {goal.calories > 0 && `${goal.calories} kcal · `}
+                    {formatDays(goal.daysMask)}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Edit ${goal.name}`}
+                    title={`Edit ${goal.name}`}
+                    onClick={() => startEdit(goal)}
+                  >
+                    <Pencil aria-hidden="true" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Delete ${goal.name}`}
+                    title={`Delete ${goal.name}`}
+                    onClick={() => void handleDelete(goal)}
+                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-red-500/30 dark:hover:text-red-200"
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <Dialog
+        open={dialogOpen}
+        onClose={closeDialog}
+        label={editingId ? 'Edit exercise' : 'Add exercise'}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4 p-6">
+          <div className="pr-8">
+            <h2 className="text-lg font-semibold">
+              {editingId ? 'Edit exercise' : 'Add exercise'}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Choose the exercise and the days you plan to do it.
+            </p>
+          </div>
           <div className="flex flex-col space-y-2">
             <Label htmlFor="exerciseGoalName">Exercise</Label>
             <Input
@@ -345,26 +370,24 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
             </p>
           )}
           <div className="flex gap-2">
-            {editingId && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetForm}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeDialog}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
             <Button type="submit" disabled={loading} className="flex-1">
               {loading
                 ? 'Saving...'
                 : editingId
-                  ? 'Update exercise goal'
-                  : 'Add exercise goal'}
+                  ? 'Update exercise'
+                  : 'Add exercise'}
             </Button>
           </div>
         </form>
-      </CardContent>
+      </Dialog>
     </Card>
   );
 }
