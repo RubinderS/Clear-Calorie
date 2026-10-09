@@ -1,41 +1,41 @@
 // Workout cues synthesized in the browser: chimes or the device's
 // built-in voice, so there are no audio files to ship.
 
-import { LEAD_IN_BEAT_MS, type WorkoutCue } from "@/lib/workout";
+import {LEAD_IN_BEAT_MS, type WorkoutCue} from '@/lib/workout';
 
-export type SoundMode = "tones" | "count";
+export type SoundMode = 'tones' | 'count';
 
 export type WorkoutSound = {
   /** tempoMs is the time per rep, so spoken counts can keep up with it. */
   play: (cue: WorkoutCue, mode: SoundMode, tempoMs: number) => void;
 };
 
-type Tone = { frequency: number; durationMs: number; gain?: number };
+type Tone = {frequency: number; durationMs: number; gain?: number};
 
 // Chime notes from a C major chord; durationMs is how long each rings out.
-const LEAD_IN_TONE: Tone = { frequency: 659.25, durationMs: 700 }; // E5
-const REP_TONE: Tone = { frequency: 783.99, durationMs: 500 }; // G5
-const ACCENT_TONE: Tone = { frequency: 1046.5, durationMs: 1600 }; // C6
+const LEAD_IN_TONE: Tone = {frequency: 659.25, durationMs: 700}; // E5
+const REP_TONE: Tone = {frequency: 783.99, durationMs: 500}; // G5
+const ACCENT_TONE: Tone = {frequency: 1046.5, durationMs: 1600}; // C6
 // A full chord that rings longest, so the end of a set stands out.
 const SET_END_TONES: Tone[] = [
-  { frequency: 523.25, durationMs: 2500, gain: 0.5 }, // C5
-  { frequency: 659.25, durationMs: 2500, gain: 0.4 }, // E5
-  { frequency: 783.99, durationMs: 2500, gain: 0.4 }, // G5
-  { frequency: 1046.5, durationMs: 2500, gain: 0.35 }, // C6
+  {frequency: 523.25, durationMs: 2500, gain: 0.5}, // C5
+  {frequency: 659.25, durationMs: 2500, gain: 0.4}, // E5
+  {frequency: 783.99, durationMs: 2500, gain: 0.4}, // G5
+  {frequency: 1046.5, durationMs: 2500, gain: 0.35}, // C6
 ];
 const VOLUME = 0.35;
 const STRIKE_S = 0.003;
 // Overtones give the bell-like color; higher ones are quieter and fade sooner.
 const PARTIALS = [
-  { ratio: 1, gain: 1 },
-  { ratio: 2, gain: 0.35 },
-  { ratio: 3, gain: 0.12 },
+  {ratio: 1, gain: 1},
+  {ratio: 2, gain: 0.35},
+  {ratio: 3, gain: 0.12},
 ];
 
 function cueTones(cue: WorkoutCue): Tone[] {
-  if (cue.type === "leadIn") return [LEAD_IN_TONE];
-  if (cue.type === "go") return [ACCENT_TONE];
-  if (cue.type === "setEnd") return SET_END_TONES;
+  if (cue.type === 'leadIn') return [LEAD_IN_TONE];
+  if (cue.type === 'go') return [ACCENT_TONE];
+  if (cue.type === 'setEnd') return SET_END_TONES;
   return [REP_TONE];
 }
 
@@ -67,9 +67,9 @@ function countWords(n: number, tempoMs: number): string {
 }
 
 function cueWords(cue: WorkoutCue, tempoMs: number): string {
-  if (cue.type === "go") return "Go";
-  if (cue.type === "setEnd") return cue.lastSet ? "Great work" : "And rest";
-  if (cue.type === "leadIn") return String(cue.n);
+  if (cue.type === 'go') return 'Go';
+  if (cue.type === 'setEnd') return cue.lastSet ? 'Great work' : 'And rest';
+  if (cue.type === 'leadIn') return String(cue.n);
   return countWords(cue.n, tempoMs);
 }
 
@@ -83,7 +83,7 @@ const RELAXED_TEMPO_MS = 2_500;
 
 function speechRate(cue: WorkoutCue, tempoMs: number): number {
   const beatMs =
-    cue.type === "rep" ? tempoMs : cue.type === "leadIn" ? LEAD_IN_BEAT_MS : 0;
+    cue.type === 'rep' ? tempoMs : cue.type === 'leadIn' ? LEAD_IN_BEAT_MS : 0;
   if (!beatMs) return BASE_RATE;
   const rate = (BASE_RATE * RELAXED_TEMPO_MS) / beatMs;
   return Math.min(MAX_RATE, Math.max(BASE_RATE, rate));
@@ -94,10 +94,10 @@ function speechRate(cue: WorkoutCue, tempoMs: number): number {
 let sharedContext: AudioContext | null = null;
 
 export function getAudioContext(): AudioContext | null {
-  if (sharedContext && sharedContext.state !== "closed") return sharedContext;
+  if (sharedContext && sharedContext.state !== 'closed') return sharedContext;
   const AudioContextClass =
     window.AudioContext ??
-    (window as unknown as { webkitAudioContext?: typeof AudioContext })
+    (window as unknown as {webkitAudioContext?: typeof AudioContext})
       .webkitAudioContext;
   sharedContext = AudioContextClass ? new AudioContextClass() : null;
   return sharedContext;
@@ -105,7 +105,7 @@ export function getAudioContext(): AudioContext | null {
 
 /** Resumes after the browser suspends audio (iOS reports "interrupted"). */
 function wake(context: AudioContext) {
-  if (context.state !== "running") void context.resume().catch(() => {});
+  if (context.state !== 'running') void context.resume().catch(() => {});
 }
 
 /**
@@ -113,11 +113,6 @@ function wake(context: AudioContext) {
  * started, after which later sounds can play on their own.
  */
 export function unlockAudio(): AudioContext | null {
-  // iOS mutes "ambient" web audio on silent mode; workout cues should still
-  // sound, like a timer app. Safari 16.4+ only.
-  const session = (navigator as { audioSession?: { type: string } })
-    .audioSession;
-  if (session) session.type = "playback";
   const context = getAudioContext();
   if (context) {
     wake(context);
@@ -137,14 +132,14 @@ export function unlockAudio(): AudioContext | null {
 export function createWorkoutSound(): WorkoutSound {
   const context = unlockAudio();
 
-  const speech = "speechSynthesis" in window ? window.speechSynthesis : null;
+  const speech = 'speechSynthesis' in window ? window.speechSynthesis : null;
   if (speech) {
-    const primer = new SpeechSynthesisUtterance(" ");
+    const primer = new SpeechSynthesisUtterance(' ');
     primer.volume = 0;
     speech.speak(primer);
   }
 
-  function chime({ frequency, durationMs, gain: toneGain = 1 }: Tone) {
+  function chime({frequency, durationMs, gain: toneGain = 1}: Tone) {
     if (!context) return;
     wake(context);
     const start = context.currentTime;
@@ -179,8 +174,10 @@ export function createWorkoutSound(): WorkoutSound {
 
   return {
     play(cue, mode, tempoMs) {
+      // Backstop for a cancelled utterance whose onend never fired.
+      if (context) wake(context);
       if (
-        mode === "count" &&
+        mode === 'count' &&
         say(cueWords(cue, tempoMs), speechRate(cue, tempoMs))
       ) {
         return;
