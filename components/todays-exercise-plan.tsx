@@ -170,17 +170,17 @@ export function TodaysExercisePlan({
                   key={goal.id}
                   className="flex items-center rounded-xl border border-border/50 bg-muted/30 transition-colors hover:bg-muted/50"
                 >
-                  <label
-                    htmlFor={inputId}
-                    className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 p-3"
-                  >
+                  {/* Only the checkbox toggles completion; a wrapping label
+                      made taps on the name tick exercises off by mistake. */}
+                  <div className="flex min-w-0 flex-1 items-start gap-3 p-3">
                     <input
                       id={inputId}
                       type="checkbox"
                       checked={checked}
                       disabled={pendingId === goal.id}
                       onChange={(event) => onToggle(goal, event.target.checked)}
-                      className="mt-0.5 h-5 w-5 shrink-0 rounded border-input accent-primary disabled:cursor-wait disabled:opacity-50"
+                      aria-label={`Mark ${goal.name} as done`}
+                      className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-input accent-primary disabled:cursor-wait disabled:opacity-50"
                     />
                     <span className="min-w-0 flex-1">
                       <span
@@ -197,7 +197,7 @@ export function TodaysExercisePlan({
                         {goal.calories > 0 && ` · ${goal.calories} kcal`}
                       </span>
                     </span>
-                  </label>
+                  </div>
                   {!checked && (
                     <Button
                       type="button"
