@@ -429,15 +429,15 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
                 Every day
               </Label>
             </div>
-            <div className="grid grid-cols-4 gap-x-4 gap-y-2 sm:grid-cols-7">
+            <div className="grid grid-cols-4 gap-x-2 gap-y-2 sm:grid-cols-7">
               {WEEKDAYS.map(({day, label}) => (
-                <div key={day} className="flex items-center gap-2">
+                <div key={day} className="flex items-center gap-1.5">
                   <input
                     id={`exerciseGoalDay-${day}`}
                     type="checkbox"
                     checked={days.includes(day)}
                     onChange={(event) => toggleDay(day, event.target.checked)}
-                    className="h-4 w-4 rounded border-input accent-primary"
+                    className="h-4 w-4 shrink-0 rounded border-input accent-primary"
                   />
                   <Label
                     htmlFor={`exerciseGoalDay-${day}`}
