@@ -1,0 +1,77 @@
+import {format} from 'date-fns';
+import {toZoned} from '@/lib/timezone';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {WeightChart} from '@/components/weight-chart';
+import {WeightDeleteButton} from '@/components/weight-delete-button';
+
+interface WeightLogProps {
+  entries: {id: string; weight: number; loggedAt: Date}[];
+  timeZone: string;
+}
+
+export function WeightLog({entries, timeZone}: WeightLogProps) {
+  const chartData = entries
+    .slice()
+    .reverse()
+    .map((entry) => ({
+      date: format(toZoned(entry.loggedAt, timeZone), 'MMM dd'),
+      weight: entry.weight,
+    }));
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent entries</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {entries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No weight entries yet.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {entries.slice(0, 10).map((entry) => (
+                <li
+                  key={entry.id}
+                  className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/30 p-4 transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/10 text-teal-500">
+                      <span className="text-sm font-bold">W</span>
+                    </div>
+                    <p className="font-semibold">{entry.weight}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground">
+                      {format(
+                        toZoned(entry.loggedAt, timeZone),
+                        'MMM dd, yyyy',
+                      )}
+                    </p>
+                    <WeightDeleteButton
+                      entryId={entry.id}
+                      label={`weight entry from ${format(
+                        toZoned(entry.loggedAt, timeZone),
+                        'MMM dd, yyyy',
+                      )}`}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Weight trend</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <WeightChart data={chartData} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

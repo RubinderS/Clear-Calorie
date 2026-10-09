@@ -23,10 +23,9 @@ export default async function DashboardLayout({
 
   const navItems = [
     {href: '/dashboard', label: 'Dashboard'},
-    {href: '/food', label: 'Food Logs'},
-    {href: '/exercise', label: 'Exercise Logs'},
-    {href: '/weight', label: 'Weight Logs'},
-    {href: '/goals', label: 'Goals'},
+    {href: '/logs', label: 'Logs'},
+    {href: '/food-goals', label: 'Food Goals'},
+    {href: '/exercise-plan', label: 'Exercise Plan'},
   ];
 
   return (

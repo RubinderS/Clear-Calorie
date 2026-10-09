@@ -153,8 +153,8 @@ export function TodaysExercisePlan({
         {goals.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nothing planned for today.{' '}
-            <Link href="/goals" className="text-primary hover:underline">
-              Plan exercise goals
+            <Link href="/exercise-plan" className="text-primary hover:underline">
+              Plan your exercises
             </Link>
           </p>
         ) : visibleGoals.length === 0 ? (
