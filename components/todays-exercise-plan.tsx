@@ -1,6 +1,6 @@
 'use client';
 
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {Play} from 'lucide-react';
@@ -15,6 +15,7 @@ import {
 import {WorkoutSession, type WorkoutResult} from '@/components/workout-session';
 import {
   createWorkoutSound,
+  loadWorkoutVoice,
   unlockAudio,
   type WorkoutSound,
 } from '@/lib/workout-sound';
@@ -108,9 +109,13 @@ export function TodaysExercisePlan({
 }: TodaysExercisePlanProps) {
   const [workout, setWorkout] = useState<{
     goal: PlannedExercise;
-    startedAt: number;
     sound: WorkoutSound | null;
   } | null>(null);
+  const hasGoals = goals.length > 0;
+  // Workouts wait for the voice before starting, so get it loading early.
+  useEffect(() => {
+    if (hasGoals) void loadWorkoutVoice();
+  }, [hasGoals]);
   const doneCount = goals.filter((goal) => completedIds.has(goal.id)).length;
   const visibleGoals = hideCompleted
     ? goals.filter((goal) => !completedIds.has(goal.id))
@@ -126,7 +131,6 @@ export function TodaysExercisePlan({
         <CardContent>
           <WorkoutSession
             goal={workout.goal}
-            startedAt={workout.startedAt}
             sound={workout.sound}
             onComplete={(result) => {
               setWorkout(null);
@@ -208,15 +212,15 @@ export function TodaysExercisePlan({
                       aria-label={`Start ${goal.name}`}
                       disabled={pendingId === goal.id}
                       onClick={() => {
-                        // Timed workouts start right away, so their countdown
-                        // voice and music must be unlocked by this tap.
+                        // Timed workouts start without another tap, so their
+                        // countdown voice and music must be unlocked by this one.
                         let sound: WorkoutSound | null = null;
                         if (goal.type === 'STRENGTH') {
                           unlockAudio();
                         } else {
                           sound = createWorkoutSound();
                         }
-                        setWorkout({goal, startedAt: Date.now(), sound});
+                        setWorkout({goal, sound});
                       }}
                     >
                       <Play />

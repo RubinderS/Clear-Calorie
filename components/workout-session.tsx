@@ -3,6 +3,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {
   Check,
+  Loader2,
   Minus,
   Music,
   Pause,
@@ -32,6 +33,7 @@ import {
   elapsedMs,
   formatClock,
   isRunning,
+  leadInBeats,
   nextStep,
   remainingMs,
   setEndCue,
@@ -50,6 +52,7 @@ import {
 } from '@/lib/workout-music';
 import {
   createWorkoutSound,
+  loadWorkoutVoice,
   unlockAudio,
   type SoundMode,
   type WorkoutSound,
@@ -268,10 +271,11 @@ type Session = {
   music: boolean;
 };
 
+/** Builds a session whose timer starts at startedAt. */
+type MakeSession = (startedAt: number) => Session;
+
 type WorkoutSessionProps = {
   goal: PlannedExercise;
-  /** When the Start tap happened; time goals begin right away. */
-  startedAt: number;
   /** Created in the Start tap for time goals; strength goals make their own. */
   sound: WorkoutSound | null;
   onComplete: (result?: WorkoutResult) => void;
@@ -280,27 +284,61 @@ type WorkoutSessionProps = {
 
 export function WorkoutSession({
   goal,
-  startedAt,
   sound,
   onComplete,
   onCancel,
 }: WorkoutSessionProps) {
-  const [session, setSession] = useState<Session | null>(() =>
+  const [session, setSession] = useState<Session | null>(null);
+  // A spoken workout waits here until every voice clip has loaded, so the
+  // timer never runs ahead of a count that can't be said yet.
+  const [waiting, setWaiting] = useState<{make: MakeSession} | null>(() =>
     goal.type === 'STRENGTH'
       ? null
       : {
-          initial: startWorkout(buildWorkoutSteps(goal), startedAt),
-          // Timed work only has the lead-in, so speak "3, 2, 1, Go".
-          mode: 'count',
-          sound,
-          music: loadPrefs().music,
+          make: (startedAt) => ({
+            initial: startWorkout(buildWorkoutSteps(goal), startedAt),
+            // Timed work only has the lead-in, so speak "5, 4, 3, 2, 1, Go".
+            mode: 'count',
+            sound,
+            music: loadPrefs().music,
+          }),
         },
   );
 
-  if (!session) {
+  useEffect(() => {
+    if (!waiting) return;
+    let cancelled = false;
+    void loadWorkoutVoice().then(() => {
+      if (cancelled) return;
+      setWaiting(null);
+      setSession(waiting.make(Date.now()));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [waiting]);
+
+  function start(mode: SoundMode, make: MakeSession) {
+    if (mode === 'count') setWaiting({make});
+    else setSession(make(Date.now()));
+  }
+
+  if (waiting) {
     return (
-      <StrengthSetup goal={goal} onStart={setSession} onCancel={onCancel} />
+      <div className="flex flex-col items-center gap-4 py-6">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <p role="status" className="text-sm text-muted-foreground">
+          Loading voice…
+        </p>
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          <X />
+          Cancel
+        </Button>
+      </div>
     );
+  }
+  if (!session) {
+    return <StrengthSetup goal={goal} onStart={start} onCancel={onCancel} />;
   }
   return (
     <ActiveWorkout
@@ -318,7 +356,7 @@ function StrengthSetup({
   onCancel,
 }: {
   goal: PlannedExercise;
-  onStart: (session: Session) => void;
+  onStart: (mode: SoundMode, make: MakeSession) => void;
   onCancel: () => void;
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
@@ -328,15 +366,17 @@ function StrengthSetup({
   function start() {
     savePrefs(prefs);
     saveTempo(goal.id, tempoMs);
-    onStart({
-      initial: startWorkout(buildWorkoutSteps(goal), Date.now(), {
+    // Made in the tap, not once the voice loads: iOS only unlocks audio here.
+    const sound = createWorkoutSound();
+    onStart(prefs.mode, (startedAt) => ({
+      initial: startWorkout(buildWorkoutSteps(goal), startedAt, {
         reps,
         tempoMs,
       }),
       mode: prefs.mode,
-      sound: createWorkoutSound(),
+      sound,
       music: prefs.music,
-    });
+    }));
   }
 
   useEffect(() => {
@@ -448,7 +488,9 @@ function ActiveWorkout({
       const cue = currentCue(current, time);
       if (!cue || cue.key === lastCueKey.current) return;
       lastCueKey.current = cue.key;
-      if (cue.lateMs <= MAX_CUE_LATE_MS) sound?.play(cue.cue, mode, current.tempoMs);
+      if (cue.lateMs <= MAX_CUE_LATE_MS) {
+        sound?.play(cue.cue, mode, current.tempoMs, leadInBeats(current));
+      }
     },
     [sound, mode],
   );
@@ -465,7 +507,7 @@ function ActiveWorkout({
       );
       if (next !== previous && isRunning(next.timer)) playCue(next, time);
       const endCue = setEndCue(previous, next);
-      if (endCue) sound?.play(endCue, mode, next.tempoMs);
+      if (endCue) sound?.play(endCue, mode, next.tempoMs, leadInBeats(next));
       stateRef.current = next;
       setState(next);
       setNow(time);
@@ -479,6 +521,19 @@ function ActiveWorkout({
     const id = setInterval(() => advance(), fast ? SET_TICK_MS : TICK_MS);
     return () => clearInterval(id);
   }, [running, inSet, leadingIn, advance]);
+
+  // A countdown clip runs ahead of the timer, so it must stop when the timer
+  // does. Finishing doesn't count: "Great work" plays as the workout ends.
+  const paused = !isRunning(state.timer) && !state.done;
+  useEffect(() => {
+    if (paused) sound?.stop();
+  }, [paused, sound]);
+  useEffect(() => () => sound?.endCountdown(), [sound]);
+
+  function cancel() {
+    sound?.stop();
+    onCancel();
+  }
 
   useEffect(() => {
     if (!state.done || completed.current) return;
@@ -614,7 +669,7 @@ function ActiveWorkout({
           <Music />
           Music {musicOn ? 'on' : 'off'}
         </Button>
-        <Button variant="ghost" size="sm" onClick={onCancel}>
+        <Button variant="ghost" size="sm" onClick={cancel}>
           <X />
           Cancel without logging
         </Button>

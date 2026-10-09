@@ -1,13 +1,33 @@
-// Workout cues synthesized in the browser: chimes or the device's
-// built-in voice, so there are no audio files to ship.
+// Workout cues: chimes synthesized in the browser, or a voice recorded into
+// mp3 clips by scripts/voice/generate_voice.py. The clips play through Web
+// Audio rather than the device's speech engine, whose start-up lag varies by
+// device and drifts off the on-screen count.
 
-import {LEAD_IN_BEAT_MS, type WorkoutCue} from '@/lib/workout';
+import {
+  FIRST_LEAD_IN_BEATS,
+  LEAD_IN_BEATS,
+  LEAD_IN_BEAT_MS,
+  MAX_REPS,
+  type WorkoutCue,
+} from '@/lib/workout';
 
 export type SoundMode = 'tones' | 'count';
 
 export type WorkoutSound = {
-  /** tempoMs is the time per rep, so spoken counts can keep up with it. */
-  play: (cue: WorkoutCue, mode: SoundMode, tempoMs: number) => void;
+  /**
+   * tempoMs is the time per rep, so counts can keep up with it; leadInBeats
+   * picks the countdown the cue belongs to.
+   */
+  play: (
+    cue: WorkoutCue,
+    mode: SoundMode,
+    tempoMs: number,
+    leadInBeats: number,
+  ) => void;
+  /** Silences the voice at once, e.g. on pause or cancel. */
+  stop: () => void;
+  /** Cuts off a countdown that no longer applies, but lets a set-end phrase finish. */
+  endCountdown: () => void;
 };
 
 type Tone = {frequency: number; durationMs: number; gain?: number};
@@ -39,54 +59,129 @@ function cueTones(cue: WorkoutCue): Tone[] {
   return [REP_TONE];
 }
 
-// Syllables in zero..nine and ten..nineteen as spoken words.
-const ONES_SYLLABLES = [2, 1, 1, 1, 1, 1, 1, 2, 1, 1];
-const TEENS_SYLLABLES = [1, 3, 1, 2, 2, 2, 2, 3, 2, 2];
+const VOICE_URL = '/audio/voice';
+// Quiet before the next count so two counts never run together.
+const COUNT_GAP_MS = 150;
 
-function countSyllables(n: number): number {
-  if (n >= 100) return 3; // one hundred
-  if (n < 10) return ONES_SYLLABLES[n];
-  if (n < 20) return TEENS_SYLLABLES[n - 10];
-  const tens = Math.floor(n / 10) === 7 ? 3 : 2; // seventy vs twenty
-  return tens + (n % 10 === 0 ? 0 : ONES_SYLLABLES[n % 10]);
+function countdownName(beats: number): string {
+  return `countdown-${beats}`;
 }
 
-// Even at full speed the voice needs time to start, then time per syllable,
-// so fast tempos only leave room for short words.
-const SPEECH_START_MS = 500;
-const SYLLABLE_MS = 400;
-
-/** Long counts shorten to their last digit when they won't fit the beat. */
-function countWords(n: number, tempoMs: number): string {
-  const fits = Math.max(
-    1,
-    Math.floor((tempoMs - SPEECH_START_MS) / SYLLABLE_MS),
-  );
-  if (countSyllables(n) <= fits || n % 10 === 0) return String(n);
+/**
+ * Long counts shorten to their last digit when the clip won't fit the beat.
+ * lengthMs is undefined for a clip that hasn't loaded.
+ */
+export function countClip(
+  n: number,
+  tempoMs: number,
+  lengthMs: (name: string) => number | undefined,
+): string {
+  const full = String(n);
+  if (n < 10 || n % 10 === 0) return full;
+  const length = lengthMs(full);
+  if (length !== undefined && length <= tempoMs - COUNT_GAP_MS) return full;
   return String(n % 10);
 }
 
-function cueWords(cue: WorkoutCue, tempoMs: number): string {
-  if (cue.type === 'go') return 'Go';
-  if (cue.type === 'setEnd') return cue.lastSet ? 'Great work' : 'And rest';
-  if (cue.type === 'leadIn') return String(cue.n);
-  return countWords(cue.n, tempoMs);
+export type VoiceClip = {name: string; offsetMs: number};
+
+/**
+ * The clip for a cue, and how far into it to start. A lead-in is one clip with
+ * a word on each beat, so a countdown joined partway (after a pause, or once
+ * it finishes loading) starts at the current beat and stays on time.
+ */
+export function voiceClip(
+  cue: WorkoutCue,
+  tempoMs: number,
+  leadInBeats: number,
+  lengthMs: (name: string) => number | undefined,
+): VoiceClip {
+  if (cue.type === 'leadIn' || cue.type === 'go') {
+    const beat = cue.type === 'go' ? leadInBeats : leadInBeats - cue.n;
+    return {
+      name: countdownName(leadInBeats),
+      offsetMs: beat * LEAD_IN_BEAT_MS,
+    };
+  }
+  if (cue.type === 'setEnd') {
+    return {name: cue.lastSet ? 'great-work' : 'and-rest', offsetMs: 0};
+  }
+  return {name: countClip(cue.n, tempoMs, lengthMs), offsetMs: 0};
 }
 
-// Speech rates, where 1 is the voice's normal pace. iOS treats 2 as its top
-// speed.
-const BASE_RATE = 0.8;
-const MAX_RATE = 2;
-// The fastest tempo whose counts still finish at BASE_RATE; faster tempos
-// speed the voice up in proportion so the next count doesn't cut it off.
-const RELAXED_TEMPO_MS = 2_500;
+// Most urgent first: the countdown plays the moment a workout starts.
+const CLIP_NAMES = [
+  countdownName(FIRST_LEAD_IN_BEATS),
+  countdownName(LEAD_IN_BEATS),
+  'and-rest',
+  'great-work',
+  ...Array.from({length: MAX_REPS}, (_, i) => String(i + 1)),
+];
 
-function speechRate(cue: WorkoutCue, tempoMs: number): number {
-  const beatMs =
-    cue.type === 'rep' ? tempoMs : cue.type === 'leadIn' ? LEAD_IN_BEAT_MS : 0;
-  if (!beatMs) return BASE_RATE;
-  const rate = (BASE_RATE * RELAXED_TEMPO_MS) / beatMs;
-  return Math.min(MAX_RATE, Math.max(BASE_RATE, rate));
+/** startS skips the silence mp3 encoding adds before the first word. */
+type Clip = {buffer: AudioBuffer; startS: number};
+
+const clips = new Map<string, Clip>();
+// In-flight and finished loads; a failed one is dropped so it's retried.
+const clipLoads = new Map<string, Promise<void>>();
+// A stalled download shouldn't hold the workout hostage; a cue whose clip is
+// missing plays its chime instead.
+const VOICE_LOAD_TIMEOUT_MS = 15_000;
+
+// Encoder padding decodes to near-zero samples; the voice is well above this.
+const SILENCE_LEVEL = 0.003;
+const MAX_PADDING_S = 0.25;
+
+function leadingSilenceS(buffer: AudioBuffer): number {
+  const data = buffer.getChannelData(0);
+  const limit = Math.min(
+    data.length,
+    Math.round(MAX_PADDING_S * buffer.sampleRate),
+  );
+  for (let i = 0; i < limit; i++) {
+    if (Math.abs(data[i]) > SILENCE_LEVEL) return i / buffer.sampleRate;
+  }
+  return 0;
+}
+
+function clipLengthMs(name: string): number | undefined {
+  const clip = clips.get(name);
+  return clip && (clip.buffer.duration - clip.startS) * 1000;
+}
+
+function loadClip(context: AudioContext, name: string): Promise<void> {
+  let load = clipLoads.get(name);
+  if (!load) {
+    load = fetch(`${VOICE_URL}/${name}.mp3`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`${name}: ${response.status}`);
+        return response.arrayBuffer();
+      })
+      .then((data) => context.decodeAudioData(data))
+      .then((buffer) => {
+        clips.set(name, {buffer, startS: leadingSilenceS(buffer)});
+      })
+      .catch(() => {
+        clipLoads.delete(name);
+      });
+    clipLoads.set(name, load);
+  }
+  return load;
+}
+
+/**
+ * Downloads and decodes the voice clips so they play without delay. Resolves
+ * once every clip has loaded or failed, or after VOICE_LOAD_TIMEOUT_MS. Safe
+ * to call repeatedly; clips that failed to load are retried.
+ */
+export function loadWorkoutVoice(): Promise<void> {
+  const context = getAudioContext();
+  if (!context) return Promise.resolve();
+  const loads = Promise.all(CLIP_NAMES.map((name) => loadClip(context, name)));
+  const timeout = new Promise<void>((resolve) =>
+    setTimeout(resolve, VOICE_LOAD_TIMEOUT_MS),
+  );
+  return Promise.race([loads.then(() => {}), timeout]);
 }
 
 // One context for the page: browsers cap how many can exist, and closing it on
@@ -126,18 +221,14 @@ export function unlockAudio(): AudioContext | null {
 }
 
 /**
- * Must be called from a tap: iOS only allows audio and speech that a user
- * gesture started, after which later cues can play on their own.
+ * Must be called from a tap: iOS only allows audio that a user gesture
+ * started, after which later cues can play on their own.
  */
 export function createWorkoutSound(): WorkoutSound {
   const context = unlockAudio();
 
-  const speech = 'speechSynthesis' in window ? window.speechSynthesis : null;
-  if (speech) {
-    const primer = new SpeechSynthesisUtterance(' ');
-    primer.volume = 0;
-    speech.speak(primer);
-  }
+  // The clip being spoken; a new one cuts it off, as a new count would.
+  let speaking: {name: string; source: AudioBufferSourceNode} | null = null;
 
   function chime({frequency, durationMs, gain: toneGain = 1}: Tone) {
     if (!context) return;
@@ -161,28 +252,47 @@ export function createWorkoutSound(): WorkoutSound {
     }
   }
 
-  function say(text: string, rate: number) {
-    if (!speech) return false;
-    // A word being spoken gets to finish, but one still waiting to start means
-    // speech has fallen behind the timer. cancel() can only clear everything.
-    if (speech.pending) speech.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = rate;
-    speech.speak(utterance);
+  function stop() {
+    if (!speaking) return;
+    speaking.source.onended = null;
+    speaking.source.stop();
+    speaking = null;
+  }
+
+  function say({name, offsetMs}: VoiceClip): boolean {
+    const clip = clips.get(name);
+    if (!context || !clip) return false;
+    // A countdown already playing has this beat's word in it.
+    if (speaking?.name === name && name.startsWith('countdown-')) return true;
+    const offsetS = clip.startS + offsetMs / 1000;
+    if (offsetS >= clip.buffer.duration) return false;
+    wake(context);
+    stop();
+    const source = context.createBufferSource();
+    source.buffer = clip.buffer;
+    source.connect(context.destination);
+    source.start(0, offsetS);
+    const current = {name, source};
+    source.onended = () => {
+      if (speaking === current) speaking = null;
+    };
+    speaking = current;
     return true;
   }
 
   return {
-    play(cue, mode, tempoMs) {
-      // Backstop for a cancelled utterance whose onend never fired.
-      if (context) wake(context);
+    play(cue, mode, tempoMs, leadInBeats) {
       if (
         mode === 'count' &&
-        say(cueWords(cue, tempoMs), speechRate(cue, tempoMs))
+        say(voiceClip(cue, tempoMs, leadInBeats, clipLengthMs))
       ) {
         return;
       }
       cueTones(cue).forEach(chime);
+    },
+    stop,
+    endCountdown() {
+      if (speaking?.name.startsWith('countdown-')) stop();
     },
   };
 }
