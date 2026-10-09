@@ -118,7 +118,7 @@ export function TodaysExercisePlan({
   if (workout) {
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="pr-14">
           <CardTitle className="truncate">{workout.goal.name}</CardTitle>
           <CardDescription>Workout in progress</CardDescription>
         </CardHeader>
@@ -140,7 +140,7 @@ export function TodaysExercisePlan({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pr-14">
         <CardTitle>Today&apos;s plan</CardTitle>
         {goals.length > 0 && (
           <CardDescription>

@@ -41,7 +41,7 @@ export function WeightForm({onLogCreated}: WeightFormProps) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pr-14">
         <CardTitle>Log weight</CardTitle>
       </CardHeader>
       <CardContent>

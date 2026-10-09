@@ -222,7 +222,7 @@ export function ExerciseForm({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pr-14">
         <CardTitle>Add custom exercise</CardTitle>
       </CardHeader>
       <CardContent>

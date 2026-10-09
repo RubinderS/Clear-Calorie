@@ -274,7 +274,7 @@ export function FoodForm({onLogCreated, aiEnabled}: FoodFormProps) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pr-14">
         <CardTitle>Add food</CardTitle>
       </CardHeader>
       <CardContent>
