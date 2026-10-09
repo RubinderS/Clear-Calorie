@@ -343,7 +343,6 @@ async function main() {
           carbsGoal: 260,
           fatGoal: 75,
           saturatedFatGoal: 20,
-          weightGoal: 170,
           healthNotes:
             "Watching cholesterol; trying to keep saturated fat low.",
         },

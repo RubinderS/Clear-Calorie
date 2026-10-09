@@ -10,7 +10,6 @@ const goalsSchema = z.object({
   carbsGoal: z.number().int().min(0).optional(),
   fatGoal: z.number().int().min(0).optional(),
   saturatedFatGoal: z.number().int().min(0).optional(),
-  weightGoal: z.number().positive().nullable().optional(),
   healthNotes: z
     .string()
     .trim()
