@@ -62,6 +62,11 @@ export function formatExerciseDetail(item: {
 
 export const EXERCISE_NOTES_MAX = 500;
 
+/** Loads the planned goal's notes alongside an exercise log entry. */
+export const WITH_GOAL_NOTES = {
+  exerciseGoal: {select: {notes: true}},
+} as const;
+
 /** Trims notes, storing blank ones as null. */
 export function normalizeNotes(
   notes: string | undefined | null,

@@ -3,6 +3,7 @@ import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
 import {format} from 'date-fns';
 import {authOptions} from '@/lib/auth-options';
+import {WITH_GOAL_NOTES} from '@/lib/exercise';
 import {prisma} from '@/lib/prisma';
 import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {cn} from '@/lib/utils';
@@ -90,7 +91,11 @@ async function renderTab(tab: Tab, userId: string, timeZone: string) {
   const today = format(toZoned(new Date(), timeZone), 'yyyy-MM-dd');
 
   if (tab === 'exercise') {
-    const entries = await prisma.exerciseLog.findMany({where, orderBy});
+    const entries = await prisma.exerciseLog.findMany({
+      where,
+      orderBy,
+      include: WITH_GOAL_NOTES,
+    });
     return <ExerciseLog entries={entries} timeZone={timeZone} today={today} />;
   }
 

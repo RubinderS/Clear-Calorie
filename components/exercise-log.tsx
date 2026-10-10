@@ -3,6 +3,7 @@
 import {useState} from 'react';
 import {Dumbbell} from 'lucide-react';
 import {DailyLogCard, useDailyLog} from '@/components/daily-log';
+import {GoalNotes} from '@/components/goal-notes';
 import {
   ExerciseDetailFields,
   toDetailValues,
@@ -26,6 +27,7 @@ type ExerciseEntry = {
   reps: number | null;
   weight: number | null;
   exerciseGoalId: string | null;
+  exerciseGoal?: {notes: string | null} | null;
   loggedAt: string | Date;
 };
 
@@ -74,6 +76,9 @@ export function ExerciseLog({entries, timeZone, today}: ExerciseLogProps) {
               log.replaceEntry(updated);
               setEditingEntry(null);
             }}
+            onNotesSaved={(notes) =>
+              log.replaceEntry({...editingEntry, exerciseGoal: {notes}})
+            }
           />
         )}
       </Dialog>
@@ -99,9 +104,14 @@ function workRatio(from: ExerciseDetailValues, to: ExerciseDetailValues) {
 type EditExerciseFormProps = {
   entry: ExerciseEntry;
   onSaved: (entry: ExerciseEntry) => void;
+  onNotesSaved: (notes: string | null) => void;
 };
 
-function EditExerciseForm({entry, onSaved}: EditExerciseFormProps) {
+function EditExerciseForm({
+  entry,
+  onSaved,
+  onNotesSaved,
+}: EditExerciseFormProps) {
   const [original] = useState(() => toDetailValues(entry));
   const [details, setDetails] = useState(original);
   const [calories, setCalories] = useState(String(entry.calories));
@@ -162,7 +172,7 @@ function EditExerciseForm({entry, onSaved}: EditExerciseFormProps) {
       <div className="pr-8">
         <h2 className="text-lg font-semibold">{entry.name}</h2>
         <p className="text-sm text-muted-foreground">
-          Log what you actually did.
+          Log what you actually did
         </p>
       </div>
       <ExerciseDetailFields
@@ -185,6 +195,13 @@ function EditExerciseForm({entry, onSaved}: EditExerciseFormProps) {
           required
         />
       </div>
+      {entry.exerciseGoalId && (
+        <GoalNotes
+          goalId={entry.exerciseGoalId}
+          initialNotes={entry.exerciseGoal?.notes ?? null}
+          onSaved={onNotesSaved}
+        />
+      )}
       {error && (
         <p role="alert" className="text-sm text-red-500">
           {error}

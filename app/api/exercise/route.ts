@@ -3,6 +3,7 @@ import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {
+  WITH_GOAL_NOTES,
   exerciseDetailsSchema,
   isSameExerciseName,
   toExerciseFields,
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
       loggedAt: {gte: range.start, lte: range.end},
     },
     orderBy: {loggedAt: 'desc'},
+    include: WITH_GOAL_NOTES,
   });
 
   return NextResponse.json(entries);
@@ -175,6 +177,7 @@ export async function PATCH(request: Request) {
         ...fields,
         durationMin: fields.durationMin ?? 0,
       },
+      include: WITH_GOAL_NOTES,
     });
 
     return NextResponse.json(updated);
