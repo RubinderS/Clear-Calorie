@@ -8,6 +8,9 @@
     "start": "cross-env TZ=UTC next start",
     "lint": "eslint",
     "test": "tsx --test lib/*.test.ts",
+    "test:e2e": "cross-env TZ=UTC next build && playwright test",
+    "test:e2e:only": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "postinstall": "prisma generate",
     "db:migrate": "cross-env TZ=UTC prisma migrate dev",
     "db:studio": "cross-env TZ=UTC prisma studio",
@@ -41,6 +44,8 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.64.0",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
