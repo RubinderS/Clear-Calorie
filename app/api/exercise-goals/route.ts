@@ -3,8 +3,10 @@ import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {
+  EXERCISE_NOTES_MAX,
   daysToMask,
   exerciseDetailsSchema,
+  normalizeNotes,
   toExerciseFields,
 } from '@/lib/exercise';
 import {freezePastPlanDays} from '@/lib/exercise-plan';
@@ -17,6 +19,7 @@ const exerciseGoalSchema = z
     id: z.string().optional(),
     name: z.string().trim().min(1).max(100),
     calories: z.number().int().min(0).default(0),
+    notes: z.string().max(EXERCISE_NOTES_MAX).nullish(),
     days: z
       .array(z.number().int().min(0).max(6))
       .min(1)
@@ -24,10 +27,13 @@ const exerciseGoalSchema = z
   })
   .and(exerciseDetailsSchema);
 
-const tempoSchema = z.object({
-  id: z.string().min(1),
-  tempoMs: z.number().int().min(MIN_TEMPO_MS).max(MAX_TEMPO_MS),
-});
+const workoutSettingsSchema = z
+  .object({
+    id: z.string().min(1),
+    tempoMs: z.number().int().min(MIN_TEMPO_MS).max(MAX_TEMPO_MS).optional(),
+    notes: z.string().max(EXERCISE_NOTES_MAX).nullish(),
+  })
+  .refine((data) => data.tempoMs !== undefined || data.notes !== undefined);
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -57,10 +63,11 @@ export async function POST(request: Request) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
 
-    const {id, name, calories, days} = parsed.data;
+    const {id, name, calories, notes, days} = parsed.data;
     const data = {
       name,
       calories,
+      notes: normalizeNotes(notes),
       daysMask: daysToMask(days),
       ...toExerciseFields(parsed.data),
     };
@@ -92,7 +99,10 @@ export async function POST(request: Request) {
   }
 }
 
-/** Remembers the workout tempo for a goal; it isn't part of the plan, so no freeze. */
+/**
+ * Updates the workout tempo or notes for a goal from the workout screen.
+ * Neither changes what's planned, so no freeze.
+ */
 export async function PATCH(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -100,15 +110,18 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const parsed = tempoSchema.safeParse(await request.json());
+    const parsed = workoutSettingsSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
 
-    const {id, tempoMs} = parsed.data;
+    const {id, tempoMs, notes} = parsed.data;
     const result = await prisma.exerciseGoal.updateMany({
       where: {id, userId: session.user.id},
-      data: {tempoMs},
+      data: {
+        tempoMs,
+        ...(notes !== undefined && {notes: normalizeNotes(notes)}),
+      },
     });
     if (result.count === 0) {
       return NextResponse.json({error: 'Goal not found'}, {status: 404});
@@ -116,7 +129,10 @@ export async function PATCH(request: Request) {
 
     return new NextResponse(null, {status: 204});
   } catch {
-    return NextResponse.json({error: 'Failed to save tempo'}, {status: 500});
+    return NextResponse.json(
+      {error: 'Failed to save workout settings'},
+      {status: 500},
+    );
   }
 }
 

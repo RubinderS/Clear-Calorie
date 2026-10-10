@@ -31,6 +31,7 @@ import {
 import {Decimal} from '@/lib/decimal';
 import {cn} from '@/lib/utils';
 import {
+  EXERCISE_NOTES_MAX,
   WEEKDAYS,
   isActiveOn,
   formatExerciseDetail,
@@ -55,6 +56,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [calories, setCalories] = useState('');
+  const [notes, setNotes] = useState('');
   const [details, setDetails] = useState(EMPTY_EXERCISE_DETAILS);
   const [days, setDays] = useState<number[]>([]);
   const [estimating, setEstimating] = useState(false);
@@ -79,6 +81,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
     setEditingId(null);
     setName('');
     setCalories('');
+    setNotes('');
     setDetails(EMPTY_EXERCISE_DETAILS);
     setDays([]);
     setError(null);
@@ -91,6 +94,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
     setEditingId(goal.id);
     setName(goal.name);
     setCalories(goal.calories > 0 ? String(goal.calories) : '');
+    setNotes(goal.notes ?? '');
     setDetails(toDetailValues(goal));
     setDays(maskToDays(goal.daysMask));
     setError(null);
@@ -180,6 +184,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
               .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
               .toNumber()
           : 0,
+        notes,
         days,
         ...toDetailsPayload(details),
       }),
@@ -290,6 +295,11 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
                                 {goal.calories > 0 &&
                                   ` · ${goal.calories} kcal`}
                               </p>
+                              {goal.notes && (
+                                <p className="mt-1 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">
+                                  {goal.notes}
+                                </p>
+                              )}
                             </div>
                             <div className="flex shrink-0 items-center">
                               <Button
@@ -404,6 +414,23 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
                 {aiAssumptions && ` ${aiAssumptions}`}
               </p>
             )}
+          </div>
+          <div className="flex flex-col space-y-2">
+            <Label htmlFor="exerciseGoalNotes">
+              Notes{' '}
+              <span className="font-normal text-muted-foreground">
+                (optional)
+              </span>
+            </Label>
+            <textarea
+              id="exerciseGoalNotes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              maxLength={EXERCISE_NOTES_MAX}
+              rows={3}
+              placeholder="e.g. Seat height 4, keep elbows tucked"
+              className="w-full rounded-xl border border-input bg-background/60 px-4 py-2 text-sm shadow-sm transition-all placeholder:text-muted-foreground focus-visible:border-primary/40 focus-visible:bg-background focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10"
+            />
           </div>
           <fieldset className="space-y-3 rounded-xl border border-border/50 bg-muted/30 p-3">
             <legend className="px-1 text-sm font-medium">Days</legend>

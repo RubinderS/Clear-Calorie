@@ -161,6 +161,8 @@ model ExerciseGoal {
   weight      Float?
   // Workout rep tempo; null uses the app default
   tempoMs     Int?
+  // Free-form notes shown in the plan and during the workout
+  notes       String?
   // Bit n set = active on JS getDay() n (0 = Sunday)
   daysMask    Int
   createdAt   DateTime @default(now())

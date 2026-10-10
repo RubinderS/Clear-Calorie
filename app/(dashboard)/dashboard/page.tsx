@@ -244,6 +244,7 @@ export default async function DashboardPage() {
           reps: goal.reps,
           weight: goal.weight,
           tempoMs: goal.tempoMs,
+          notes: goal.notes,
           completed: goal.completed,
         }))}
       />

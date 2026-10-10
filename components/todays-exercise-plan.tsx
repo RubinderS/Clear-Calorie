@@ -31,6 +31,7 @@ export type PlannedExercise = {
   reps: number | null;
   weight: number | null;
   tempoMs: number | null;
+  notes: string | null;
 };
 
 export function usePlannedExerciseToggle(initialCompletedIds: string[]) {
@@ -205,6 +206,11 @@ export function TodaysExercisePlan({
                         {formatExerciseDetail(goal)}
                         {goal.calories > 0 && ` · ${goal.calories} kcal`}
                       </span>
+                      {goal.notes && (
+                        <span className="mt-0.5 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">
+                          {goal.notes}
+                        </span>
+                      )}
                     </span>
                   </div>
                   {!checked && (

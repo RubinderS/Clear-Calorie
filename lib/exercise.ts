@@ -60,6 +60,15 @@ export function formatExerciseDetail(item: {
   return `${item.durationMin ?? 0} min`;
 }
 
+export const EXERCISE_NOTES_MAX = 500;
+
+/** Trims notes, storing blank ones as null. */
+export function normalizeNotes(
+  notes: string | undefined | null,
+): string | null {
+  return notes?.trim() || null;
+}
+
 // Monday-first for display; `day` matches Date#getDay() (0 = Sunday).
 export const WEEKDAYS = [
   {day: 1, label: 'Mon', name: 'Monday'},
