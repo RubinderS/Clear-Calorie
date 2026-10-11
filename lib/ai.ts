@@ -26,8 +26,9 @@ The user describes food they ate. Estimate the total nutrition for everything de
 - If no amount is given, assume one typical single serving.
 - Calories are kilocalories (kcal). If the user gives kilojoules (kJ), convert to kcal (1 kcal = 4.184 kJ).
 - Saturated fat must not exceed total fat.
+- The name must include the quantity of each food item, e.g. "2 eggs, 2 slices toast (70g), 1 flat white (250ml)". Use the amount the user gave; otherwise use the amount you assumed.
 Respond with only a JSON object with these keys:
-{"name": short food name (max 60 chars), "calories": number, "protein": grams, "carbs": grams, "fat": grams, "saturatedFat": grams, "assumptions": one short sentence describing assumed portions}`;
+{"name": short food name with the quantity of each item (max 100 chars), "calories": number, "protein": grams, "carbs": grams, "fat": grams, "saturatedFat": grams, "assumptions": one short sentence describing assumed portions}`;
 
 function buildHealthPrompt(healthNotes: string) {
   return `
@@ -78,7 +79,7 @@ export function parseEstimate(raw: unknown): FoodEstimate | null {
   const {healthAlert, ...estimate} = parsed.data;
   const fat = round1(estimate.fat);
   const result: FoodEstimate = {
-    name: estimate.name.slice(0, 60),
+    name: estimate.name.slice(0, 100),
     calories: Math.round(estimate.calories),
     protein: round1(estimate.protein),
     carbs: round1(estimate.carbs),
