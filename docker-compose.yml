@@ -30,6 +30,10 @@ services:
       # AI_API_KEY: sk-xxxxxxxx
       # AI_MODEL: gpt-4o-mini
       #
+      # Weekly AI reports are written hourly by the server when AI is on;
+      # set to off to disable the job
+      # WEEKLY_REPORTS: 'off'
+      #
       # Only to move the database off the mounted volume
       # DATABASE_URL: file:/app/data/Clear-Calorie.db
     volumes:

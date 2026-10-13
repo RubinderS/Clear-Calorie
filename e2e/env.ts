@@ -82,6 +82,8 @@ export function serverEnv(name: ServerName): Record<string, string> {
     DATABASE_URL: dbUrl(dbFile),
     NEXTAUTH_URL: serverUrl(name),
     NEXTAUTH_SECRET,
+    // The hourly report job would call the AI mock in the background.
+    WEEKLY_REPORTS: 'off',
     ...env,
   };
 }

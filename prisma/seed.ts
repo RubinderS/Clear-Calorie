@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
-import { endOfDay, format, subDays, subMinutes } from "date-fns";
+import { endOfDay, format, parseISO, subDays, subMinutes } from "date-fns";
 import { Decimal } from "@/lib/decimal";
 import {
   EVERYDAY_MASK,
@@ -10,9 +10,17 @@ import {
   daysToMask,
   isActiveOn,
 } from "@/lib/exercise";
+import {
+  generateWeeklyReport,
+  type ReportWriter,
+  type WeeklyReportPrompt,
+} from "@/lib/weekly-report";
+import { currentWeekStart } from "@/lib/weekly-report-metrics";
 
-// Days of history to generate, ending today.
-const HISTORY_DAYS = 28;
+// Completed weeks to write weekly reports for, plus this week so far.
+const REPORT_WEEKS = 20;
+// Days of history to generate, ending today: enough to cover every report week.
+const HISTORY_DAYS = (REPORT_WEEKS + 1) * 7;
 
 function randomNutritionValue(value: number) {
   if (value === 0) return value;
@@ -321,6 +329,97 @@ const SCENARIOS: Record<number, DayScenario> = {
   6: "all-done",
 };
 
+// Stands in for the AI so seeding is offline and repeatable. The metrics,
+// focus checks and report chain still come from the real report code.
+const days = (count: number) => `${count} ${count === 1 ? "day" : "days"}`;
+
+function writeMockReport(prompt: WeeklyReportPrompt) {
+  const { metrics, goals, topIssues, previousFocusResults } = prompt;
+  const satFatTop = topIssues.find((issue) => issue.nutrient === "saturatedFat")
+    ?.sources[0];
+  const sections = [];
+
+  if (previousFocusResults?.length) {
+    sections.push({
+      title: "Last week's focus",
+      points: previousFocusResults.map(
+        (result) =>
+          `${result.text}: ${result.status} (${result.actual ?? "no data"} against a target of ${result.target}).`,
+      ),
+    });
+  }
+  sections.push({
+    title: "Nutrition",
+    points: [
+      `You averaged ${metrics.avgCalories} kcal a day against a ${goals.calorieGoal} kcal goal over ${days(metrics.daysLogged)} logged.`,
+      `Protein averaged ${metrics.avgProtein} g against ${goals.proteinGoal} g, reaching the goal on ${days(metrics.proteinDaysHit)}.`,
+      ...(satFatTop
+        ? [
+            `Saturated fat averaged ${metrics.avgSaturatedFat} g against a ${goals.saturatedFatGoal} g limit; "${satFatTop.name}" was the biggest source.`,
+          ]
+        : []),
+    ],
+  });
+  if (prompt.healthNotes) {
+    sections.push({
+      title: "Your health notes",
+      points: [
+        `With your notes in mind, saturated fat went over the limit on ${days(metrics.satFatDaysOver)}, so that is the number to bring down.`,
+      ],
+    });
+  }
+  sections.push({
+    title: "Training and weight",
+    points: [
+      `You did ${metrics.exercisesDone} of ${metrics.exercisesPlanned} planned exercises and ${metrics.cardioMinutes} minutes of cardio.`,
+      metrics.weightAvg === null
+        ? "No weigh-ins this week."
+        : metrics.prevWeightAvg === null
+          ? `Weight averaged ${metrics.weightAvg} over ${metrics.weighInCount} weigh-ins.`
+          : `Weight averaged ${metrics.weightAvg}, against ${metrics.prevWeightAvg} the week before.`,
+    ],
+  });
+
+  // Like the real prompt asks: after 3 misses in a row, set an easier step.
+  const protein = previousFocusResults?.find((r) => r.metric === "avgProtein");
+  const proteinTarget =
+    protein && protein.status !== "met" && protein.streak >= 3
+      ? Math.min(
+          goals.proteinGoal,
+          Math.round((protein.actual ?? metrics.avgProtein) / 5) * 5 + 10,
+        )
+      : goals.proteinGoal;
+
+  return {
+    headline: `${days(metrics.daysLogged)} logged and ${metrics.exercisesDone} of ${metrics.exercisesPlanned} planned exercises done; saturated fat was over on ${days(metrics.satFatDaysOver)}.`,
+    sections,
+    nextWeekFocus: [
+      {
+        text: `Average at least ${proteinTarget} g protein a day`,
+        metric: "avgProtein",
+        target: proteinTarget,
+      },
+      {
+        text: "Keep saturated fat over the limit on no more than 2 days",
+        metric: "satFatDaysOver",
+        target: 2,
+      },
+      {
+        text: "Pizza at most once",
+        metric: "foodMeals",
+        food: "pizza",
+        target: 1,
+        direction: "max",
+      },
+    ],
+  };
+}
+
+const MOCK_REPORT_WRITER: ReportWriter = {
+  write: async (prompt) => writeMockReport(prompt),
+  model: "seed-mock",
+};
+
 async function main() {
   const email = "demo@example.com";
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -592,11 +691,29 @@ async function main() {
   weightLogs.push({ userId: user.id, weight: 173, loggedAt: dayAt(0) });
   await prisma.weightLog.createMany({ data: weightLogs });
 
+  // Weekly reports for the last REPORT_WEEKS weeks and this week so far,
+  // oldest first so each one follows up on the one before.
+  const thisWeek = currentWeekStart("UTC", now);
+  const reportWeeks = Array.from({ length: REPORT_WEEKS + 1 }, (_, i) =>
+    format(subDays(parseISO(thisWeek), (REPORT_WEEKS - i) * 7), "yyyy-MM-dd"),
+  );
+  let reportCount = 0;
+  for (const weekStart of reportWeeks) {
+    const result = await generateWeeklyReport(
+      user.id,
+      "UTC",
+      weekStart,
+      MOCK_REPORT_WRITER,
+    );
+    if (result === "created") reportCount++;
+  }
+
   console.log("Demo user created:", email);
   console.log(
     `  ${foodLogs.length} food logs, ${exerciseLogs.length} exercise logs, ` +
       `${goals.length} goals, ${frozenDays.length} frozen plan days, ` +
-      `${weightLogs.length} weight logs`,
+      `${weightLogs.length} weight logs, ` +
+      `${reportCount} weekly reports`,
   );
 }
 

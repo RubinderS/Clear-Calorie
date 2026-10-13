@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
+import {after} from 'next/server';
 import {authOptions} from '@/lib/auth-options';
 import {BRAND_GRADIENT, LogoGlyph} from '@/lib/app-icon';
 import {MobileNav} from '@/components/mobile-nav';
@@ -9,6 +10,9 @@ import {ThemeToggle} from '@/components/theme-toggle';
 import {SignOutButton} from '@/components/sign-out-button';
 import {TimezoneSync} from '@/components/timezone-sync';
 import {HeaderTitle} from '@/components/header-title';
+import {getDetectedTimeZone} from '@/lib/timezone';
+import {recordUserVisit} from '@/lib/user-activity';
+import {isAiEnabled} from '@/lib/ai';
 
 export default async function DashboardLayout({
   children,
@@ -21,11 +25,21 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
+  // Cookies can't be read inside after(), so read the timezone first.
+  const userId = session.user.id;
+  const detectedTimeZone = await getDetectedTimeZone();
+  after(() =>
+    recordUserVisit(userId, detectedTimeZone).catch((error) =>
+      console.error('Failed to record user visit', error),
+    ),
+  );
+
   const navItems = [
     {href: '/dashboard', label: 'Dashboard'},
     {href: '/logs', label: 'Logs'},
     {href: '/food-goal', label: 'Food Goal'},
     {href: '/exercise-plan', label: 'Exercise Plan'},
+    ...(isAiEnabled() ? [{href: '/reports', label: 'Reports'}] : []),
   ];
 
   return (

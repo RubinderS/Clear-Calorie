@@ -172,3 +172,68 @@ export async function seedVerificationToken(
   });
   return token;
 }
+
+type WeeklyReportSeed = Partial<
+  Omit<Prisma.WeeklyReportUncheckedCreateInput, 'userId' | 'weekStart'>
+> & {weekStart: string};
+
+/** A generated weekly report; JSON fields take plain values. */
+export function seedWeeklyReport(
+  db: PrismaClient,
+  userId: string,
+  {
+    weekStart,
+    sections = [{title: 'Nutrition', points: ['Seeded point']}],
+    nextWeekFocus = [],
+    lastWeekFocusResults = null,
+    ...data
+  }: Omit<WeeklyReportSeed, 'narrative' | 'nextWeekFocus' | 'lastWeekFocusResults'> & {
+    sections?: unknown[];
+    nextWeekFocus?: unknown[];
+    lastWeekFocusResults?: unknown[] | null;
+  },
+) {
+  const [year, month, day] = weekStart.split('-').map(Number);
+  const weekEnd = new Date(Date.UTC(year, month - 1, day + 6)).toISOString().slice(0, 10);
+  return db.weeklyReport.create({
+    data: {
+      weekStart,
+      weekEnd,
+      timeZone: 'UTC',
+      calorieGoal: 2000,
+      proteinGoal: 150,
+      carbsGoal: 250,
+      fatGoal: 70,
+      saturatedFatGoal: 20,
+      daysLogged: 7,
+      avgCalories: 1900,
+      avgProtein: 120,
+      avgCarbs: 200,
+      avgFat: 60,
+      avgSaturatedFat: 18,
+      calorieDaysOver: 1,
+      proteinDaysHit: 2,
+      satFatDaysOver: 3,
+      healthAlertCount: 0,
+      exercisesPlanned: 10,
+      exercisesDone: 8,
+      cardioMinutes: 90,
+      strengthSessions: 3,
+      exerciseCalories: 900,
+      weighInCount: 2,
+      weightAvg: 74.5,
+      prevWeightAvg: 75,
+      dailyBreakdown: '[]',
+      topIssues: '[]',
+      strengthProgress: '[]',
+      headline: 'Seeded headline',
+      model: 'mock-model',
+      promptVersion: 1,
+      ...data,
+      narrative: JSON.stringify(sections),
+      nextWeekFocus: JSON.stringify(nextWeekFocus),
+      lastWeekFocusResults: lastWeekFocusResults && JSON.stringify(lastWeekFocusResults),
+      userId,
+    },
+  });
+}

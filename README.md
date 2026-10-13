@@ -82,6 +82,37 @@ These are read at runtime, so the Docker image picks them up from the container
 environment without a rebuild (see `docker-compose.yml`). Requests are limited to
 20 per user every 10 minutes when Upstash rate limiting is configured.
 
+## Weekly Reports (optional)
+
+When AI is configured, a **Reports** page appears. Early each Monday (in the
+user's own timezone) the server writes a review of the previous Monday–Sunday
+week: calories and macros against goals, the foods that pushed saturated fat or
+other limits over, exercise plan adherence, strength progress and weight, all
+related to the user's health notes.
+
+- **Numbers come from code, words from the AI.** Metrics, top food sources and
+  strength progress are computed in `lib/weekly-report-metrics.ts`; the AI only
+  writes the summary and proposes up to three measurable goals for the next week
+  (e.g. "paneer at most once", "average 140 g protein").
+- **Each report follows up on the last.** The next report checks those goals
+  against the logs in code (met / improved / missed, with a streak) and the AI
+  writes the follow-up. The Reports page also shows progress on them so far
+  this week.
+- **Timing.** The browser's timezone is saved on the user when they open the
+  app, along with when they were last seen. A job inside the server checks
+  hourly and writes last week's report for users whose week has ended, skipping
+  users with no saved timezone, users inactive for 30 days and weeks with no
+  food logged.
+
+Health notes and the week's food and exercise logs are sent to the configured
+AI service. Set `WEEKLY_REPORTS=off` to turn the hourly job off. To run it once
+by hand, or for one user and week:
+
+```bash
+npm run reports:generate
+npm run reports:generate -- --email you@example.com --week 2026-10-05 --timezone Australia/Sydney
+```
+
 ## Demo Credentials
 
 - Email: `demo@example.com`
@@ -97,6 +128,7 @@ environment without a rebuild (see `docker-compose.yml`). Requests are limited t
 - `npm run db:migrate` — Run Prisma migrations
 - `npm run db:studio` — Open Prisma Studio
 - `npm run db:seed` — Seed the database
+- `npm run reports:generate` — Write any due weekly reports now
 
 ## Numeric Calculations
 

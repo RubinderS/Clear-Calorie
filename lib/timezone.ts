@@ -14,11 +14,16 @@ function isValidTimeZone(timeZone: string): boolean {
   }
 }
 
-/** Reads the browser-detected IANA timezone cookie, falling back to UTC for missing/invalid values. */
-export async function getUserTimeZone(): Promise<string> {
+/** Reads the browser-detected IANA timezone cookie; null when missing or invalid. */
+export async function getDetectedTimeZone(): Promise<string | null> {
   const cookieStore = await cookies();
   const value = cookieStore.get(TIMEZONE_COOKIE)?.value;
-  return value && isValidTimeZone(value) ? value : DEFAULT_TIMEZONE;
+  return value && isValidTimeZone(value) ? value : null;
+}
+
+/** Reads the browser-detected IANA timezone cookie, falling back to UTC for missing/invalid values. */
+export async function getUserTimeZone(): Promise<string> {
+  return (await getDetectedTimeZone()) ?? DEFAULT_TIMEZONE;
 }
 
 /** Start/end of "today" as real UTC instants, computed in the given IANA timezone. */
