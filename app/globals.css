@@ -89,6 +89,8 @@ body {
 /* Reserve the scrollbar's space so content doesn't shift when it appears or hides. */
 html {
   scrollbar-gutter: stable;
+  /* Disable double-tap zoom (pinch is blocked via the viewport meta and gesture handler in layout). */
+  touch-action: manipulation;
 }
 
 html:has(dialog[open]) {

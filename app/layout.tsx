@@ -1,4 +1,4 @@
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import {Geist, Geist_Mono} from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
@@ -21,6 +21,14 @@ export const metadata: Metadata = {
   appleWebApp: {capable: true, title: 'Clear Calorie', statusBarStyle: 'default'},
 };
 
+// Lock zoom so the app behaves like a native app.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 // Runs before hydration so the correct theme (and status bar color) applies without a flash.
 const themeInitScript = `(function(){try{var t=localStorage.getItem('clearcalorie-theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);var m=document.createElement('meta');m.name='theme-color';m.content=d?'${THEME_COLORS.dark}':'${THEME_COLORS.light}';document.head.appendChild(m);var s=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');if(s)s.content=d?'black-translucent':'default';}catch(e){}})();`;
 
@@ -29,6 +37,9 @@ const reloadScrollResetScript = `(function(){try{var n=performance.getEntriesByT
 
 // iOS hides the keyboard when the app is backgrounded but keeps the input focused, leaving an orphaned accessory bar on return; blur so focus state matches.
 const blurOnHideScript = `(function(){document.addEventListener('visibilitychange',function(){if(document.visibilityState!=='hidden')return;var a=document.activeElement;if(a&&a!==document.body&&typeof a.blur==='function')a.blur();});})();`;
+
+// iOS Safari ignores user-scalable=no; cancel its proprietary pinch gesture events instead.
+const preventPinchZoomScript = `(function(){var p=function(e){e.preventDefault();};['gesturestart','gesturechange','gestureend'].forEach(function(t){document.addEventListener(t,p,{passive:false});});})();`;
 
 export default function RootLayout({children}: LayoutProps<'/'>) {
   return (
@@ -52,6 +63,11 @@ export default function RootLayout({children}: LayoutProps<'/'>) {
           id="blur-on-hide"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{__html: blurOnHideScript}}
+        />
+        <Script
+          id="prevent-pinch-zoom"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{__html: preventPinchZoomScript}}
         />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
