@@ -195,6 +195,17 @@ test('setTempo mid-set keeps reps done and the cue key', () => {
   assert.equal(repsDone(state, now + 2_000), 3);
 });
 
+test('setTempo during rest leaves the rest timer and sets the next set', () => {
+  const setMs = LEAD_IN_MS + 3 * 2_000;
+  const resting = tickWorkout(strength(2, 3), setMs);
+  const now = setMs + 20_000;
+  const state = setTempo(resting, 4_000, now);
+  assert.equal(state.steps[state.index].kind, 'rest');
+  assert.equal(remainingMs(state, now), remainingMs(resting, now));
+  const next = tickWorkout(state, setMs + 60_000);
+  assert.equal(remainingMs(next, setMs + 60_000), LATER_LEAD_IN_MS + 3 * 4_000);
+});
+
 test('setTempo clamps to the allowed range', () => {
   assert.equal(setTempo(strength(1, 3), 100, 0).tempoMs, 1_000);
   assert.equal(setTempo(strength(1, 3), 60_000, 0).tempoMs, 6_000);

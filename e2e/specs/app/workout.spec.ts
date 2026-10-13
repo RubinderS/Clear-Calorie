@@ -161,6 +161,14 @@ test('WO-04/05/06/07 a full strength workout', async ({authedPage: page, db, use
   await expect(c.timer).toHaveText('1:00');
   await expect(c.next).toHaveText('Skip rest');
 
+  // Tempo can be changed while resting, ready for the next set.
+  const tempoSaved = nextApiRequest(page, '/api/exercise-goals', 'PATCH');
+  await c.slower.click();
+  await expect(c.tempo).toHaveText('3.5 s / rep');
+  expect((await tempoSaved).postDataJSON()).toEqual({id: goal.id, tempoMs: 3500});
+  await c.faster.click();
+  await expect(c.tempo).toHaveText('3 s / rep');
+
   // WO-06: rest can be adjusted, but not cut below 15 seconds.
   await workout.getByRole('button', {name: '+15s'}).click();
   await expect(c.timer).toHaveText('1:15');
