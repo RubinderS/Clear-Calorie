@@ -102,7 +102,7 @@ related to the user's health notes.
   app, along with when they were last seen. A job inside the server checks
   hourly and writes last week's report for users whose week has ended, skipping
   users with no saved timezone, users inactive for 30 days and weeks with no
-  food logged.
+  food, exercise or weight logged.
 
 Health notes and the week's food and exercise logs are sent to the configured
 AI service. Set `WEEKLY_REPORTS=off` to turn the hourly job off. To run it once

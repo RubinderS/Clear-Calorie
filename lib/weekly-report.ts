@@ -234,7 +234,7 @@ export type ReportWriter = {
 
 /**
  * Builds and saves the report for one Monday-Sunday week. Skips weeks with no
- * food logged. Metrics and focus checks are computed here; the AI only writes
+ * food, exercise or weight logged. Metrics and focus checks are computed here; the AI only writes
  * the text and proposes next week's focus. `writer` replaces the AI, e.g. for
  * seeding demo data.
  */
@@ -257,8 +257,15 @@ export async function generateWeeklyReport(
   if (elapsed.length === 0) return 'no-data';
   const {goals, healthNotes} = await getReportGoals(userId);
   const {input, start} = await loadWeekInput(userId, elapsed, timeZone, goals);
+  // Nothing logged at all means the user wasn't active that week.
+  if (
+    input.food.length === 0 &&
+    input.exercise.length === 0 &&
+    input.weights.length === 0
+  ) {
+    return 'no-data';
+  }
   const metrics = computeWeekMetrics(input);
-  if (metrics.daysLogged === 0) return 'no-data';
 
   const previous = await prisma.weeklyReport.findFirst({
     where: {userId, weekStart: {lt: weekStart}},
