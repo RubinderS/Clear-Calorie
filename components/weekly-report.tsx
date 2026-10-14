@@ -16,11 +16,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {cn} from '@/lib/utils';
-import type {WeeklyReportView} from '@/lib/weekly-report';
+import type {FocusProgress, WeeklyReportView} from '@/lib/weekly-report';
 import {
   planAdherence,
   type FocusMetric,
-  type FocusResult,
   type FocusStatus,
 } from '@/lib/weekly-report-metrics';
 
@@ -46,6 +45,14 @@ const FOCUS_UNITS: Record<FocusMetric, string> = {
   foodMeals: 'meals',
 };
 
+/** "Mon" or "Mon–Wed" for consecutive yyyy-MM-dd dates. */
+function formatDays(days: string[]) {
+  const first = format(parseISO(days[0]), 'EEE');
+  return days.length === 1
+    ? first
+    : `${first}–${format(parseISO(days[days.length - 1]), 'EEE')}`;
+}
+
 function plural(count: number, word: string) {
   return `${count} ${count === 1 ? word : `${word}s`}`;
 }
@@ -55,7 +62,9 @@ function formatFocusValue(metric: FocusMetric, value: number | null) {
   const unit = FOCUS_UNITS[metric];
   if (unit === '%') return `${value}%`;
   // Count units are listed plural; drop the s for exactly one.
-  return value === 1 && unit.endsWith('s') ? `1 ${unit.slice(0, -1)}` : `${value} ${unit}`;
+  return value === 1 && unit.endsWith('s')
+    ? `1 ${unit.slice(0, -1)}`
+    : `${value} ${unit}`;
 }
 
 const STATUS: Record<
@@ -129,11 +138,11 @@ function Scorecard({report}: {report: WeeklyReportView['report']}) {
   // Secondary numbers share one muted line so the four tiles carry the story.
   const extras = [
     {
-      text: `Sat fat ${report.avgSaturatedFat} g`,
+      text: `Saturated fat ${report.avgSaturatedFat} g/day`,
       warn: report.avgSaturatedFat > report.saturatedFatGoal,
     },
-    {text: `Carbs ${Math.round(report.avgCarbs)} g`},
-    {text: `Fat ${Math.round(report.avgFat)} g`},
+    {text: `Carbs ${Math.round(report.avgCarbs)} g/day`},
+    {text: `Fat ${Math.round(report.avgFat)} g/day`},
     {text: `Cardio ${report.cardioMinutes} min`},
     {text: plural(report.strengthSessions, 'strength day')},
     {text: `Logged ${report.daysLogged}/7 days`, warn: report.daysLogged < 5},
@@ -214,10 +223,22 @@ function FocusRow({
   );
 }
 
-function FocusList({title, children}: {title: string; children: ReactNode}) {
+function FocusList({
+  title,
+  valuesTitle,
+  children,
+}: {
+  title: string;
+  /** Heading over the right-hand values column. */
+  valuesTitle?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+      <div className="flex items-baseline justify-between gap-4 text-sm text-muted-foreground">
+        <h3 className="font-medium">{title}</h3>
+        {valuesTitle && <span className="text-right text-xs">{valuesTitle}</span>}
+      </div>
       <ul className="divide-y divide-border/50">{children}</ul>
     </div>
   );
@@ -228,8 +249,8 @@ export function WeeklyReport({
   focusProgress,
 }: {
   view: WeeklyReportView;
-  /** Progress this week on the report's focus; empty for older reports. */
-  focusProgress: FocusResult[];
+  /** Progress this week on the report's focus; null for older reports and on Mondays. */
+  focusProgress: FocusProgress | null;
 }) {
   const {report, sections, lastWeekFocusResults, nextWeekFocus} = view;
   const results = lastWeekFocusResults ?? [];
@@ -266,16 +287,24 @@ export function WeeklyReport({
               </FocusList>
             )}
             {nextWeekFocus.length > 0 && (
-              <FocusList title="This week's focus">
+              <FocusList
+                title="This week's focus"
+                valuesTitle={
+                  focusProgress
+                    ? `So far this week (${formatDays(focusProgress.days)})`
+                    : undefined
+                }
+              >
                 {nextWeekFocus.map((item) => {
-                  const soFar = focusProgress.find((r) => r.id === item.id);
+                  const soFar = focusProgress?.results.find(
+                    (r) => r.id === item.id && r.status !== 'no-data',
+                  );
                   return (
                     <FocusRow
                       key={item.id}
                       text={item.text}
                       value={
-                        soFar &&
-                        `so far ${formatFocusValue(item.metric, soFar.actual)}`
+                        soFar && formatFocusValue(item.metric, soFar.actual)
                       }
                     />
                   );

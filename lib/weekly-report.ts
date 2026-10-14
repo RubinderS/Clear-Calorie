@@ -427,28 +427,39 @@ export function toReportView(report: WeeklyReport): WeeklyReportView {
   };
 }
 
+export type FocusProgress = {
+  /** The completed days of this week the results cover, oldest first. */
+  days: string[];
+  results: FocusResult[];
+};
+
 /**
  * Progress so far this week on a report's next-week focus, from Monday up to
- * today. Empty unless the report covers the week just before this one.
+ * yesterday: today is still being logged and would drag averages down. Null
+ * on Monday, or unless the report covers the week just before this one.
  */
 export async function getFocusProgress(
   userId: string,
   view: WeeklyReportView,
   timeZone: string,
   today: string,
-): Promise<FocusResult[]> {
-  if (view.nextWeekFocus.length === 0) return [];
-  if (view.report.weekStart !== lastCompletedWeekStart(timeZone)) return [];
+): Promise<FocusProgress | null> {
+  if (view.nextWeekFocus.length === 0) return null;
+  if (view.report.weekStart !== lastCompletedWeekStart(timeZone)) return null;
 
-  const thisWeek = weekDates(currentWeekStart(timeZone)).filter(
-    (date) => date <= today,
+  const days = weekDates(currentWeekStart(timeZone)).filter(
+    (date) => date < today,
   );
+  if (days.length === 0) return null;
   const {goals} = await getReportGoals(userId);
-  const {input} = await loadWeekInput(userId, thisWeek, timeZone, goals);
-  return evaluateFocus(
-    view.nextWeekFocus,
-    computeWeekMetrics(input),
-    input.food,
-    null,
-  );
+  const {input} = await loadWeekInput(userId, days, timeZone, goals);
+  return {
+    days,
+    results: evaluateFocus(
+      view.nextWeekFocus,
+      computeWeekMetrics(input),
+      input.food,
+      null,
+    ),
+  };
 }

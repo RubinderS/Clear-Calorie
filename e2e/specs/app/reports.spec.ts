@@ -1,6 +1,6 @@
 import {test, expect} from '../../fixtures/test';
 import {seedFood, seedWeeklyReport} from '../../fixtures/db';
-import {shiftDate} from '../../fixtures/dates';
+import {noonDaysAgo, shiftDate, weekdayIn} from '../../fixtures/dates';
 import {lastCompletedWeekStart} from '../../../lib/weekly-report-metrics';
 
 test('RPT-01 empty state explains reports need AI', async ({authedPage: page}) => {
@@ -63,8 +63,12 @@ test('RPT-02 shows the latest report, its focus follow-up and older weeks', asyn
       },
     ],
   });
-  // Counts towards this week's "so far" progress.
+  // "So far" counts this week's completed days, so on a Monday there are none.
+  const isMonday = weekdayIn() === 1;
   await seedFood(db, user.id, {name: 'Paneer tikka', loggedAt: new Date()});
+  if (!isMonday) {
+    await seedFood(db, user.id, {name: 'Paneer wrap', loggedAt: noonDaysAgo(1)});
+  }
 
   await page.goto('/reports');
   await expect(page.getByText('Latest week headline')).toBeVisible();
@@ -80,8 +84,14 @@ test('RPT-02 shows the latest report, its focus follow-up and older weeks', asyn
   await page.getByText('Full breakdown').click();
   await expect(page.getByText('Squats went up to 40 kg.')).toBeVisible();
 
+  // Today's paneer isn't counted until the day is over.
   const focus = page.locator('li').filter({hasText: 'Paneer at most once'});
-  await expect(focus).toContainText('so far 1 meal');
+  if (isMonday) {
+    await expect(page.getByText(/So far this week/)).toHaveCount(0);
+  } else {
+    await expect(page.getByText(/So far this week \(Mon/)).toBeVisible();
+    await expect(focus).toContainText('1 meal');
+  }
 
   const weeks = page.getByRole('navigation', {name: 'Report weeks'});
   const picker = weeks.getByRole('combobox', {name: 'Report week'});

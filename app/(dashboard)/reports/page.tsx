@@ -40,7 +40,7 @@ export default async function ReportsPage({
   const view = report ? toReportView(report) : null;
   const focusProgress = view
     ? await getFocusProgress(userId, view, timeZone, getTodayDate(timeZone))
-    : [];
+    : null;
 
   return (
     <div className="space-y-6">
