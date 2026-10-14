@@ -2,6 +2,7 @@ import {test, expect} from '../../fixtures/test';
 import {seedFood, seedWeeklyReport} from '../../fixtures/db';
 import {noonDaysAgo, shiftDate, weekdayIn} from '../../fixtures/dates';
 import {lastCompletedWeekStart} from '../../../lib/weekly-report-metrics';
+import {format, parseISO} from 'date-fns';
 
 test('RPT-01 empty state explains reports need AI', async ({authedPage: page}) => {
   await page.goto('/reports');
@@ -122,6 +123,40 @@ test('RPT-03 another user’s report is never shown', async ({
   await page.goto(`/reports?week=${weekStart}`);
   await expect(page.getByText('No reports yet')).toBeVisible();
   await expect(page.getByText('Private headline')).toHaveCount(0);
+});
+
+test('RPT-05 dashboard announces unseen reports until one is opened', async ({
+  authedPage: page,
+  user,
+  makeUser,
+  db,
+}) => {
+  const lastWeek = lastCompletedWeekStart('UTC');
+  const weekBefore = shiftDate(lastWeek, -7);
+  const older = await seedWeeklyReport(db, user.id, {weekStart: weekBefore});
+  const latest = await seedWeeklyReport(db, user.id, {weekStart: lastWeek});
+  // Someone else's unseen report never shows up here.
+  const other = await makeUser();
+  await seedWeeklyReport(db, other.id, {weekStart: lastWeek});
+
+  await page.goto('/dashboard');
+  const notice = page.getByRole('region', {name: 'New weekly report'});
+  await expect(notice).toContainText(
+    `Your weekly report for ${format(parseISO(lastWeek), 'MMM d')} – ${format(parseISO(latest.weekEnd), 'MMM d')} is ready.`,
+  );
+
+  await notice.getByRole('link', {name: 'View report'}).click();
+  await expect(page).toHaveURL('/reports');
+  await expect(page.getByRole('combobox', {name: 'Report week'})).toHaveValue(lastWeek);
+
+  // Opening the latest report covers the older unseen one too.
+  for (const report of [latest, older]) {
+    const {seenAt} = await db.weeklyReport.findUniqueOrThrow({where: {id: report.id}});
+    expect(seenAt).not.toBeNull();
+  }
+  await page.goto('/dashboard');
+  await expect(page.getByText("Today's progress")).toBeVisible();
+  await expect(notice).toHaveCount(0);
 });
 
 test.describe('RPT-04 visits save the timezone for the report job', () => {

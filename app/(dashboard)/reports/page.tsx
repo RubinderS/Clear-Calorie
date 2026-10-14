@@ -35,6 +35,14 @@ export default async function ReportsPage({
         where: {userId_weekStart: {userId, weekStart: selectedWeek}},
       })
     : null;
+  if (report && !report.seenAt) {
+    // Older reports count as seen too, so a skipped week can't keep the
+    // dashboard notice up.
+    await prisma.weeklyReport.updateMany({
+      where: {userId, seenAt: null, weekStart: {lte: report.weekStart}},
+      data: {seenAt: new Date()},
+    });
+  }
 
   const timeZone = await getUserTimeZone();
   const view = report ? toReportView(report) : null;

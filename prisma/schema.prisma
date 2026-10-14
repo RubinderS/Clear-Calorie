@@ -282,6 +282,10 @@ model WeeklyReport {
   model         String
   promptVersion Int
 
+  // When the user first opened this report, or an older one was covered by a
+  // newer one they opened; null shows a "new report" notice on the dashboard
+  seenAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

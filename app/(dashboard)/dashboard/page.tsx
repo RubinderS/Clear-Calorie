@@ -1,5 +1,7 @@
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
+import Link from 'next/link';
+import {FileText} from 'lucide-react';
 import {format, parseISO, subDays} from 'date-fns';
 import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
@@ -25,6 +27,8 @@ import {
 } from '@/components/exercise-chart';
 import {NutritionProgress} from '@/components/nutrition-progress';
 import {QuickLog} from '@/components/quick-log';
+import {Button} from '@/components/ui/button';
+import {formatWeekRange} from '@/components/weekly-report';
 import {Decimal, sumNumbers} from '@/lib/decimal';
 import {getPlannedCounts, getPlannedExerciseGoals} from '@/lib/exercise-plan';
 import {isAiEnabled} from '@/lib/ai';
@@ -50,6 +54,7 @@ export default async function DashboardPage() {
     weekExercise,
     plannedGoals,
     weekPlannedCounts,
+    unseenReport,
   ] = await Promise.all([
     prisma.goal.findUnique({where: {userId}}),
     prisma.foodLog.findMany({
@@ -81,6 +86,11 @@ export default async function DashboardPage() {
     }),
     getPlannedExerciseGoals(userId, timeZone),
     getPlannedCounts(userId, weekDates, timeZone),
+    prisma.weeklyReport.findFirst({
+      where: {userId, seenAt: null},
+      orderBy: {weekStart: 'desc'},
+      select: {weekStart: true, weekEnd: true},
+    }),
   ]);
 
   const todaysExerciseGoals = plannedGoals.map((goal) => ({
@@ -210,6 +220,22 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <h1 className="hidden text-3xl font-bold md:block">Dashboard</h1>
+
+      {unseenReport && (
+        <Card role="region" aria-label="New weekly report">
+          <CardContent className="flex flex-wrap items-center gap-3 pt-6">
+            <FileText className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+            <p className="min-w-0 flex-1 text-sm">
+              Your weekly report for{' '}
+              {formatWeekRange(unseenReport.weekStart, unseenReport.weekEnd)}{' '}
+              is ready.
+            </p>
+            <Button asChild size="sm">
+              <Link href="/reports">View report</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
