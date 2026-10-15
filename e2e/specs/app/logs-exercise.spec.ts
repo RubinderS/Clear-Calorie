@@ -74,16 +74,23 @@ test.describe('EL-03 editing what was done', () => {
     // Not a planned entry, so no goal notes.
     await expect(edit.getByRole('heading', {name: 'Notes'})).toHaveCount(0);
 
+    // Entries logged before sets were kept get one row per set.
     const calories = edit.getByLabel('Calories burned');
     await expect(calories).toHaveValue('210');
-    await edit.getByLabel('Reps').fill('5');
-    await expect(calories).toHaveValue('105');
-    await edit.getByLabel('Weight').fill('100');
-    await expect(calories).toHaveValue('210');
+    await expect(edit.getByLabel('Set 3 reps')).toHaveValue('10');
+    await expect(edit.getByLabel('Set 3 weight')).toHaveValue('50');
+    await expect(edit.getByRole('button', {name: 'Remove set 1'})).toBeEnabled();
 
-    // Once set by hand, calories stop following the details.
+    // A pyramid: heavier each set.
+    await edit.getByLabel('Set 2 weight').fill('60');
+    await edit.getByLabel('Set 3 weight').fill('70');
+    await expect(calories).toHaveValue('252');
+    await edit.getByLabel('Set 3 reps').fill('5');
+    await expect(calories).toHaveValue('203');
+
+    // Once set by hand, calories stop following the sets.
     await calories.fill('200');
-    await edit.getByLabel('Reps').fill('10');
+    await edit.getByLabel('Set 1 reps').fill('12');
     await expect(calories).toHaveValue('200');
 
     const request = nextApiRequest(page, '/api/exercise', 'PATCH');
@@ -93,12 +100,26 @@ test.describe('EL-03 editing what was done', () => {
       calories: 200,
       type: 'STRENGTH',
       sets: 3,
-      reps: 10,
-      weight: 100,
+      reps: 5,
+      weight: 70,
+      exerciseSets: [
+        {reps: 12, weight: 50},
+        {reps: 10, weight: 60},
+        {reps: 5, weight: 70},
+      ],
     });
     await expect(edit).toBeHidden();
-    await expect(logRow(page, 'Bench press')).toContainText('3 × 10 @ 100');
+    await expect(logRow(page, 'Bench press')).toContainText('12 @ 50, 10 @ 60, 5 @ 70');
     await expect(logRow(page, 'Bench press')).toContainText('200 kcal');
+
+    // Reopening shows the sets as saved; one set can't be removed.
+    await logRow(page, 'Bench press').getByRole('button', {name: 'Edit Bench press'}).click();
+    await expect(edit.getByLabel('Set 2 weight')).toHaveValue('60');
+    await edit.getByRole('button', {name: 'Remove set 3'}).click();
+    await edit.getByRole('button', {name: 'Remove set 2'}).click();
+    await expect(edit.getByRole('button', {name: 'Remove set 1'})).toBeDisabled();
+    await edit.getByRole('button', {name: 'Save changes'}).click();
+    await expect(logRow(page, 'Bench press')).toContainText('1 × 12 @ 50');
   });
 
   test('time calories scale with duration', async ({authedPage: page, db, user}) => {
@@ -143,7 +164,7 @@ test('EL-04 planned entries edit the goal notes', async ({authedPage: page, db, 
 
   const edit = dialog(page, 'Edit exercise');
   await expect(edit.getByText('No notes yet.')).toBeVisible();
-  await edit.getByRole('button', {name: 'Add'}).click();
+  await edit.getByRole('button', {name: 'Add', exact: true}).click();
   await edit.getByLabel('Notes').fill('Knee over ankle');
 
   const request = nextApiRequest(page, '/api/exercise-goals', 'PATCH');

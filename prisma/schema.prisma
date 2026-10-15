@@ -129,9 +129,24 @@ model ExerciseLog {
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   exerciseGoal ExerciseGoal? @relation(fields: [exerciseGoalId], references: [id], onDelete: SetNull)
+  // Strength sets as done; sets/reps/weight above summarize them (count and top set)
+  exerciseSets ExerciseSet[]
 
   @@unique([exerciseGoalId, goalDate])
   @@index([userId, loggedAt])
+}
+
+model ExerciseSet {
+  id            String  @id @default(cuid())
+  exerciseLogId String
+  // 1-based order within the log
+  position      Int
+  reps          Int
+  weight        Float?
+
+  exerciseLog ExerciseLog @relation(fields: [exerciseLogId], references: [id], onDelete: Cascade)
+
+  @@unique([exerciseLogId, position])
 }
 
 model SavedExerciseItem {

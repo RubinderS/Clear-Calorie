@@ -8,8 +8,11 @@ import {
   formatExerciseDetail,
   isActiveOn,
   isSameExerciseName,
+  isUniform,
   maskToDays,
+  summarizeSets,
   toExerciseFields,
+  uniformSets,
 } from './exercise';
 
 test('day masks round-trip and list days Monday-first', () => {
@@ -51,6 +54,49 @@ test('formatExerciseDetail renders strength and time entries', () => {
     '4 × 8',
   );
   assert.equal(formatExerciseDetail({type: 'TIME', durationMin: 30}), '30 min');
+});
+
+test('formatExerciseDetail lists sets that differ', () => {
+  const sets = (...list: [number, number | null][]) =>
+    list.map(([reps, weight]) => ({reps, weight}));
+  const entry = {type: 'STRENGTH', sets: 3, reps: 6, weight: 50};
+  assert.equal(
+    formatExerciseDetail({...entry, exerciseSets: sets([10, 40], [8, 45], [6, 50])}),
+    '10 @ 40, 8 @ 45, 6 @ 50',
+  );
+  assert.equal(
+    formatExerciseDetail({...entry, exerciseSets: sets([10, null], [8, null])}),
+    '10, 8 reps',
+  );
+  assert.equal(
+    formatExerciseDetail({...entry, exerciseSets: sets([10, 40], [8, null])}),
+    '10 @ 40, 8',
+  );
+  assert.equal(
+    formatExerciseDetail({...entry, exerciseSets: sets([5, 60], [5, 60])}),
+    '2 × 5 @ 60',
+  );
+});
+
+test('summarizeSets counts sets and picks the top set', () => {
+  assert.deepEqual(
+    summarizeSets([
+      {reps: 10, weight: 40},
+      {reps: 6, weight: 50},
+      {reps: 8, weight: 50},
+    ]),
+    {sets: 3, reps: 8, weight: 50},
+  );
+  assert.deepEqual(summarizeSets([{reps: 10}, {reps: 12, weight: null}]), {
+    sets: 2,
+    reps: 12,
+    weight: null,
+  });
+  assert.deepEqual(uniformSets(2, 10, undefined), [
+    {reps: 10, weight: null},
+    {reps: 10, weight: null},
+  ]);
+  assert.equal(isUniform(uniformSets(3, 8, 20)), true);
 });
 
 test('isSameExerciseName ignores case and surrounding whitespace', () => {

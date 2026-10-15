@@ -18,6 +18,8 @@ export type WorkoutState = {
   /** Time per rep in a set. */
   tempoMs: number;
   setsCompleted: number;
+  /** Reps of each finished set, as set when it ended. */
+  completedReps: number[];
 };
 
 export type WorkoutCue =
@@ -122,19 +124,24 @@ export function startWorkout(
     reps: clampReps(options.reps ?? 1),
     tempoMs: clampTempo(options.tempoMs ?? DEFAULT_TEMPO_MS),
     setsCompleted: 0,
+    completedReps: [],
   };
 }
 
 /** Moves to the next step with its timer starting at `at`; finishes after the last step. */
 export function nextStep(state: WorkoutState, at: number): WorkoutState {
   if (state.done) return state;
-  const setsCompleted =
-    state.setsCompleted + (state.steps[state.index].kind === 'set' ? 1 : 0);
+  const inSet = state.steps[state.index].kind === 'set';
+  const setsCompleted = state.setsCompleted + (inSet ? 1 : 0);
+  const completedReps = inSet
+    ? [...state.completedReps, state.reps]
+    : state.completedReps;
   const index = state.index + 1;
   if (index >= state.steps.length) {
     return {
       ...state,
       setsCompleted,
+      completedReps,
       timer: pauseTimer(state.timer, at),
       done: true,
     };
@@ -143,6 +150,7 @@ export function nextStep(state: WorkoutState, at: number): WorkoutState {
     ...state,
     index,
     setsCompleted,
+    completedReps,
     timer: {accumulatedMs: 0, startedAt: at},
   };
 }

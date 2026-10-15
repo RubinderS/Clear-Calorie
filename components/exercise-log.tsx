@@ -5,17 +5,15 @@ import {Dumbbell} from 'lucide-react';
 import {DailyLogCard, useDailyLog} from '@/components/daily-log';
 import {GoalNotes} from '@/components/goal-notes';
 import {
-  ExerciseDetailFields,
-  toDetailValues,
-  toDetailsPayload,
-  type ExerciseDetailValues,
+  ExerciseLogFields,
+  initialLogValues,
+  toLogPayload,
+  toWorkValues,
 } from '@/components/exercise-detail-fields';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
-import {Input} from '@/components/ui/input';
-import {Label} from '@/components/ui/label';
-import {Decimal, sumNumbers} from '@/lib/decimal';
-import {formatExerciseDetail} from '@/lib/exercise';
+import {sumNumbers} from '@/lib/decimal';
+import {formatExerciseDetail, type ExerciseSet} from '@/lib/exercise';
 
 type ExerciseEntry = {
   id: string;
@@ -26,6 +24,7 @@ type ExerciseEntry = {
   sets: number | null;
   reps: number | null;
   weight: number | null;
+  exerciseSets?: ExerciseSet[];
   exerciseGoalId: string | null;
   exerciseGoal?: {notes: string | null} | null;
   loggedAt: string | Date;
@@ -86,21 +85,6 @@ export function ExerciseLog({entries, timeZone, today}: ExerciseLogProps) {
   );
 }
 
-/** Relative amount of work, used to scale calories when the details change. */
-function workRatio(from: ExerciseDetailValues, to: ExerciseDetailValues) {
-  if (to.type === 'STRENGTH') {
-    const fromVolume = Number(from.sets) * Number(from.reps);
-    const toVolume = Number(to.sets) * Number(to.reps);
-    const fromWeight = Number(from.weight);
-    const toWeight = Number(to.weight);
-    const weightRatio =
-      fromWeight > 0 && toWeight > 0 ? toWeight / fromWeight : 1;
-    return fromVolume > 0 ? (toVolume / fromVolume) * weightRatio : null;
-  }
-  const fromDuration = Number(from.durationMin);
-  return fromDuration > 0 ? Number(to.durationMin) / fromDuration : null;
-}
-
 type EditExerciseFormProps = {
   entry: ExerciseEntry;
   onSaved: (entry: ExerciseEntry) => void;
@@ -112,29 +96,12 @@ function EditExerciseForm({
   onSaved,
   onNotesSaved,
 }: EditExerciseFormProps) {
-  const [original] = useState(() => toDetailValues(entry));
-  const [details, setDetails] = useState(original);
-  const [calories, setCalories] = useState(String(entry.calories));
-  // Calories follow the details proportionally until the user sets them.
-  const [caloriesEdited, setCaloriesEdited] = useState(false);
+  const [original] = useState(() => toWorkValues(entry));
+  const [values, setValues] = useState(() =>
+    initialLogValues(original, entry.calories),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  function handleDetailsChange(next: ExerciseDetailValues) {
-    setDetails(next);
-    if (caloriesEdited) return;
-    const ratio = workRatio(original, next);
-    if (ratio !== null && Number.isFinite(ratio)) {
-      setCalories(
-        String(
-          new Decimal(entry.calories)
-            .times(ratio)
-            .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
-            .toNumber(),
-        ),
-      );
-    }
-  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -145,13 +112,7 @@ function EditExerciseForm({
       const response = await fetch('/api/exercise', {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          id: entry.id,
-          calories: new Decimal(Number(calories))
-            .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
-            .toNumber(),
-          ...toDetailsPayload(details),
-        }),
+        body: JSON.stringify({id: entry.id, ...toLogPayload(values)}),
       });
 
       if (response.ok) {
@@ -175,26 +136,13 @@ function EditExerciseForm({
           Log what you actually did
         </p>
       </div>
-      <ExerciseDetailFields
+      <ExerciseLogFields
         idPrefix="edit-exercise"
-        value={details}
-        onChange={handleDetailsChange}
-        lockType
+        baseline={original}
+        baselineCalories={entry.calories}
+        value={values}
+        onChange={setValues}
       />
-      <div className="flex flex-col space-y-2">
-        <Label htmlFor="edit-exercise-calories">Calories burned</Label>
-        <Input
-          id="edit-exercise-calories"
-          type="number"
-          min={0}
-          value={calories}
-          onChange={(event) => {
-            setCalories(event.target.value);
-            setCaloriesEdited(true);
-          }}
-          required
-        />
-      </div>
       {entry.exerciseGoalId && (
         <GoalNotes
           goalId={entry.exerciseGoalId}

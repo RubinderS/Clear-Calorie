@@ -59,7 +59,8 @@ import {
   type WorkoutSound,
 } from '@/lib/workout-sound';
 
-export type WorkoutResult = {sets: number; reps: number};
+/** Reps of each set done, in order. */
+export type WorkoutResult = {setReps: number[]};
 
 // Sets tick faster so rep cues land close to the beat.
 const SET_TICK_MS = 50;
@@ -549,10 +550,14 @@ function ActiveWorkout({
     completed.current = true;
     onComplete(
       goal.type === 'STRENGTH'
-        ? {sets: Math.max(1, state.setsCompleted), reps: state.reps}
+        ? {
+            setReps: state.completedReps.length
+              ? state.completedReps
+              : [state.reps],
+          }
         : undefined,
     );
-  }, [state.done, state.setsCompleted, state.reps, goal.type, onComplete]);
+  }, [state.done, state.completedReps, state.reps, goal.type, onComplete]);
 
   function changeTempo(tempoMs: number) {
     saveTempo(goal.id, tempoMs);

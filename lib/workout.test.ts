@@ -233,6 +233,20 @@ test('ending a set early still counts it', () => {
   assert.equal(state.setsCompleted, 3);
 });
 
+test('each set keeps the reps it ended with', () => {
+  let state = strength(3, 10);
+  state = nextStep(state, 5_000); // set 1 done at 10 reps; resting
+  assert.deepEqual(state.completedReps, [10]);
+  state = setReps(state, 8);
+  state = nextStep(state, 10_000); // set 2
+  state = nextStep(state, 15_000); // set 2 done at 8 reps; resting
+  state = nextStep(state, 16_000); // set 3
+  state = setReps(state, 6);
+  state = nextStep(state, 17_000); // set 3 done at 6 reps
+  assert.equal(state.done, true);
+  assert.deepEqual(state.completedReps, [10, 8, 6]);
+});
+
 test('setEndCue marks a set ending in a rest or the end of the workout', () => {
   const state = strength(2, 3); // rest is 60s
   const setMs = LEAD_IN_MS + 6_000;

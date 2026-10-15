@@ -3,17 +3,24 @@ import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {Prisma} from '@prisma/client';
 import {authOptions} from '@/lib/auth-options';
-import {isActiveOn} from '@/lib/exercise';
+import {
+  EXERCISE_LOG_INCLUDE,
+  exerciseSetsSchema,
+  isActiveOn,
+  summarizeSets,
+  toSetRows,
+  uniformSets,
+} from '@/lib/exercise';
 import {prisma} from '@/lib/prisma';
-import {MAX_REPS} from '@/lib/workout';
 import {getTodayDate, getTodayWeekday, getUserTimeZone} from '@/lib/timezone';
 
-// Sets and reps override the goal's for strength goals, e.g. from a workout
-// session where the user changed them.
+// Details override the goal's when the user changed them before logging, e.g.
+// a heavier last set. Only those that fit the goal's type apply.
 const tickSchema = z.object({
   goalId: z.string().min(1),
-  sets: z.number().int().min(1).optional(),
-  reps: z.number().int().min(1).max(MAX_REPS).optional(),
+  exerciseSets: exerciseSetsSchema.optional(),
+  durationMin: z.number().int().min(1).optional(),
+  calories: z.number().int().min(0).optional(),
 });
 
 /** Ticks off a planned exercise for today by logging it from the goal. */
@@ -29,7 +36,7 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
-    const {goalId, sets, reps} = parsed.data;
+    const {goalId, exerciseSets, durationMin, calories} = parsed.data;
 
     const goal = await prisma.exerciseGoal.findFirst({
       where: {id: goalId, userId},
@@ -47,6 +54,11 @@ export async function POST(request: Request) {
     }
 
     const goalDate = getTodayDate(timeZone);
+    const sets =
+      goal.type === 'STRENGTH'
+        ? (exerciseSets ??
+          uniformSets(goal.sets ?? 1, goal.reps ?? 1, goal.weight))
+        : null;
     try {
       const entry = await prisma.exerciseLog.create({
         data: {
@@ -55,13 +67,21 @@ export async function POST(request: Request) {
           goalDate,
           name: goal.name,
           type: goal.type,
-          calories: goal.calories,
-          durationMin: goal.durationMin ?? 0,
-          ...(goal.type === 'STRENGTH'
-            ? {sets: sets ?? goal.sets, reps: reps ?? goal.reps}
-            : {sets: goal.sets, reps: goal.reps}),
-          weight: goal.weight,
+          calories: calories ?? goal.calories,
+          ...(sets
+            ? {
+                durationMin: goal.durationMin ?? 0,
+                ...summarizeSets(sets),
+                exerciseSets: {create: toSetRows(sets)},
+              }
+            : {
+                durationMin: durationMin ?? goal.durationMin ?? 0,
+                sets: goal.sets,
+                reps: goal.reps,
+                weight: goal.weight,
+              }),
         },
+        include: EXERCISE_LOG_INCLUDE,
       });
       return NextResponse.json(entry, {status: 201});
     } catch (error) {
@@ -71,6 +91,7 @@ export async function POST(request: Request) {
       ) {
         const existing = await prisma.exerciseLog.findUnique({
           where: {exerciseGoalId_goalDate: {exerciseGoalId: goalId, goalDate}},
+          include: EXERCISE_LOG_INCLUDE,
         });
         return NextResponse.json(existing);
       }

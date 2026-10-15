@@ -254,16 +254,24 @@ test.describe('Ticking planned exercises', () => {
     expect((await api.post('/api/exercise-goals/log', {data: {}})).status()).toBe(400);
   });
 
-  test('TP-08 workout overrides apply to strength goals only', async ({
+  test('TP-08 sets as done apply to strength goals only', async ({
     api,
     db,
     user,
   }) => {
     const strength = await seedExerciseGoal(db, user.id, {sets: 3, reps: 10});
     const tick = await api.post('/api/exercise-goals/log', {
-      data: {goalId: strength.id, sets: 2, reps: 8},
+      data: {goalId: strength.id, exerciseSets: [{reps: 8, weight: 20}, {reps: 6, weight: 25}]},
     });
-    expect(await tick.json()).toMatchObject({sets: 2, reps: 8});
+    expect(await tick.json()).toMatchObject({
+      sets: 2,
+      reps: 6,
+      weight: 25,
+      exerciseSets: [
+        {reps: 8, weight: 20},
+        {reps: 6, weight: 25},
+      ],
+    });
 
     const time = await seedExerciseGoal(db, user.id, {
       name: 'Cycle',
@@ -273,13 +281,62 @@ test.describe('Ticking planned exercises', () => {
       reps: null,
     });
     const timeTick = await api.post('/api/exercise-goals/log', {
-      data: {goalId: time.id, sets: 5, reps: 5},
+      data: {goalId: time.id, exerciseSets: [{reps: 5}]},
     });
-    expect(await timeTick.json()).toMatchObject({sets: null, reps: null, durationMin: 20});
+    expect(await timeTick.json()).toMatchObject({
+      sets: null,
+      reps: null,
+      durationMin: 20,
+      exerciseSets: [],
+    });
 
     const tooMany = await seedExerciseGoal(db, user.id, {name: 'Curls'});
+    for (const exerciseSets of [
+      [{reps: 101}],
+      [],
+      Array.from({length: 21}, () => ({reps: 5})),
+      [{reps: 5, weight: -1}],
+    ]) {
+      const invalid = await api.post('/api/exercise-goals/log', {
+        data: {goalId: tooMany.id, exerciseSets},
+      });
+      expect(invalid.status()).toBe(400);
+    }
+  });
+
+  test('TP-08 reviewed details override the goal', async ({api, db, user}) => {
+    const strength = await seedExerciseGoal(db, user.id, {weight: 40, calories: 100});
+    const tick = await api.post('/api/exercise-goals/log', {
+      data: {goalId: strength.id, calories: 70, durationMin: 9},
+    });
+    // Without sets, every set is logged as planned.
+    expect(await tick.json()).toMatchObject({
+      sets: 3,
+      reps: 10,
+      weight: 40,
+      calories: 70,
+      exerciseSets: [
+        {reps: 10, weight: 40},
+        {reps: 10, weight: 40},
+        {reps: 10, weight: 40},
+      ],
+    });
+
+    const time = await seedExerciseGoal(db, user.id, {
+      name: 'Row',
+      type: 'TIME',
+      durationMin: 20,
+      sets: null,
+      reps: null,
+    });
+    const timeTick = await api.post('/api/exercise-goals/log', {
+      data: {goalId: time.id, durationMin: 25},
+    });
+    expect(await timeTick.json()).toMatchObject({durationMin: 25, weight: null, calories: 100});
+
+    const negative = await seedExerciseGoal(db, user.id, {name: 'Lunges'});
     const invalid = await api.post('/api/exercise-goals/log', {
-      data: {goalId: tooMany.id, reps: 101},
+      data: {goalId: negative.id, calories: -1},
     });
     expect(invalid.status()).toBe(400);
   });

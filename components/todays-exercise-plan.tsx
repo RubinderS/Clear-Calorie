@@ -3,7 +3,15 @@
 import {useEffect, useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
-import {Play} from 'lucide-react';
+import {Check, Play, X} from 'lucide-react';
+import {
+  ExerciseLogFields,
+  initialLogValues,
+  toLogPayload,
+  toWorkValues,
+  type ExerciseLogValues,
+  type WorkValues,
+} from '@/components/exercise-detail-fields';
 import {Button} from '@/components/ui/button';
 import {
   Card,
@@ -19,7 +27,7 @@ import {
   unlockAudio,
   type WorkoutSound,
 } from '@/lib/workout-sound';
-import {formatExerciseDetail} from '@/lib/exercise';
+import {formatExerciseDetail, type ExerciseSet} from '@/lib/exercise';
 
 export type PlannedExercise = {
   id: string;
@@ -32,6 +40,13 @@ export type PlannedExercise = {
   weight: number | null;
   tempoMs: number | null;
   notes: string | null;
+};
+
+/** What was actually done, where it differs from the goal. */
+export type LogDetails = {
+  exerciseSets?: ExerciseSet[];
+  durationMin?: number;
+  calories?: number;
 };
 
 export function usePlannedExerciseToggle(initialCompletedIds: string[]) {
@@ -54,7 +69,7 @@ export function usePlannedExerciseToggle(initialCompletedIds: string[]) {
   async function toggle(
     goal: PlannedExercise,
     checked: boolean,
-    result?: WorkoutResult,
+    details?: LogDetails,
   ) {
     setPendingId(goal.id);
     setError(null);
@@ -63,7 +78,7 @@ export function usePlannedExerciseToggle(initialCompletedIds: string[]) {
         ? await fetch('/api/exercise-goals/log', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({goalId: goal.id, ...result}),
+            body: JSON.stringify({goalId: goal.id, ...details}),
           })
         : await fetch(`/api/exercise-goals/log?goalId=${goal.id}`, {
             method: 'DELETE',
@@ -95,7 +110,7 @@ type TodaysExercisePlanProps = {
   onToggle: (
     goal: PlannedExercise,
     checked: boolean,
-    result?: WorkoutResult,
+    details?: LogDetails,
   ) => void;
   hideCompleted?: boolean;
   /** Shown under the title, e.g. a link to past logs. */
@@ -114,6 +129,11 @@ export function TodaysExercisePlan({
   const [workout, setWorkout] = useState<{
     goal: PlannedExercise;
     sound: WorkoutSound | null;
+  } | null>(null);
+  // Logs wait here so the user can correct what they did before saving.
+  const [review, setReview] = useState<{
+    goal: PlannedExercise;
+    result?: WorkoutResult;
   } | null>(null);
   const hasGoals = goals.length > 0;
   // Workouts wait for the voice before starting, so get it loading early.
@@ -138,9 +158,31 @@ export function TodaysExercisePlan({
             sound={workout.sound}
             onComplete={(result) => {
               setWorkout(null);
-              onToggle(workout.goal, true, result);
+              setReview({goal: workout.goal, result});
             }}
             onCancel={() => setWorkout(null)}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (review) {
+    return (
+      <Card>
+        <CardHeader className="pr-14">
+          <CardTitle className="truncate">{review.goal.name}</CardTitle>
+          <CardDescription>Check what you did, then log it</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LogReview
+            goal={review.goal}
+            result={review.result}
+            onConfirm={(details) => {
+              setReview(null);
+              onToggle(review.goal, true, details);
+            }}
+            onCancel={() => setReview(null)}
           />
         </CardContent>
       </Card>
@@ -188,7 +230,11 @@ export function TodaysExercisePlan({
                       type="checkbox"
                       checked={checked}
                       disabled={pendingId === goal.id}
-                      onChange={(event) => onToggle(goal, event.target.checked)}
+                      onChange={(event) =>
+                        event.target.checked
+                          ? setReview({goal})
+                          : onToggle(goal, false)
+                      }
                       aria-label={`Mark ${goal.name} as done`}
                       className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-input accent-primary disabled:cursor-wait disabled:opacity-50"
                     />
@@ -249,5 +295,84 @@ export function TodaysExercisePlan({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** Only what differs from the goal, which the server logs by default. */
+function changedDetails(
+  goal: PlannedExercise,
+  values: ExerciseLogValues,
+): LogDetails {
+  const payload = toLogPayload(values);
+  const changes: LogDetails = {};
+  if (payload.type === 'STRENGTH') {
+    const asPlanned =
+      payload.exerciseSets.length === goal.sets &&
+      payload.exerciseSets.every(
+        (set) => set.reps === goal.reps && set.weight === goal.weight,
+      );
+    if (!asPlanned) changes.exerciseSets = payload.exerciseSets;
+  } else if (payload.durationMin !== goal.durationMin) {
+    changes.durationMin = payload.durationMin;
+  }
+  if (payload.calories !== goal.calories) changes.calories = payload.calories;
+  return changes;
+}
+
+/** The goal's work, with the reps of each set from a workout if there was one. */
+function doneWork(planned: WorkValues, result?: WorkoutResult): WorkValues {
+  if (!result || !planned.sets) return planned;
+  const {weight} = planned.sets[0];
+  return {
+    ...planned,
+    sets: result.setReps.map((reps) => ({reps: String(reps), weight})),
+  };
+}
+
+function LogReview({
+  goal,
+  result,
+  onConfirm,
+  onCancel,
+}: {
+  goal: PlannedExercise;
+  result?: WorkoutResult;
+  onConfirm: (details: LogDetails) => void;
+  onCancel: () => void;
+}) {
+  const [planned] = useState(() => toWorkValues(goal));
+  const [values, setValues] = useState(() =>
+    initialLogValues(planned, goal.calories, doneWork(planned, result)),
+  );
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onConfirm(changedDetails(goal, values));
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <ExerciseLogFields
+        idPrefix={`log-${goal.id}`}
+        baseline={planned}
+        baselineCalories={goal.calories}
+        value={values}
+        onChange={setValues}
+      />
+      <Button type="submit" className="h-12 w-full">
+        <Check />
+        Set done
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="w-full"
+        onClick={onCancel}
+      >
+        <X />
+        Cancel without logging
+      </Button>
+    </form>
   );
 }

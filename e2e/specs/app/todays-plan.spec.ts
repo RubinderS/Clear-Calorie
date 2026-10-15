@@ -1,5 +1,5 @@
 import type {Page} from '@playwright/test';
-import {test, expect, nextApiRequest} from '../../fixtures/test';
+import {test, expect, nextApiRequest, trackRequests} from '../../fixtures/test';
 import {seedExerciseGoal} from '../../fixtures/db';
 import {todayIn, weekdayIn} from '../../fixtures/dates';
 import {card, exerciseProgress, logRow, openQuickLog} from '../../fixtures/ui';
@@ -57,9 +57,17 @@ test('TP-03/04 ticking logs the goal and updates progress', async ({
 }) => {
   const {panel, plan} = await openPlan(page);
 
-  const request = nextApiRequest(page, '/api/exercise-goals/log');
   // Controlled: the box only flips once the API answers, so click rather than check().
   await plan.getByRole('checkbox', {name: 'Mark Squats as done'}).click();
+  // The log is shown first so it can be corrected; unchanged it logs the goal.
+  const review = card(panel, 'Squats');
+  for (const set of [1, 2, 3]) {
+    await expect(review.getByLabel(`Set ${set} reps`)).toHaveValue('10');
+  }
+  await expect(review.getByLabel('Set 4 reps')).toHaveCount(0);
+  await expect(review.getByLabel('Calories burned')).toHaveValue('100');
+  const request = nextApiRequest(page, '/api/exercise-goals/log');
+  await review.getByRole('button', {name: 'Set done'}).click();
   const sent = await request;
   const goal = await db.exerciseGoal.findFirst({where: {userId: user.id, name: 'Squats'}});
   expect(sent.postDataJSON()).toEqual({goalId: goal!.id});
@@ -77,6 +85,7 @@ test('TP-03/04 ticking logs the goal and updates progress', async ({
   await expect(exerciseProgress(page)).toHaveAttribute('aria-valuenow', '1');
 
   await plan.getByRole('checkbox', {name: 'Mark Jog as done'}).click();
+  await card(panel, 'Jog').getByRole('button', {name: 'Set done'}).click();
   await expect(plan.getByText('All planned exercises done.')).toBeVisible();
   await expect(plan.getByText('2 of 2 done')).toBeVisible();
   await panel.getByRole('button', {name: 'Close'}).click();
@@ -87,13 +96,81 @@ test('TP-03/04 ticking logs the goal and updates progress', async ({
   await expect(logRow(page, 'Jog')).toContainText('20 min · Planned');
 });
 
+test('TP-03 each set can be corrected before it is saved', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  const {panel, plan} = await openPlan(page);
+  await plan.getByRole('checkbox', {name: 'Mark Squats as done'}).click();
+  const review = card(panel, 'Squats');
+  const calories = review.getByLabel('Calories burned');
+  await review.getByLabel('Set 3 reps').fill('8');
+  // Calories follow the reps done until set by hand.
+  await expect(calories).toHaveValue('93');
+  // A weight on some sets only doesn't change them.
+  await review.getByLabel('Set 2 weight').fill('20');
+  await review.getByLabel('Set 3 weight').fill('25');
+  await expect(calories).toHaveValue('93');
+
+  // An extra set starts as a copy of the last.
+  await review.getByRole('button', {name: 'Add set'}).click();
+  await expect(review.getByLabel('Set 4 reps')).toHaveValue('8');
+  await expect(review.getByLabel('Set 4 weight')).toHaveValue('25');
+  await expect(calories).toHaveValue('120');
+  await review.getByRole('button', {name: 'Remove set 1'}).click();
+  await expect(review.getByLabel('Set 1 weight')).toHaveValue('20');
+  await expect(calories).toHaveValue('87');
+
+  const request = nextApiRequest(page, '/api/exercise-goals/log');
+  await review.getByRole('button', {name: 'Set done'}).click();
+  const goal = await db.exerciseGoal.findFirst({where: {userId: user.id, name: 'Squats'}});
+  const sets = [
+    {reps: 10, weight: 20},
+    {reps: 8, weight: 25},
+    {reps: 8, weight: 25},
+  ];
+  expect((await request).postDataJSON()).toEqual({
+    goalId: goal!.id,
+    exerciseSets: sets,
+    calories: 87,
+  });
+  await expect(plan.getByText('1 of 2 done')).toBeVisible();
+  await expect.poll(() =>
+    db.exerciseLog.findFirst({
+      where: {exerciseGoalId: goal!.id},
+      select: {
+        sets: true,
+        reps: true,
+        weight: true,
+        calories: true,
+        exerciseSets: {orderBy: {position: 'asc'}, select: {reps: true, weight: true}},
+      },
+    }),
+  ).toEqual({sets: 3, reps: 8, weight: 25, calories: 87, exerciseSets: sets});
+
+  await page.goto('/logs?tab=exercise');
+  await expect(logRow(page, 'Squats')).toContainText('10 @ 20, 8 @ 25, 8 @ 25 · Planned');
+});
+
+test('TP-03 cancelling the review logs nothing', async ({authedPage: page}) => {
+  const logs = trackRequests(page, '/api/exercise-goals/log');
+  const {panel, plan} = await openPlan(page);
+  await plan.getByRole('checkbox', {name: 'Mark Jog as done'}).click();
+  await card(panel, 'Jog').getByRole('button', {name: 'Cancel without logging'}).click();
+  await expect(plan.getByRole('checkbox', {name: 'Mark Jog as done'})).not.toBeChecked();
+  await expect(plan.getByText('0 of 2 done')).toBeVisible();
+  expect(logs).toEqual([]);
+});
+
 test('TP-09 failed ticks show an error and stay unticked', async ({authedPage: page}) => {
   await page.route('**/api/exercise-goals/log', (route) =>
     route.fulfill({status: 500, json: {error: 'Failed to log planned exercise'}}),
   );
-  const {plan} = await openPlan(page);
+  const {panel, plan} = await openPlan(page);
   const checkbox = plan.getByRole('checkbox', {name: 'Mark Jog as done'});
   await checkbox.click();
+  await card(panel, 'Jog').getByRole('button', {name: 'Set done'}).click();
   await expect(plan.getByRole('alert')).toHaveText('Failed to log planned exercise');
   await expect(checkbox).not.toBeChecked();
   await expect(checkbox).toBeEnabled();
@@ -106,8 +183,9 @@ test('TP-09 controls are disabled while a tick is saving', async ({authedPage: p
     await held;
     await route.continue();
   });
-  const {plan} = await openPlan(page);
+  const {panel, plan} = await openPlan(page);
   await plan.getByRole('checkbox', {name: 'Mark Jog as done'}).click();
+  await card(panel, 'Jog').getByRole('button', {name: 'Set done'}).click();
   await expect(plan.getByRole('checkbox', {name: 'Mark Jog as done'})).toBeDisabled();
   await expect(plan.getByRole('button', {name: 'Start Jog'})).toBeDisabled();
   // Other goals stay usable.

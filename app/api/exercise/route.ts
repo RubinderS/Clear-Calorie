@@ -3,14 +3,29 @@ import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {
-  WITH_GOAL_NOTES,
+  EXERCISE_LOG_INCLUDE,
   exerciseDetailsSchema,
+  exerciseSetsSchema,
   isSameExerciseName,
+  summarizeSets,
   toExerciseFields,
+  toSetRows,
+  uniformSets,
+  type ExerciseDetails,
+  type ExerciseSet,
 } from '@/lib/exercise';
 import {getPlannedExerciseGoals} from '@/lib/exercise-plan';
 import {prisma} from '@/lib/prisma';
 import {getDateRange, getTodayRange, getUserTimeZone} from '@/lib/timezone';
+
+/** Strength sets as done: listed one by one, or the same for every set. */
+function setsFor(
+  details: ExerciseDetails,
+  exerciseSets?: ExerciseSet[],
+): ExerciseSet[] | null {
+  if (details.type !== 'STRENGTH') return null;
+  return exerciseSets ?? uniformSets(details.sets, details.reps, details.weight);
+}
 
 const exerciseSchema = z
   .object({
@@ -39,7 +54,7 @@ export async function GET(request: Request) {
       loggedAt: {gte: range.start, lte: range.end},
     },
     orderBy: {loggedAt: 'desc'},
-    include: WITH_GOAL_NOTES,
+    include: EXERCISE_LOG_INCLUDE,
   });
 
   return NextResponse.json(entries);
@@ -75,6 +90,7 @@ export async function POST(request: Request) {
     }
 
     const fields = toExerciseFields(parsed.data);
+    const sets = setsFor(parsed.data);
     const entry = await prisma.exerciseLog.create({
       data: {
         name,
@@ -82,7 +98,9 @@ export async function POST(request: Request) {
         ...fields,
         durationMin: fields.durationMin ?? 0,
         userId: session.user.id,
+        ...(sets && {exerciseSets: {create: toSetRows(sets)}}),
       },
+      include: EXERCISE_LOG_INCLUDE,
     });
 
     return NextResponse.json(entry, {status: 201});
@@ -125,11 +143,13 @@ export async function DELETE(request: Request) {
   return new NextResponse(null, {status: 204});
 }
 
-// Corrects what was actually done, e.g. fewer reps or a lighter weight than planned.
+// Corrects what was actually done, e.g. fewer reps or a lighter weight than
+// planned. Strength entries can list each set; otherwise every set matches.
 const updateSchema = z
   .object({
     id: z.string().min(1),
     calories: z.number().int().min(0),
+    exerciseSets: exerciseSetsSchema.optional(),
   })
   .and(exerciseDetailsSchema);
 
@@ -170,14 +190,20 @@ export async function PATCH(request: Request) {
     }
 
     const fields = toExerciseFields(parsed.data);
+    const sets = setsFor(parsed.data, parsed.data.exerciseSets);
     const updated = await prisma.exerciseLog.update({
       where: {id},
       data: {
         calories,
         ...fields,
+        ...(sets && summarizeSets(sets)),
         durationMin: fields.durationMin ?? 0,
+        exerciseSets: {
+          deleteMany: {},
+          ...(sets && {create: toSetRows(sets)}),
+        },
       },
-      include: WITH_GOAL_NOTES,
+      include: EXERCISE_LOG_INCLUDE,
     });
 
     return NextResponse.json(updated);

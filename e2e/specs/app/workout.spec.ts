@@ -192,15 +192,53 @@ test('WO-04/05/06/07 a full strength workout', async ({authedPage: page, db, use
   await c.fewerReps.click();
   await c.fewerReps.click();
   await expect(c.reps).toHaveText('8 reps');
-  const logged = nextApiRequest(page, '/api/exercise-goals/log');
   await c.next.click();
-  expect((await logged).postDataJSON()).toEqual({goalId: goal.id, sets: 3, reps: 8});
+
+  // Each set is shown for checking first, with calories scaled to the work done.
+  await expect(workout.getByText('Check what you did, then log it')).toBeVisible();
+  await expect(workout.getByLabel('Set 1 reps')).toHaveValue('10');
+  await expect(workout.getByLabel('Set 2 reps')).toHaveValue('10');
+  await expect(workout.getByLabel('Set 3 reps')).toHaveValue('8');
+  await expect(workout.getByLabel('Set 3 weight')).toHaveValue('100');
+  await expect(workout.getByLabel('Calories burned')).toHaveValue('93');
+  // The last set went heavier.
+  await workout.getByLabel('Set 3 weight').fill('110');
+  await expect(workout.getByLabel('Calories burned')).toHaveValue('96');
+  const logged = nextApiRequest(page, '/api/exercise-goals/log');
+  await workout.getByRole('button', {name: 'Set done'}).click();
+  expect((await logged).postDataJSON()).toEqual({
+    goalId: goal.id,
+    exerciseSets: [
+      {reps: 10, weight: 100},
+      {reps: 10, weight: 100},
+      {reps: 8, weight: 110},
+    ],
+    calories: 96,
+  });
 
   const plan = card(panel, "Today's plan");
   await expect(plan.getByText('All planned exercises done.')).toBeVisible();
+  // The summary columns hold the set count and the top set.
   await expect.poll(() =>
-    db.exerciseLog.findFirst({where: {exerciseGoalId: goal.id}, select: {sets: true, reps: true}}),
-  ).toEqual({sets: 3, reps: 8});
+    db.exerciseLog.findFirst({
+      where: {exerciseGoalId: goal.id},
+      select: {
+        sets: true,
+        reps: true,
+        weight: true,
+        exerciseSets: {orderBy: {position: 'asc'}, select: {reps: true, weight: true}},
+      },
+    }),
+  ).toEqual({
+    sets: 3,
+    reps: 8,
+    weight: 110,
+    exerciseSets: [
+      {reps: 10, weight: 100},
+      {reps: 10, weight: 100},
+      {reps: 8, weight: 110},
+    ],
+  });
 });
 
 test('WO-08 cancelling a workout logs nothing', async ({authedPage: page, db, user}) => {
@@ -243,8 +281,10 @@ test('WO-09 timed workout counts down and logs', async ({authedPage: page, db, u
   await page.clock.runFor(30_000);
   await expect(c.timer).toHaveText('0:30');
 
-  const logged = nextApiRequest(page, '/api/exercise-goals/log');
   await page.clock.runFor(30_000);
+  await expect(workout.getByLabel('Duration (min)')).toHaveValue('1');
+  const logged = nextApiRequest(page, '/api/exercise-goals/log');
+  await workout.getByRole('button', {name: 'Set done'}).click();
   expect((await logged).postDataJSON()).toEqual({goalId: goal.id});
   await expect(card(panel, "Today's plan").getByText('All planned exercises done.')).toBeVisible();
 });

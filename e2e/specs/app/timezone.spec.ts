@@ -116,6 +116,7 @@ test.describe('TZ-03 pages in Kiritimati', () => {
     await card(panel, "Today's plan")
       .getByRole('checkbox', {name: 'Mark Island swim as done'})
       .click();
+    await card(panel, 'Island swim').getByRole('button', {name: 'Set done'}).click();
     expect(await (await response).json()).toMatchObject({
       exerciseGoalId: goal.id,
       goalDate: todayIn(KIRITIMATI),
