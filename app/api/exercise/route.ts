@@ -4,35 +4,22 @@ import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {
   EXERCISE_LOG_INCLUDE,
-  exerciseDetailsSchema,
-  exerciseSetsSchema,
+  exerciseInputSchema,
+  inputSets,
   isSameExerciseName,
-  summarizeSets,
   toExerciseFields,
   toSetRows,
-  uniformSets,
-  type ExerciseDetails,
-  type ExerciseSet,
 } from '@/lib/exercise';
 import {getPlannedExerciseGoals} from '@/lib/exercise-plan';
 import {prisma} from '@/lib/prisma';
 import {getDateRange, getTodayRange, getUserTimeZone} from '@/lib/timezone';
-
-/** Strength sets as done: listed one by one, or the same for every set. */
-function setsFor(
-  details: ExerciseDetails,
-  exerciseSets?: ExerciseSet[],
-): ExerciseSet[] | null {
-  if (details.type !== 'STRENGTH') return null;
-  return exerciseSets ?? uniformSets(details.sets, details.reps, details.weight);
-}
 
 const exerciseSchema = z
   .object({
     name: z.string().trim().min(1),
     calories: z.number().int().min(0),
   })
-  .and(exerciseDetailsSchema);
+  .and(exerciseInputSchema);
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -89,8 +76,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const fields = toExerciseFields(parsed.data);
-    const sets = setsFor(parsed.data);
+    const sets = inputSets(parsed.data);
+    const fields = toExerciseFields(sets);
     const entry = await prisma.exerciseLog.create({
       data: {
         name,
@@ -98,7 +85,7 @@ export async function POST(request: Request) {
         ...fields,
         durationMin: fields.durationMin ?? 0,
         userId: session.user.id,
-        ...(sets && {exerciseSets: {create: toSetRows(sets)}}),
+        exerciseSets: {create: toSetRows(sets)},
       },
       include: EXERCISE_LOG_INCLUDE,
     });
@@ -144,14 +131,13 @@ export async function DELETE(request: Request) {
 }
 
 // Corrects what was actually done, e.g. fewer reps or a lighter weight than
-// planned. Strength entries can list each set; otherwise every set matches.
+// planned, set by set.
 const updateSchema = z
   .object({
     id: z.string().min(1),
     calories: z.number().int().min(0),
-    exerciseSets: exerciseSetsSchema.optional(),
   })
-  .and(exerciseDetailsSchema);
+  .and(exerciseInputSchema);
 
 export async function PATCH(request: Request) {
   const session = await getServerSession(authOptions);
@@ -168,7 +154,7 @@ export async function PATCH(request: Request) {
 
     const entry = await prisma.exerciseLog.findFirst({
       where: {id, userId: session.user.id},
-      select: {loggedAt: true, type: true},
+      select: {loggedAt: true},
     });
     if (!entry) {
       return NextResponse.json({error: 'Entry not found'}, {status: 404});
@@ -182,26 +168,15 @@ export async function PATCH(request: Request) {
       );
     }
 
-    if (parsed.data.type !== entry.type) {
-      return NextResponse.json(
-        {error: 'Exercise type cannot be changed'},
-        {status: 400},
-      );
-    }
-
-    const fields = toExerciseFields(parsed.data);
-    const sets = setsFor(parsed.data, parsed.data.exerciseSets);
+    const sets = inputSets(parsed.data);
+    const fields = toExerciseFields(sets);
     const updated = await prisma.exerciseLog.update({
       where: {id},
       data: {
         calories,
         ...fields,
-        ...(sets && summarizeSets(sets)),
         durationMin: fields.durationMin ?? 0,
-        exerciseSets: {
-          deleteMany: {},
-          ...(sets && {create: toSetRows(sets)}),
-        },
+        exerciseSets: {deleteMany: {}, create: toSetRows(sets)},
       },
       include: EXERCISE_LOG_INCLUDE,
     });

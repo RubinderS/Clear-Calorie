@@ -9,6 +9,41 @@ export function card(scope: Page | Locator, title: string | RegExp) {
     .filter({has: page.getByRole('heading', {name: title, exact: true})});
 }
 
+/** A set for an exercise form: a number of reps, or a time like '0:45'. */
+export type SetInput = number | string;
+
+/**
+ * Fills an exercise form's set rows, adding or removing rows to match.
+ * A weight, when given, goes on every set.
+ */
+export async function fillSets(
+  scope: Locator,
+  sets: readonly SetInput[],
+  weight?: number,
+) {
+  const rows = scope.getByRole('button', {name: /^Remove set \d+$/});
+  for (const [index, set] of sets.entries()) {
+    if ((await rows.count()) <= index) {
+      await scope.getByRole('button', {name: 'Add set'}).click();
+    }
+    const label = `Set ${index + 1}`;
+    const mode = typeof set === 'number' ? 'reps' : 'time';
+    await scope.getByLabel(`${label} type`).selectOption(mode);
+    await scope.getByLabel(`${label} ${mode}`).fill(String(set));
+    if (weight !== undefined) {
+      await scope.getByLabel(`${label} weight`).fill(String(weight));
+    }
+  }
+  for (let count = await rows.count(); count > sets.length; count--) {
+    await scope.getByRole('button', {name: `Remove set ${count}`}).click();
+  }
+}
+
+/** The same reps or time, repeated for each set. */
+export function repeat(set: SetInput, sets: number): SetInput[] {
+  return Array.from({length: sets}, () => set);
+}
+
 export function dialog(page: Page, label: string) {
   return page.getByRole('dialog', {name: label});
 }

@@ -43,7 +43,8 @@ test('EP-03 calories default to 0 and blank notes become null', async ({api}) =>
     calories: 0,
     notes: null,
     durationMin: 20,
-    sets: null,
+    // A timed goal is one set unless it lists more.
+    sets: 1,
   });
 });
 
@@ -254,7 +255,7 @@ test.describe('Ticking planned exercises', () => {
     expect((await api.post('/api/exercise-goals/log', {data: {}})).status()).toBe(400);
   });
 
-  test('TP-08 sets as done apply to strength goals only', async ({
+  test('TP-08 sets as done replace any goal\'s sets', async ({
     api,
     db,
     user,
@@ -280,14 +281,19 @@ test.describe('Ticking planned exercises', () => {
       sets: null,
       reps: null,
     });
+    // A timed goal can be logged as done for reps, or with more timed sets.
     const timeTick = await api.post('/api/exercise-goals/log', {
-      data: {goalId: time.id, exerciseSets: [{reps: 5}]},
+      data: {goalId: time.id, exerciseSets: [{reps: 5}, {durationSec: 600}]},
     });
     expect(await timeTick.json()).toMatchObject({
-      sets: null,
-      reps: null,
-      durationMin: 20,
-      exerciseSets: [],
+      type: 'STRENGTH',
+      sets: 2,
+      reps: 5,
+      durationMin: 10,
+      exerciseSets: [
+        {reps: 5, durationSec: null},
+        {reps: null, durationSec: 600},
+      ],
     });
 
     const tooMany = await seedExerciseGoal(db, user.id, {name: 'Curls'});

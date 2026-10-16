@@ -5,9 +5,10 @@ import {authOptions} from '@/lib/auth-options';
 import {
   EXERCISE_NOTES_MAX,
   daysToMask,
-  exerciseDetailsSchema,
+  exerciseInputSchema,
+  inputSets,
   normalizeNotes,
-  toExerciseFields,
+  toPlanFields,
 } from '@/lib/exercise';
 import {freezePastPlanDays} from '@/lib/exercise-plan';
 import {prisma} from '@/lib/prisma';
@@ -25,7 +26,7 @@ const exerciseGoalSchema = z
       .min(1)
       .refine((days) => new Set(days).size === days.length),
   })
-  .and(exerciseDetailsSchema);
+  .and(exerciseInputSchema);
 
 const workoutSettingsSchema = z
   .object({
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
       calories,
       notes: normalizeNotes(notes),
       daysMask: daysToMask(days),
-      ...toExerciseFields(parsed.data),
+      ...toPlanFields(inputSets(parsed.data)),
     };
 
     await freezePastPlanDays(session.user.id, await getUserTimeZone());

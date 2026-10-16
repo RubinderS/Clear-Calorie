@@ -7,18 +7,18 @@ import {
   trackRequests,
 } from '../../fixtures/test';
 import {seedExerciseGoal, seedSavedExercise} from '../../fixtures/db';
-import {calorieSummary, openQuickLog} from '../../fixtures/ui';
+import {calorieSummary, fillSets, openQuickLog, repeat} from '../../fixtures/ui';
 
 function form(scope: Locator) {
   return {
     title: scope.getByRole('heading', {name: 'Add custom exercise'}),
     activity: scope.getByLabel('Activity'),
-    strength: scope.getByRole('button', {name: 'Sets & reps'}),
-    time: scope.getByRole('button', {name: 'Time based'}),
-    sets: scope.getByLabel('Sets', {exact: true}),
-    reps: scope.getByLabel('Reps', {exact: true}),
-    weight: scope.getByLabel('Weight', {exact: true}),
-    duration: scope.getByLabel('Duration (min)'),
+    fillSets: (sets: Parameters<typeof fillSets>[1], weight?: number) =>
+      fillSets(scope, sets, weight),
+    setType: (n: number) => scope.getByLabel(`Set ${n} type`),
+    setReps: (n: number) => scope.getByLabel(`Set ${n} reps`),
+    setTime: (n: number) => scope.getByLabel(`Set ${n} time`),
+    setWeight: (n: number) => scope.getByLabel(`Set ${n} weight`),
     calories: scope.getByLabel('Calories burned'),
     save: scope.getByLabel('Save this item for later'),
     pin: scope.getByLabel('Pin this item'),
@@ -34,32 +34,34 @@ async function openExercise(page: Page) {
   return openQuickLog(page, 'exercise');
 }
 
-test('EX-01/02 no plan: custom form with type toggle', async ({authedPage: page}) => {
+test('EX-01/02 no plan: custom form with reps or time per set', async ({authedPage: page}) => {
   const panel = await openExercise(page);
   const f = form(panel);
   await expect(f.title).toBeVisible();
   await expect(panel.getByRole('link', {name: 'View logs'})).toBeVisible();
   await expect(panel.getByRole('button', {name: 'Log custom exercise'})).toHaveCount(0);
 
-  await expect(f.strength).toHaveAttribute('aria-pressed', 'true');
-  await expect(f.sets).toBeVisible();
-  await expect(f.reps).toHaveAttribute('max', '100');
-  await expect(f.weight).toHaveAttribute('placeholder', 'Optional');
-  await expect(f.duration).toHaveCount(0);
+  await expect(panel.getByRole('button', {name: 'Time based'})).toHaveCount(0);
+  await expect(f.setType(1)).toHaveValue('reps');
+  await expect(f.setReps(1)).toHaveAttribute('max', '100');
+  await expect(f.setWeight(1)).toHaveAttribute('placeholder', 'Optional');
+  await expect(panel.getByRole('button', {name: 'Weight per set'})).toHaveCount(0);
+  await expect(f.setTime(1)).toHaveCount(0);
 
-  await f.time.click();
-  await expect(f.time).toHaveAttribute('aria-pressed', 'true');
-  await expect(f.strength).toHaveAttribute('aria-pressed', 'false');
-  await expect(f.duration).toBeVisible();
-  await expect(f.sets).toHaveCount(0);
+  await f.setType(1).selectOption('time');
+  await expect(f.setTime(1)).toHaveAttribute('placeholder', 'm:ss');
+  await expect(f.setReps(1)).toHaveCount(0);
+
+  // Sets can mix reps and time.
+  await f.fillSets([10, '0:45']);
+  await expect(f.setReps(1)).toHaveValue('10');
+  await expect(f.setTime(2)).toHaveValue('0:45');
 });
 
 test('EX-03 log a strength exercise', async ({authedPage: page}) => {
   const f = form(await openExercise(page));
   await f.activity.fill('Bench press');
-  await f.sets.fill('5');
-  await f.reps.fill('5');
-  await f.weight.fill('60');
+  await f.fillSets(repeat(5, 5), 60);
   await f.calories.fill('150');
 
   const request = nextApiRequest(page, '/api/exercise');
@@ -68,10 +70,7 @@ test('EX-03 log a strength exercise', async ({authedPage: page}) => {
   expect(sent.postDataJSON()).toEqual({
     name: 'Bench press',
     calories: 150,
-    type: 'STRENGTH',
-    sets: 5,
-    reps: 5,
-    weight: 60,
+    exerciseSets: repeat(5, 5).map((reps) => ({reps, weight: 60})),
   });
   expect((await sent.response())?.status()).toBe(201);
   await expect(page.getByRole('dialog', {name: 'Log exercise'})).toBeHidden();
@@ -82,44 +81,46 @@ test('EX-04/05 log a time exercise; blank weight is null', async ({
   authedPage: page,
 }) => {
   let f = form(await openExercise(page));
-  await f.time.click();
   await f.activity.fill('Rowing');
-  await f.duration.fill('25');
+  // Whole minutes, without seconds.
+  await f.fillSets(['25']);
   await f.calories.fill('250');
   let request = nextApiRequest(page, '/api/exercise');
   await f.submit.click();
   expect((await request).postDataJSON()).toEqual({
     name: 'Rowing',
     calories: 250,
-    type: 'TIME',
-    durationMin: 25,
+    exerciseSets: [{durationSec: 1500, weight: null}],
   });
 
   f = form(await openQuickLog(page, 'exercise'));
   await f.activity.fill('Push-ups');
-  await f.sets.fill('3');
-  await f.reps.fill('20');
+  await f.fillSets(repeat(20, 3));
   await f.calories.fill('40');
   request = nextApiRequest(page, '/api/exercise');
   await f.submit.click();
-  expect((await request).postDataJSON()).toMatchObject({type: 'STRENGTH', weight: null});
+  expect((await request).postDataJSON()).toMatchObject({
+    exerciseSets: repeat(20, 3).map((reps) => ({reps, weight: null})),
+  });
   await expect(calorieSummary(page).burned).toHaveText('290');
 });
 
-test('EX-06 browser limits on reps and required fields', async ({authedPage: page}) => {
+test('EX-06 browser limits on reps, times and required fields', async ({authedPage: page}) => {
   const calls = trackRequests(page, '/api/exercise');
   const f = form(await openExercise(page));
   await f.activity.fill('Curls');
-  await f.sets.fill('3');
-  await f.reps.fill('101');
+  await f.fillSets([101]);
   await f.calories.fill('50');
   await f.submit.click();
-  await expect(f.reps).toHaveJSProperty('validity.rangeOverflow', true);
+  await expect(f.setReps(1)).toHaveJSProperty('validity.rangeOverflow', true);
 
-  await f.reps.fill('10');
-  await f.sets.fill('');
+  await f.setReps(1).fill('');
   await f.submit.click();
-  await expect(f.sets).toHaveJSProperty('validity.valueMissing', true);
+  await expect(f.setReps(1)).toHaveJSProperty('validity.valueMissing', true);
+
+  await f.fillSets(['1:75']);
+  await f.submit.click();
+  await expect(f.setTime(1)).toHaveJSProperty('validity.patternMismatch', true);
   expect(calls).toEqual([]);
 });
 
@@ -135,8 +136,7 @@ test("EX-07 custom exercise can't duplicate today's plan", async ({
 
   const f = form(panel);
   await f.activity.fill('  SQUATS ');
-  await f.sets.fill('3');
-  await f.reps.fill('10');
+  await f.fillSets(repeat(10, 3));
   await f.calories.fill('80');
   await f.submit.click();
   await expect(f.alert).toHaveText(`"SQUATS" is in today's plan. Tick it off there instead.`);
@@ -175,18 +175,18 @@ test.describe('Saved exercises', () => {
 
     await f.suggestions.filter({hasText: 'Strength training'}).click();
     await expect(f.activity).toHaveValue('Strength training');
-    await expect(f.strength).toHaveAttribute('aria-pressed', 'true');
-    await expect(f.sets).toHaveValue('3');
-    await expect(f.reps).toHaveValue('10');
-    await expect(f.weight).toHaveValue('50');
+    for (const n of [1, 2, 3]) await expect(f.setReps(n)).toHaveValue('10');
+    await expect(f.setType(4)).toHaveCount(0);
+    for (const n of [1, 2, 3]) await expect(f.setWeight(n)).toHaveValue('50');
     await expect(f.calories).toHaveValue('210');
     await expect(f.save).toBeChecked();
     await expect(f.pin).toBeChecked();
 
     await f.activity.fill('hik');
     await f.suggestions.filter({hasText: 'Hiking'}).click();
-    await expect(f.time).toHaveAttribute('aria-pressed', 'true');
-    await expect(f.duration).toHaveValue('120');
+    await expect(f.setType(1)).toHaveValue('time');
+    await expect(f.setTime(1)).toHaveValue('120:00');
+    await expect(f.setType(2)).toHaveCount(0);
     await expect(f.calories).toHaveValue('610');
     await expect(f.pin).not.toBeChecked();
   });
@@ -207,9 +207,7 @@ test.describe('Saved exercises', () => {
   test('EX-09 save a new exercise for later, pinned', async ({authedPage: page, db, user}) => {
     const f = form(await openExercise(page));
     await f.activity.fill('Kettlebell swings');
-    await f.sets.fill('4');
-    await f.reps.fill('15');
-    await f.weight.fill('16');
+    await f.fillSets(repeat(15, 4), 16);
     await f.calories.fill('120');
     await f.save.check();
     await f.pin.check();
@@ -219,10 +217,7 @@ test.describe('Saved exercises', () => {
     expect((await saved).postDataJSON()).toEqual({
       name: 'Kettlebell swings',
       calories: 120,
-      type: 'STRENGTH',
-      sets: 4,
-      reps: 15,
-      weight: 16,
+      exerciseSets: repeat(15, 4).map((reps) => ({reps, weight: 16})),
       isPinned: true,
     });
     await expect(page.getByRole('dialog', {name: 'Log exercise'})).toBeHidden();
@@ -236,9 +231,8 @@ test.describe('Saved exercises', () => {
   }) => {
     const logs = trackRequests(page, '/api/exercise');
     const f = form(await openExercise(page));
-    await f.time.click();
     await f.activity.fill('Hiking');
-    await f.duration.fill('60');
+    await f.fillSets(['60']);
     await f.calories.fill('300');
     await f.save.check();
     await f.submit.click();
@@ -267,9 +261,8 @@ test('EX-10 server errors are shown', async ({authedPage: page}) => {
   );
   const panel = await openExercise(page);
   const f = form(panel);
-  await f.time.click();
   await f.activity.fill('Swim');
-  await f.duration.fill('20');
+  await f.fillSets(['20']);
   await f.calories.fill('200');
   await f.submit.click();
   await expect(f.alert).toHaveText('Failed to log exercise');

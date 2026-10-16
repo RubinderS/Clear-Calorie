@@ -9,6 +9,11 @@ import {
   countPlannedOn,
   daysToMask,
   isActiveOn,
+  setsOf,
+  toExerciseFields,
+  toPlanFields,
+  toSetRows,
+  type ExerciseSet,
 } from "@/lib/exercise";
 import {
   generateWeeklyReport,
@@ -178,6 +183,8 @@ type GoalSeed = {
   sets?: number;
   reps?: number;
   weight?: number;
+  // Sets that differ, e.g. weight going up each set; overrides sets/reps/weight
+  setPlan?: ExerciseSet[];
   days: readonly number[];
   // Days ago the goal was added to the plan
   createdDaysAgo: number;
@@ -254,6 +261,21 @@ const GOALS: readonly GoalSeed[] = [
     days: [0, 1, 2, 3, 4, 5, 6],
     createdDaysAgo: 3,
   },
+  // Every day and last in the list, so today it is always planned and left
+  // for the workout, with a different weight per set and last week's log.
+  {
+    key: "bench",
+    name: "Dumbbell bench press",
+    type: "STRENGTH",
+    calories: 90,
+    setPlan: [
+      { reps: 10, weight: 20 },
+      { reps: 8, weight: 22.5 },
+      { reps: 6, weight: 25 },
+    ],
+    days: [0, 1, 2, 3, 4, 5, 6],
+    createdDaysAgo: HISTORY_DAYS,
+  },
 ];
 
 // Removed from the plan 12 days ago; its days were frozen into ExercisePlanDay
@@ -327,6 +349,8 @@ const SCENARIOS: Record<number, DayScenario> = {
   4: "extras-only",
   5: "modified",
   6: "all-done",
+  // A week ago today, so every goal planned today has last week's sets.
+  7: "all-done",
 };
 
 // Stands in for the AI so seeding is offline and repeatable. The metrics,
@@ -540,11 +564,12 @@ async function main() {
 
   // Exercise plan
   const goals = await Promise.all(
-    GOALS.map(async ({ key, days, createdDaysAgo, ...goal }) => ({
+    GOALS.map(async ({ key, days, createdDaysAgo, setPlan, ...goal }) => ({
       key,
       ...(await prisma.exerciseGoal.create({
         data: {
           ...goal,
+          ...(setPlan && toPlanFields(setPlan)),
           userId: user.id,
           daysMask: days.length === 7 ? EVERYDAY_MASK : daysToMask(days),
           createdAt: dayAt(createdDaysAgo, 30),
@@ -579,8 +604,42 @@ async function main() {
   }
   await prisma.exercisePlanDay.createMany({ data: frozenDays });
 
-  // Exercise logs
+  // Exercise logs. Ticked goals keep each set, so they're created one by one.
   const exerciseLogs: Prisma.ExerciseLogCreateManyInput[] = [];
+  const goalLogs: Prisma.ExerciseLogUncheckedCreateInput[] = [];
+  const logGoal = (
+    goal: (typeof goals)[number],
+    daysAgo: number,
+    minutesAgo: number,
+    modified = false,
+  ) => {
+    // Weights go up 2.5 a week, so older logs are lighter than the plan.
+    const drop = Math.ceil(daysAgo / 7) * 2.5;
+    let sets = setsOf(goal).map((set) => ({
+      ...set,
+      reps: set.reps && modified ? set.reps + pick([-2, 2, 4]) : set.reps,
+      weight: set.weight ? Math.max(2.5, set.weight - drop) : set.weight,
+    }));
+    // Sometimes a set more or fewer than planned.
+    if (modified) {
+      sets =
+        pick([-1, 1]) > 0 || sets.length === 1
+          ? [...sets, sets[sets.length - 1]]
+          : sets.slice(0, -1);
+    }
+    const fields = toExerciseFields(sets);
+    goalLogs.push({
+      ...fields,
+      durationMin: fields.durationMin ?? 0,
+      userId: user.id,
+      exerciseGoalId: goal.id,
+      goalDate: dateKey(daysAgo),
+      name: goal.name,
+      calories: goal.calories,
+      loggedAt: dayAt(daysAgo, minutesAgo),
+      exerciseSets: { create: toSetRows(sets) },
+    });
+  };
   const logExtra = (daysAgo: number, extra: ExtraSeed, minutesAgo: number) =>
     exerciseLogs.push({
       ...extra,
@@ -609,19 +668,7 @@ async function main() {
       const modified =
         goal.type === "STRENGTH" &&
         (scenario === "modified" || (scenario === "mixed" && chance(0.3)));
-      exerciseLogs.push({
-        userId: user.id,
-        exerciseGoalId: goal.id,
-        goalDate: dateKey(daysAgo),
-        name: goal.name,
-        type: goal.type,
-        calories: goal.calories,
-        durationMin: goal.durationMin ?? 0,
-        sets: modified ? (goal.sets ?? 3) + pick([-1, 1]) : goal.sets,
-        reps: modified ? (goal.reps ?? 10) + pick([-2, 2, 4]) : goal.reps,
-        weight: goal.weight,
-        loggedAt: dayAt(daysAgo, minutesAgo--),
-      });
+      logGoal(goal, daysAgo, minutesAgo--, modified);
     }
 
     const swimPlanned =
@@ -657,24 +704,13 @@ async function main() {
   );
   todaysGoals
     .slice(0, Math.ceil(todaysGoals.length / 2))
-    .forEach((goal, index) => {
-      exerciseLogs.push({
-        userId: user.id,
-        exerciseGoalId: goal.id,
-        goalDate: dateKey(0),
-        name: goal.name,
-        type: goal.type,
-        calories: goal.calories,
-        durationMin: goal.durationMin ?? 0,
-        sets: goal.sets,
-        reps: goal.reps,
-        weight: goal.weight,
-        loggedAt: dayAt(0, 10 - index),
-      });
-    });
+    .forEach((goal, index) => logGoal(goal, 0, 10 - index));
   logExtra(0, EXTRAS[3], 1);
 
   await prisma.exerciseLog.createMany({ data: exerciseLogs });
+  await prisma.$transaction(
+    goalLogs.map((data) => prisma.exerciseLog.create({ data })),
+  );
 
   // Weight: trending down with noise, a few gaps, two entries today.
   const weightLogs: Prisma.WeightLogCreateManyInput[] = [];
@@ -710,7 +746,8 @@ async function main() {
 
   console.log("Demo user created:", email);
   console.log(
-    `  ${foodLogs.length} food logs, ${exerciseLogs.length} exercise logs, ` +
+    `  ${foodLogs.length} food logs, ` +
+      `${exerciseLogs.length + goalLogs.length} exercise logs, ` +
       `${goals.length} goals, ${frozenDays.length} frozen plan days, ` +
       `${weightLogs.length} weight logs, ` +
       `${reportCount} weekly reports`,

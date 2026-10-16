@@ -205,10 +205,10 @@ export function buildExerciseDescription(
   if (input.type === 'STRENGTH') {
     if (input.sets) lines.push(`Sets: ${input.sets}`);
     if (input.reps) lines.push(`Reps: ${input.reps}`);
-    if (input.weight) lines.push(`Load: ${input.weight} kg`);
-  } else if (input.durationMin) {
-    lines.push(`Duration: ${input.durationMin} min`);
   }
+  if (input.weight) lines.push(`Load: ${input.weight} kg`);
+  // Strength exercises can also have timed sets, e.g. a weighted hold.
+  if (input.durationMin) lines.push(`Duration: ${input.durationMin} min`);
   lines.push(
     bodyWeightKg
       ? `Body weight: ${bodyWeightKg} kg`

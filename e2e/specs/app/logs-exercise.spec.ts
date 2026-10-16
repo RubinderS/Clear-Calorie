@@ -98,10 +98,6 @@ test.describe('EL-03 editing what was done', () => {
     expect((await request).postDataJSON()).toEqual({
       id: entry.id,
       calories: 200,
-      type: 'STRENGTH',
-      sets: 3,
-      reps: 5,
-      weight: 70,
       exerciseSets: [
         {reps: 12, weight: 50},
         {reps: 10, weight: 60},
@@ -127,11 +123,34 @@ test.describe('EL-03 editing what was done', () => {
     await page.goto('/logs?tab=exercise');
     await logRow(page, 'Cycling').getByRole('button', {name: 'Edit Cycling'}).click();
     const edit = dialog(page, 'Edit exercise');
-    await edit.getByLabel('Duration (min)').fill('15');
+    // Entries logged before sets were kept get one timed set.
+    await expect(edit.getByLabel('Set 1 time')).toHaveValue('30:00');
+    await edit.getByLabel('Set 1 time').fill('15');
     await expect(edit.getByLabel('Calories burned')).toHaveValue('150');
     await edit.getByRole('button', {name: 'Save changes'}).click();
     await expect(logRow(page, 'Cycling')).toContainText('15 min');
     await expect(page.getByText('150 calories burned')).toBeVisible();
+  });
+
+  test('a set can change from reps to time', async ({authedPage: page, db, user}) => {
+    const entry = await seedExercise(db, user.id, {...STRENGTH, name: 'Plank'});
+    await page.goto('/logs?tab=exercise');
+    await logRow(page, 'Plank').getByRole('button', {name: 'Edit Plank'}).click();
+    const edit = dialog(page, 'Edit exercise');
+    await edit.getByLabel('Set 3 type').selectOption('time');
+    await edit.getByLabel('Set 3 time').fill('1:15');
+
+    const request = nextApiRequest(page, '/api/exercise', 'PATCH');
+    await edit.getByRole('button', {name: 'Save changes'}).click();
+    expect((await request).postDataJSON()).toMatchObject({
+      id: entry.id,
+      exerciseSets: [
+        {reps: 10, weight: 50},
+        {reps: 10, weight: 50},
+        {durationSec: 75, weight: 50},
+      ],
+    });
+    await expect(logRow(page, 'Plank')).toContainText('10 @ 50, 10 @ 50, 1:15 @ 50');
   });
 
   test('EL-06 server errors are shown in the dialog', async ({authedPage: page, db, user}) => {

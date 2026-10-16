@@ -7,21 +7,34 @@ import {
   EXERCISE_LOG_INCLUDE,
   exerciseSetsSchema,
   isActiveOn,
-  summarizeSets,
+  setsOf,
+  toExerciseFields,
   toSetRows,
-  uniformSets,
+  type ExerciseSet,
 } from '@/lib/exercise';
 import {prisma} from '@/lib/prisma';
 import {getTodayDate, getTodayWeekday, getUserTimeZone} from '@/lib/timezone';
 
 // Details override the goal's when the user changed them before logging, e.g.
-// a heavier last set. Only those that fit the goal's type apply.
+// a heavier last set. durationMin is the older way to change a single timed set.
 const tickSchema = z.object({
   goalId: z.string().min(1),
   exerciseSets: exerciseSetsSchema.optional(),
   durationMin: z.number().int().min(1).optional(),
   calories: z.number().int().min(0).optional(),
 });
+
+/** The goal's sets, with a single timed set's time changed if asked. */
+function plannedSetsWith(
+  planned: ExerciseSet[],
+  durationMin: number | undefined,
+): ExerciseSet[] {
+  const [only] = planned;
+  if (durationMin === undefined || planned.length !== 1 || only.reps != null) {
+    return planned;
+  }
+  return [{...only, durationSec: durationMin * 60}];
+}
 
 /** Ticks off a planned exercise for today by logging it from the goal. */
 export async function POST(request: Request) {
@@ -54,11 +67,8 @@ export async function POST(request: Request) {
     }
 
     const goalDate = getTodayDate(timeZone);
-    const sets =
-      goal.type === 'STRENGTH'
-        ? (exerciseSets ??
-          uniformSets(goal.sets ?? 1, goal.reps ?? 1, goal.weight))
-        : null;
+    const sets = exerciseSets ?? plannedSetsWith(setsOf(goal), durationMin);
+    const fields = toExerciseFields(sets);
     try {
       const entry = await prisma.exerciseLog.create({
         data: {
@@ -66,20 +76,10 @@ export async function POST(request: Request) {
           exerciseGoalId: goalId,
           goalDate,
           name: goal.name,
-          type: goal.type,
           calories: calories ?? goal.calories,
-          ...(sets
-            ? {
-                durationMin: goal.durationMin ?? 0,
-                ...summarizeSets(sets),
-                exerciseSets: {create: toSetRows(sets)},
-              }
-            : {
-                durationMin: durationMin ?? goal.durationMin ?? 0,
-                sets: goal.sets,
-                reps: goal.reps,
-                weight: goal.weight,
-              }),
+          ...fields,
+          durationMin: fields.durationMin ?? 0,
+          exerciseSets: {create: toSetRows(sets)},
         },
         include: EXERCISE_LOG_INCLUDE,
       });

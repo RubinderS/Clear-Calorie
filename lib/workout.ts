@@ -1,9 +1,15 @@
 // Interactive workout session logic. Timers are timestamp based so they stay
 // accurate when the tab is backgrounded or the device sleeps.
 
+/** A set as planned: for reps, or for a time. */
+export type PlannedSet = {reps?: number | null; durationSec?: number | null};
+
+/** A set as done in the workout. */
+export type CompletedSet = {reps: number} | {durationSec: number};
+
 export type WorkoutStep =
-  | {kind: 'work'; durationMs: number}
-  | {kind: 'set'; set: number; sets: number}
+  | {kind: 'work'; durationMs: number; set: number; sets: number}
+  | {kind: 'set'; set: number; sets: number; reps: number}
   | {kind: 'rest'; durationMs: number; nextSet: number; sets: number};
 
 export type Timer = {accumulatedMs: number; startedAt: number | null};
@@ -13,13 +19,13 @@ export type WorkoutState = {
   index: number;
   timer: Timer;
   done: boolean;
-  /** Reps per set; adjustable during the session. */
+  /** Reps in the current set; adjustable during the session. */
   reps: number;
   /** Time per rep in a set. */
   tempoMs: number;
   setsCompleted: number;
-  /** Reps of each finished set, as set when it ended. */
-  completedReps: number[];
+  /** Each finished set: its reps as set when it ended, or the time worked. */
+  completed: CompletedSet[];
 };
 
 export type WorkoutCue =
@@ -41,23 +47,29 @@ export const MAX_TEMPO_MS = 6_000;
 export const TEMPO_STEP_MS = 500;
 export const MAX_REPS = 100;
 
-/** Time goals are one countdown; strength goals alternate sets with rests. */
+/** Each set in turn, with rests between: rep sets count reps, timed sets count down. */
 export function buildWorkoutSteps(
-  goal: {type: string; durationMin?: number | null; sets?: number | null},
+  planned: readonly PlannedSet[],
   restMs = DEFAULT_REST_MS,
 ): WorkoutStep[] {
-  if (goal.type === 'STRENGTH') {
-    const sets = Math.max(1, goal.sets ?? 1);
-    return Array.from({length: sets}, (_, i): WorkoutStep[] => {
-      const set: WorkoutStep = {kind: 'set', set: i + 1, sets};
+  const sets = Math.max(1, planned.length);
+  const list = planned.length > 0 ? planned : [{reps: 1}];
+  return list
+    .map((plannedSet, i): WorkoutStep[] => {
+      const set: WorkoutStep =
+        plannedSet.reps != null
+          ? {kind: 'set', set: i + 1, sets, reps: clampReps(plannedSet.reps)}
+          : {
+              kind: 'work',
+              durationMs: Math.max(1, plannedSet.durationSec ?? 60) * 1000,
+              set: i + 1,
+              sets,
+            };
       return i === 0
         ? [set]
         : [{kind: 'rest', durationMs: restMs, nextSet: i + 1, sets}, set];
-    }).flat();
-  }
-  return [
-    {kind: 'work', durationMs: Math.max(1, goal.durationMin ?? 1) * 60_000},
-  ];
+    })
+    .flat();
 }
 
 export function clampTempo(tempoMs: number): number {
@@ -111,37 +123,76 @@ export function remainingMs(state: WorkoutState, now: number): number {
   );
 }
 
+/** `options.reps`, when given, replaces the planned reps of every rep set. */
 export function startWorkout(
   steps: WorkoutStep[],
   now: number,
   options: {reps?: number; tempoMs?: number} = {},
 ): WorkoutState {
+  const planned =
+    options.reps === undefined
+      ? steps
+      : steps.map((step) =>
+          step.kind === 'set'
+            ? {...step, reps: clampReps(options.reps ?? step.reps)}
+            : step,
+        );
+  const firstSet = planned.find((step) => step.kind === 'set');
   return {
-    steps,
+    steps: planned,
     index: 0,
     timer: {accumulatedMs: 0, startedAt: now},
-    done: steps.length === 0,
-    reps: clampReps(options.reps ?? 1),
+    done: planned.length === 0,
+    reps: firstSet?.kind === 'set' ? firstSet.reps : 1,
     tempoMs: clampTempo(options.tempoMs ?? DEFAULT_TEMPO_MS),
     setsCompleted: 0,
-    completedReps: [],
+    completed: [],
   };
+}
+
+/** The current step as a finished set, or null during a rest. */
+function finishedSet(state: WorkoutState, at: number): CompletedSet | null {
+  const step = state.steps[state.index];
+  if (step.kind === 'set') return {reps: state.reps};
+  if (step.kind === 'rest') return null;
+  const worked = Math.min(
+    step.durationMs,
+    elapsedMs(state.timer, at) - leadInMs(state),
+  );
+  // Ended before the countdown got going, so take the time as planned.
+  const ms = worked >= 1000 ? worked : step.durationMs;
+  return {durationSec: Math.round(ms / 1000)};
+}
+
+/**
+ * Reps for the set at `index`. A change made during one set carries on while
+ * the plan keeps the same reps, as it did when every set had to match.
+ */
+function repsFor(state: WorkoutState, index: number): number {
+  const step = state.steps[index];
+  if (step.kind !== 'set') return state.reps;
+  const previous = state.steps
+    .slice(0, index)
+    .findLast((earlier) => earlier.kind === 'set');
+  return previous?.kind === 'set' && previous.reps === step.reps
+    ? state.reps
+    : step.reps;
 }
 
 /** Moves to the next step with its timer starting at `at`; finishes after the last step. */
 export function nextStep(state: WorkoutState, at: number): WorkoutState {
   if (state.done) return state;
-  const inSet = state.steps[state.index].kind === 'set';
-  const setsCompleted = state.setsCompleted + (inSet ? 1 : 0);
-  const completedReps = inSet
-    ? [...state.completedReps, state.reps]
-    : state.completedReps;
+  const finished = finishedSet(state, at);
+  const setsCompleted = state.setsCompleted + (finished ? 1 : 0);
+  const completed = finished
+    ? [...state.completed, finished]
+    : state.completed;
   const index = state.index + 1;
   if (index >= state.steps.length) {
     return {
       ...state,
       setsCompleted,
-      completedReps,
+      completed,
       timer: pauseTimer(state.timer, at),
       done: true,
     };
@@ -149,8 +200,9 @@ export function nextStep(state: WorkoutState, at: number): WorkoutState {
   return {
     ...state,
     index,
+    reps: repsFor(state, index),
     setsCompleted,
-    completedReps,
+    completed,
     timer: {accumulatedMs: 0, startedAt: at},
   };
 }

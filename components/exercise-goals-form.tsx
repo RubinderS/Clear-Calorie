@@ -27,6 +27,7 @@ import {
   ExerciseDetailFields,
   toDetailValues,
   toDetailsPayload,
+  toEstimateDetails,
 } from '@/components/exercise-detail-fields';
 import {Decimal} from '@/lib/decimal';
 import {cn} from '@/lib/utils';
@@ -42,10 +43,6 @@ type ExerciseGoalsFormProps = {
   goals: ExerciseGoal[];
   aiEnabled?: boolean;
 };
-
-function optionalNumber(value: string) {
-  return Number(value) > 0 ? Number(value) : null;
-}
 
 export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   const router = useRouter();
@@ -115,14 +112,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           name: exerciseName,
-          type: details.type,
-          ...(details.type === 'STRENGTH'
-            ? {
-                sets: optionalNumber(details.sets),
-                reps: optionalNumber(details.reps),
-                weight: optionalNumber(details.weight),
-              }
-            : {durationMin: optionalNumber(details.durationMin)}),
+          ...toEstimateDetails(details),
         }),
       });
       const payload = await response.json().catch(() => null);

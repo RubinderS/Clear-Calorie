@@ -32,9 +32,11 @@ test('EX-04 POST time exercise nulls strength fields', async ({api}) => {
   expect(response.status()).toBe(201);
   expect(await response.json()).toMatchObject({
     ...TIME,
-    sets: null,
+    // One timed set.
+    sets: 1,
     reps: null,
     weight: null,
+    exerciseSets: [{reps: null, durationSec: 25 * 60, weight: null}],
   });
 });
 
@@ -141,13 +143,31 @@ test.describe('XA-04 PATCH', () => {
     });
   });
 
-  test('type cannot change', async ({api, db, user}) => {
+  test('sets can switch between reps and time', async ({api, db, user}) => {
     const entry = await seedExercise(db, user.id);
     const response = await api.patch('/api/exercise', {
-      data: {id: entry.id, calories: 1, type: 'STRENGTH', sets: 1, reps: 1},
+      data: {
+        id: entry.id,
+        calories: 1,
+        exerciseSets: [{reps: 12}, {durationSec: 90, weight: 10}],
+      },
     });
-    expect(response.status()).toBe(400);
-    expect(await response.json()).toEqual({error: 'Exercise type cannot be changed'});
+    expect(response.status()).toBe(200);
+    expect(await response.json()).toMatchObject({
+      type: 'STRENGTH',
+      sets: 2,
+      reps: 12,
+      durationMin: 2,
+      exerciseSets: [
+        {reps: 12, durationSec: null, weight: null},
+        {reps: null, durationSec: 90, weight: 10},
+      ],
+    });
+
+    const neither = await api.patch('/api/exercise', {
+      data: {id: entry.id, calories: 1, exerciseSets: [{weight: 10}]},
+    });
+    expect(neither.status()).toBe(400);
   });
 
   test('past entries are read-only, unknown → 404', async ({api, db, user}) => {

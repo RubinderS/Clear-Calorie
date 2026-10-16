@@ -2,7 +2,7 @@ import {randomUUID} from 'node:crypto';
 import type {Page} from '@playwright/test';
 import {test, expect, nextApiRequest} from '../../fixtures/test';
 import {EXERCISE_ESTIMATE} from '../../mocks/data';
-import {dialog} from '../../fixtures/ui';
+import {dialog, fillSets} from '../../fixtures/ui';
 
 const marker = () => `m${randomUUID().slice(0, 8)}`;
 
@@ -13,11 +13,8 @@ async function openAddGoal(page: Page) {
   return {
     add,
     name: add.getByLabel('Exercise', {exact: true}),
-    time: add.getByRole('button', {name: 'Time based'}),
-    sets: add.getByLabel('Sets', {exact: true}),
-    reps: add.getByLabel('Reps', {exact: true}),
-    weight: add.getByLabel('Weight', {exact: true}),
-    duration: add.getByLabel('Duration (min)'),
+    fillSets: (sets: Parameters<typeof fillSets>[1]) => fillSets(add, sets),
+    addSet: add.getByRole('button', {name: 'Add set'}),
     // By role: the Estimate button's aria-label also mentions calories burned.
     calories: add.getByRole('spinbutton', {name: 'Calories burned (optional)'}),
     estimate: add.getByRole('button', {name: 'Estimate calories burned with AI'}),
@@ -32,7 +29,8 @@ test('AIE-01 strength estimate fills calories', async ({authedPage: page}) => {
 
   const name = `Rows ${marker()}`;
   await f.name.fill(name);
-  await f.sets.fill('3');
+  await f.addSet.click();
+  await f.addSet.click();
   const request = nextApiRequest(page, '/api/exercise/estimate');
   await f.estimate.click();
   // Empty fields are sent as null so a partly filled form can be estimated.
@@ -41,6 +39,7 @@ test('AIE-01 strength estimate fills calories', async ({authedPage: page}) => {
     type: 'STRENGTH',
     sets: 3,
     reps: null,
+    durationMin: null,
     weight: null,
   });
   expect(await (await (await request).response())?.json()).toEqual(EXERCISE_ESTIMATE);
@@ -59,11 +58,17 @@ test('AIE-01 time estimate sends the duration', async ({authedPage: page}) => {
   const f = await openAddGoal(page);
   const name = `Cycling ${marker()}`;
   await f.name.fill(name);
-  await f.time.click();
-  await f.duration.fill('45');
+  await f.fillSets(['45']);
   const request = nextApiRequest(page, '/api/exercise/estimate');
   await f.estimate.click();
-  expect((await request).postDataJSON()).toEqual({name, type: 'TIME', durationMin: 45});
+  expect((await request).postDataJSON()).toEqual({
+    name,
+    type: 'TIME',
+    sets: 1,
+    reps: null,
+    durationMin: 45,
+    weight: null,
+  });
   await expect(f.calories).toHaveValue(String(EXERCISE_ESTIMATE.calories));
 });
 
@@ -91,8 +96,7 @@ test('AIE-02 the prompt includes body weight and load', async ({
   const after = marker();
   const f = await openAddGoal(page);
   await f.name.fill(`Walk ${after}`);
-  await f.time.click();
-  await f.duration.fill('30');
+  await f.fillSets(['30']);
   const response = page.waitForResponse('**/api/exercise/estimate');
   await f.estimate.click();
   await response;

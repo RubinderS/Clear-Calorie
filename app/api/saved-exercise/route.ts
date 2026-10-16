@@ -3,7 +3,7 @@ import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {Prisma} from '@prisma/client';
 import {authOptions} from '@/lib/auth-options';
-import {exerciseDetailsSchema, toExerciseFields} from '@/lib/exercise';
+import {exerciseInputSchema, inputSets, toPlanFields} from '@/lib/exercise';
 import {prisma} from '@/lib/prisma';
 
 const savedExerciseSchema = z
@@ -13,7 +13,7 @@ const savedExerciseSchema = z
     calories: z.number().int().min(0),
     isPinned: z.boolean().default(false),
   })
-  .and(exerciseDetailsSchema);
+  .and(exerciseInputSchema);
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     }
 
     const {id, name, calories, isPinned} = parsed.data;
-    const fields = toExerciseFields(parsed.data);
+    const fields = toPlanFields(inputSets(parsed.data));
     const data = {
       name,
       calories,

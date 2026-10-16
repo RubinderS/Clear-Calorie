@@ -1,6 +1,12 @@
-import {addDays, format, parseISO} from 'date-fns';
+import {addDays, format, parseISO, subDays} from 'date-fns';
 import {Prisma} from '@prisma/client';
-import {countPlannedOn, isActiveOn} from '@/lib/exercise';
+import {
+  EXERCISE_LOG_INCLUDE,
+  countPlannedOn,
+  isActiveOn,
+  setsOf,
+  type ExerciseSet,
+} from '@/lib/exercise';
 import {prisma} from '@/lib/prisma';
 import {
   getDateRange,
@@ -21,6 +27,24 @@ export async function getPlannedExerciseGoals(
     orderBy: {createdAt: 'asc'},
   });
   return goals.filter((goal) => isActiveOn(goal.daysMask, weekday));
+}
+
+/** Each goal's sets as ticked off on this weekday last week, by goal id. */
+export async function getLastWeekSets(
+  userId: string,
+  timeZone: string,
+): Promise<Map<string, ExerciseSet[]>> {
+  const lastWeek = format(
+    subDays(parseISO(getTodayDate(timeZone)), 7),
+    'yyyy-MM-dd',
+  );
+  const logs = await prisma.exerciseLog.findMany({
+    where: {userId, goalDate: lastWeek, exerciseGoalId: {not: null}},
+    include: EXERCISE_LOG_INCLUDE,
+  });
+  return new Map(
+    logs.map((log) => [log.exerciseGoalId as string, setsOf(log)]),
+  );
 }
 
 function nextDate(date: string): string {

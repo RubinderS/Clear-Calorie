@@ -104,7 +104,7 @@ test.describe('Saved exercise', () => {
     expect(await time.json()).toMatchObject({
       name: 'Swim',
       durationMin: 30,
-      sets: null,
+      sets: 1,
       isPinned: true,
     });
   });

@@ -5,13 +5,19 @@ import {
   countPlannedOn,
   daysToMask,
   exerciseDetailsSchema,
+  exerciseInputSchema,
+  exerciseSetSchema,
   formatExerciseDetail,
+  inputSets,
   isActiveOn,
   isSameExerciseName,
   isUniform,
   maskToDays,
+  parseSetPlan,
+  setsOf,
   summarizeSets,
   toExerciseFields,
+  toPlanFields,
   uniformSets,
 } from './exercise';
 
@@ -99,6 +105,85 @@ test('summarizeSets counts sets and picks the top set', () => {
   assert.equal(isUniform(uniformSets(3, 8, 20)), true);
 });
 
+test('each set is done for reps or for a time', () => {
+  assert.equal(exerciseSetSchema.safeParse({reps: 10}).success, true);
+  assert.equal(exerciseSetSchema.safeParse({durationSec: 45}).success, true);
+  assert.equal(exerciseSetSchema.safeParse({weight: 20}).success, false);
+  assert.equal(
+    exerciseSetSchema.safeParse({reps: 10, durationSec: 45}).success,
+    false,
+  );
+});
+
+test('plans keep every set, summarized in the older columns', () => {
+  const sets = [
+    {reps: 10, weight: 40},
+    {reps: 8, weight: 45},
+    {durationSec: 45, weight: null},
+  ];
+  const fields = toPlanFields(sets);
+  assert.deepEqual(
+    {...fields, setPlan: undefined},
+    {
+      type: 'STRENGTH',
+      durationMin: 1,
+      sets: 3,
+      reps: 8,
+      weight: 45,
+      setPlan: undefined,
+    },
+  );
+  assert.deepEqual(parseSetPlan(fields.setPlan), sets);
+  assert.deepEqual(setsOf(fields), sets);
+  assert.equal(formatExerciseDetail(fields), '10 @ 40, 8 @ 45, 45s');
+
+  // Only timed sets make a time exercise, with its total minutes.
+  assert.deepEqual(toExerciseFields([{durationSec: 90}, {durationSec: 90}]), {
+    type: 'TIME',
+    durationMin: 3,
+    sets: 2,
+    reps: null,
+    weight: null,
+  });
+  assert.equal(parseSetPlan('not json'), null);
+});
+
+test('formatExerciseDetail renders timed sets', () => {
+  const timed = (...seconds: number[]) => ({
+    type: 'TIME',
+    exerciseSets: seconds.map((durationSec) => ({durationSec})),
+  });
+  assert.equal(formatExerciseDetail(timed(1800)), '30 min');
+  assert.equal(formatExerciseDetail(timed(45, 45, 45)), '3 × 45s');
+  assert.equal(formatExerciseDetail(timed(90, 60)), '1:30, 1 min');
+});
+
+test('older entries without stored sets are rebuilt from their summary', () => {
+  assert.deepEqual(
+    setsOf({type: 'STRENGTH', sets: 2, reps: 5, weight: 60, setPlan: null}),
+    [
+      {reps: 5, weight: 60},
+      {reps: 5, weight: 60},
+    ],
+  );
+  assert.deepEqual(setsOf({type: 'TIME', durationMin: 20}), [
+    {durationSec: 1200, weight: null},
+  ]);
+});
+
+test('inputs take listed sets or the older summary', () => {
+  const listed = exerciseInputSchema.parse({
+    exerciseSets: [{reps: 10}, {durationSec: 30}],
+  });
+  assert.deepEqual(inputSets(listed), [{reps: 10}, {durationSec: 30}]);
+  const summary = exerciseInputSchema.parse({type: 'TIME', durationMin: 5});
+  assert.deepEqual(inputSets(summary), [{durationSec: 300, weight: null}]);
+  assert.equal(
+    exerciseInputSchema.safeParse({exerciseSets: []}).success,
+    false,
+  );
+});
+
 test('isSameExerciseName ignores case and surrounding whitespace', () => {
   assert.equal(isSameExerciseName('  Morning Run ', 'morning run'), true);
   assert.equal(isSameExerciseName('Morning run', 'Evening run'), false);
@@ -124,7 +209,7 @@ test('details schema enforces per-type required fields', () => {
     reps: 10,
     durationMin: 45,
   });
-  assert.deepEqual(toExerciseFields(strength), {
+  assert.deepEqual(toExerciseFields(inputSets(strength)), {
     type: 'STRENGTH',
     durationMin: null,
     sets: 3,
@@ -137,10 +222,10 @@ test('details schema enforces per-type required fields', () => {
     durationMin: 30,
     sets: 3,
   });
-  assert.deepEqual(toExerciseFields(time), {
+  assert.deepEqual(toExerciseFields(inputSets(time)), {
     type: 'TIME',
     durationMin: 30,
-    sets: null,
+    sets: 1,
     reps: null,
     weight: null,
   });

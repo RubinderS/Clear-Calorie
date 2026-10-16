@@ -23,28 +23,66 @@ import {
 const LEAD_IN_MS = FIRST_LEAD_IN_BEATS * LEAD_IN_BEAT_MS;
 const LATER_LEAD_IN_MS = LEAD_IN_BEATS * LEAD_IN_BEAT_MS;
 
+/** A plan of rep sets that all match. */
+function repSets(sets: number, reps = 10) {
+  return Array.from({length: sets}, () => ({reps}));
+}
+
+test('buildWorkoutSteps counts down timed sets with rests between', () => {
+  assert.deepEqual(
+    buildWorkoutSteps([{reps: 8}, {durationSec: 45}], 30_000),
+    [
+      {kind: 'set', set: 1, sets: 2, reps: 8},
+      {kind: 'rest', durationMs: 30_000, nextSet: 2, sets: 2},
+      {kind: 'work', durationMs: 45_000, set: 2, sets: 2},
+    ],
+  );
+});
+
+test('a workout records each set as done, reps or time', () => {
+  let state = startWorkout(
+    buildWorkoutSteps([{reps: 8}, {durationSec: 45}, {reps: 6}], 30_000),
+    0,
+  );
+  assert.equal(state.reps, 8);
+  state = nextStep(state, 1_000);
+  state = nextStep(state, 2_000); // rest skipped
+  // 20s of the hold after its lead-in, then ended early.
+  state = nextStep(state, 2_000 + LATER_LEAD_IN_MS + 20_000);
+  state = nextStep(state, 0);
+  // A set planned with different reps starts at its own.
+  assert.equal(state.reps, 6);
+  state = nextStep(state, 0);
+  assert.equal(state.done, true);
+  assert.deepEqual(state.completed, [
+    {reps: 8},
+    {durationSec: 20},
+    {reps: 6},
+  ]);
+});
+
 test('buildWorkoutSteps makes one countdown for time goals', () => {
-  assert.deepEqual(buildWorkoutSteps({type: 'TIME', durationMin: 20}), [
-    {kind: 'work', durationMs: 20 * 60_000},
+  assert.deepEqual(buildWorkoutSteps([{durationSec: 20 * 60}]), [
+    {kind: 'work', durationMs: 20 * 60_000, set: 1, sets: 1},
   ]);
 });
 
 test('buildWorkoutSteps interleaves rests between strength sets', () => {
-  assert.deepEqual(buildWorkoutSteps({type: 'STRENGTH', sets: 3}, 30_000), [
-    {kind: 'set', set: 1, sets: 3},
+  assert.deepEqual(buildWorkoutSteps(repSets(3), 30_000), [
+    {kind: 'set', set: 1, sets: 3, reps: 10},
     {kind: 'rest', durationMs: 30_000, nextSet: 2, sets: 3},
-    {kind: 'set', set: 2, sets: 3},
+    {kind: 'set', set: 2, sets: 3, reps: 10},
     {kind: 'rest', durationMs: 30_000, nextSet: 3, sets: 3},
-    {kind: 'set', set: 3, sets: 3},
+    {kind: 'set', set: 3, sets: 3, reps: 10},
   ]);
-  assert.deepEqual(buildWorkoutSteps({type: 'STRENGTH', sets: 1}), [
-    {kind: 'set', set: 1, sets: 1},
+  assert.deepEqual(buildWorkoutSteps(repSets(1)), [
+    {kind: 'set', set: 1, sets: 1, reps: 10},
   ]);
 });
 
 test('pausing freezes elapsed time and resuming continues it', () => {
   let state = startWorkout(
-    buildWorkoutSteps({type: 'TIME', durationMin: 1}),
+    buildWorkoutSteps([{durationSec: 60}]),
     0,
   );
   state = togglePause(state, LEAD_IN_MS + 10_000);
@@ -56,7 +94,7 @@ test('pausing freezes elapsed time and resuming continues it', () => {
 
 test('tickWorkout finishes a time workout once its lead-in and countdown run out', () => {
   const state = startWorkout(
-    buildWorkoutSteps({type: 'TIME', durationMin: 1}),
+    buildWorkoutSteps([{durationSec: 60}]),
     0,
   );
   assert.equal(tickWorkout(state, LEAD_IN_MS + 59_999), state);
@@ -65,7 +103,7 @@ test('tickWorkout finishes a time workout once its lead-in and countdown run out
 
 test('currentCue counts a time workout in, then stays on go', () => {
   const state = startWorkout(
-    buildWorkoutSteps({type: 'TIME', durationMin: 1}),
+    buildWorkoutSteps([{durationSec: 60}]),
     0,
   );
   assert.deepEqual(currentCue(state, 0)?.cue, {type: 'leadIn', n: 5});
@@ -81,7 +119,7 @@ test('currentCue counts a time workout in, then stays on go', () => {
 
 test('tickWorkout does not expire a paused countdown', () => {
   const state = togglePause(
-    startWorkout(buildWorkoutSteps({type: 'TIME', durationMin: 1}), 0),
+    startWorkout(buildWorkoutSteps([{durationSec: 60}]), 0),
     30_000,
   );
   assert.equal(tickWorkout(state, 10 * 60_000).done, false);
@@ -89,20 +127,25 @@ test('tickWorkout does not expire a paused countdown', () => {
 
 test('a rest that ends while backgrounded starts the next set at its end time', () => {
   let state = startWorkout(
-    buildWorkoutSteps({type: 'STRENGTH', sets: 2}, 60_000),
+    buildWorkoutSteps(repSets(2), 60_000),
     0,
     {reps: 10, tempoMs: 3_000},
   );
   state = nextStep(state, 20_000); // set 1 done, rest begins
   state = tickWorkout(state, 100_000); // rest ended at 80s
-  assert.deepEqual(state.steps[state.index], {kind: 'set', set: 2, sets: 2});
+  assert.deepEqual(state.steps[state.index], {
+    kind: 'set',
+    set: 2,
+    sets: 2,
+    reps: 10,
+  });
   assert.equal(elapsedMs(state.timer, 100_000), 20_000);
   assert.equal(nextStep(state, 110_000).done, true);
 });
 
 test('adjustRest changes the current and later rests only', () => {
   let state = startWorkout(
-    buildWorkoutSteps({type: 'STRENGTH', sets: 3}, 60_000),
+    buildWorkoutSteps(repSets(3), 60_000),
     0,
   );
   state = nextStep(state, 0);
@@ -125,7 +168,7 @@ test('formatClock renders minutes and hours', () => {
 });
 
 function strength(sets: number, reps: number, tempoMs = 2_000) {
-  return startWorkout(buildWorkoutSteps({type: 'STRENGTH', sets}, 60_000), 0, {
+  return startWorkout(buildWorkoutSteps(repSets(sets), 60_000), 0, {
     reps,
     tempoMs,
   });
@@ -140,7 +183,12 @@ test('a set lasts its lead-in plus one tempo beat per rep, then rests', () => {
   assert.equal(resting.steps[resting.index].kind, 'rest');
   assert.equal(resting.setsCompleted, 1);
   const next = tickWorkout(state, setMs + 60_000);
-  assert.deepEqual(next.steps[next.index], {kind: 'set', set: 2, sets: 2});
+  assert.deepEqual(next.steps[next.index], {
+    kind: 'set',
+    set: 2,
+    sets: 2,
+    reps: 5,
+  });
   const end = setMs + 60_000 + LATER_LEAD_IN_MS + 5 * 2_000;
   assert.equal(tickWorkout(state, end).done, true);
   assert.equal(tickWorkout(state, end).setsCompleted, 2);
@@ -236,7 +284,7 @@ test('ending a set early still counts it', () => {
 test('each set keeps the reps it ended with', () => {
   let state = strength(3, 10);
   state = nextStep(state, 5_000); // set 1 done at 10 reps; resting
-  assert.deepEqual(state.completedReps, [10]);
+  assert.deepEqual(state.completed, [{reps: 10}]);
   state = setReps(state, 8);
   state = nextStep(state, 10_000); // set 2
   state = nextStep(state, 15_000); // set 2 done at 8 reps; resting
@@ -244,7 +292,7 @@ test('each set keeps the reps it ended with', () => {
   state = setReps(state, 6);
   state = nextStep(state, 17_000); // set 3 done at 6 reps
   assert.equal(state.done, true);
-  assert.deepEqual(state.completedReps, [10, 8, 6]);
+  assert.deepEqual(state.completed, [{reps: 10}, {reps: 8}, {reps: 6}]);
 });
 
 test('setEndCue marks a set ending in a rest or the end of the workout', () => {

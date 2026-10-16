@@ -1,41 +1,38 @@
 'use client';
 
-import {Plus, X} from 'lucide-react';
+import {ChevronDown, Plus, X} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Decimal} from '@/lib/decimal';
 import {
   MAX_SETS,
-  summarizeSets,
-  uniformSets,
-  type ExerciseDetails,
-  type ExerciseFields,
+  setsOf,
+  toExerciseFields,
   type ExerciseSet,
-  type ExerciseType,
+  type ExerciseWithSets,
 } from '@/lib/exercise';
 import {MAX_REPS} from '@/lib/workout';
 
-export type ExerciseDetailValues = {
-  type: ExerciseType;
-  durationMin: string;
-  sets: string;
+/** A set is done either for reps or for a time. */
+export type SetMode = 'reps' | 'time';
+
+/** One set as typed; time is m:ss, or whole minutes. */
+export type SetValues = {
+  mode: SetMode;
   reps: string;
+  time: string;
   weight: string;
 };
 
-export const EMPTY_EXERCISE_DETAILS: ExerciseDetailValues = {
-  type: 'STRENGTH',
-  durationMin: '',
-  sets: '',
-  reps: '',
-  weight: '',
-};
+export type ExerciseDetailValues = {sets: SetValues[]};
 
-const TYPE_OPTIONS: {type: ExerciseType; label: string}[] = [
-  {type: 'STRENGTH', label: 'Sets & reps'},
-  {type: 'TIME', label: 'Time based'},
-];
+const EMPTY_SET: SetValues = {mode: 'reps', reps: '', time: '', weight: ''};
+
+export const EMPTY_EXERCISE_DETAILS: ExerciseDetailValues = {sets: [EMPTY_SET]};
+
+// Minutes alone ("30"), or minutes and seconds ("1:30", "0:45").
+const TIME_PATTERN = '\\d+(:[0-5]\\d)?';
 
 function toInt(value: string) {
   return new Decimal(Number(value))
@@ -43,130 +40,203 @@ function toInt(value: string) {
     .toNumber();
 }
 
-export function toDetailValues(
-  item: Partial<Omit<ExerciseFields, 'type'>> & {type: string},
-): ExerciseDetailValues {
+function optionalWeight(value: string) {
+  return Number(value) > 0 ? Number(value) : null;
+}
+
+/** Seconds in an m:ss or whole-minutes time, or null if it isn't one. */
+export function parseTime(value: string): number | null {
+  const match = value.trim().match(/^(\d+)(?::([0-5]\d))?$/);
+  if (!match) return null;
+  const seconds = Number(match[1]) * 60 + Number(match[2] ?? 0);
+  return seconds > 0 ? seconds : null;
+}
+
+export function formatTimeInput(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function toSetValues(set: ExerciseSet): SetValues {
   return {
-    type: item.type === 'STRENGTH' ? 'STRENGTH' : 'TIME',
-    durationMin: item.durationMin ? String(item.durationMin) : '',
-    sets: item.sets != null ? String(item.sets) : '',
-    reps: item.reps != null ? String(item.reps) : '',
-    weight: item.weight != null ? String(item.weight) : '',
+    mode: set.reps != null ? 'reps' : 'time',
+    reps: set.reps != null ? String(set.reps) : '',
+    time: set.durationSec ? formatTimeInput(set.durationSec) : '',
+    weight: set.weight != null ? String(set.weight) : '',
   };
 }
 
-export function toDetailsPayload(
-  values: ExerciseDetailValues,
-): ExerciseDetails {
-  if (values.type === 'STRENGTH') {
-    return {
-      type: 'STRENGTH',
-      sets: toInt(values.sets),
-      reps: toInt(values.reps),
-      weight: Number(values.weight) > 0 ? Number(values.weight) : null,
-    };
+function toSet(set: SetValues): ExerciseSet {
+  const weight = optionalWeight(set.weight);
+  return set.mode === 'reps'
+    ? {reps: toInt(set.reps), weight}
+    : {durationSec: parseTime(set.time) ?? 0, weight};
+}
+
+export function toDetailValues(item: ExerciseWithSets): ExerciseDetailValues {
+  return {sets: setsOf(item).map(toSetValues)};
+}
+
+export function toDetailsPayload(values: ExerciseDetailValues) {
+  return {exerciseSets: toSetsPayload(values.sets)};
+}
+
+/**
+ * A summary of the sets for estimating calories, averaging their weights.
+ * Sets not filled in yet still count, so a partly filled form can be estimated.
+ */
+export function toEstimateDetails(values: ExerciseDetailValues) {
+  const sets = toSetsPayload(values.sets).filter(
+    (set) => (set.reps ?? 0) > 0 || (set.durationSec ?? 0) > 0,
+  );
+  const {type, reps, durationMin} =
+    sets.length > 0
+      ? toExerciseFields(sets)
+      : {type: 'STRENGTH' as const, reps: null, durationMin: null};
+  const count = values.sets.length;
+  const weights = sets.flatMap((set) => (set.weight ? [set.weight] : []));
+  const weight =
+    weights.length > 0
+      ? new Decimal(weights.reduce((sum, value) => sum + value, 0))
+          .dividedBy(weights.length)
+          .toDecimalPlaces(1)
+          .toNumber()
+      : null;
+  return {type, sets: count, reps, durationMin, weight};
+}
+
+type SetRowsProps = {
+  idPrefix: string;
+  sets: SetValues[];
+  onChange: (sets: SetValues[]) => void;
+};
+
+const ROW = 'grid grid-cols-[1.5rem_5.5rem_1fr_1fr_2.25rem] items-center gap-2';
+
+/** Each set on its own row, done for reps or for a time, with its weight. */
+function SetRows({idPrefix, sets, onChange}: SetRowsProps) {
+  function update(index: number, change: Partial<SetValues>) {
+    onChange(sets.map((set, i) => (i === index ? {...set, ...change} : set)));
   }
-  return {type: 'TIME', durationMin: toInt(values.durationMin)};
+
+  return (
+    <div role="group" aria-label="Sets" className="space-y-2">
+      <div className={`${ROW} text-sm font-medium`} aria-hidden>
+        <span>Set</span>
+        <span>Type</span>
+        <span>Amount</span>
+        <span>Weight (kg)</span>
+      </div>
+      {sets.map((set, index) => {
+        const label = `Set ${index + 1}`;
+        return (
+          <div key={index} className={ROW}>
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {index + 1}
+            </span>
+            {/* The native arrow ignores padding, so it's hidden and drawn here instead. */}
+            <div className="relative">
+              <select
+                id={`${idPrefix}-set-${index}-mode`}
+                aria-label={`${label} type`}
+                value={set.mode}
+                onChange={(event) =>
+                  update(index, {mode: event.target.value as SetMode})
+                }
+                className="h-10 w-full appearance-none rounded-xl border border-input bg-background/60 pl-3 pr-8 text-sm shadow-sm focus-visible:border-primary/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10"
+              >
+                <option value="reps">Reps</option>
+                <option value="time">Time</option>
+              </select>
+              <ChevronDown
+                aria-hidden
+                className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+            </div>
+            {set.mode === 'reps' ? (
+              <Input
+                type="number"
+                min={1}
+                max={MAX_REPS}
+                placeholder="Reps"
+                aria-label={`${label} reps`}
+                value={set.reps}
+                onChange={(event) => update(index, {reps: event.target.value})}
+                required
+              />
+            ) : (
+              <Input
+                inputMode="numeric"
+                pattern={TIME_PATTERN}
+                placeholder="m:ss"
+                title="Minutes, or minutes:seconds, e.g. 30 or 0:45"
+                aria-label={`${label} time`}
+                value={set.time}
+                onChange={(event) => update(index, {time: event.target.value})}
+                required
+              />
+            )}
+            <Input
+              type="number"
+              min={0}
+              step="any"
+              placeholder="Optional"
+              aria-label={`${label} weight`}
+              value={set.weight}
+              onChange={(event) => update(index, {weight: event.target.value})}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              aria-label={`Remove set ${index + 1}`}
+              disabled={sets.length === 1}
+              onClick={() => onChange(sets.filter((_, i) => i !== index))}
+            >
+              <X />
+            </Button>
+          </div>
+        );
+      })}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="w-full"
+        disabled={sets.length >= MAX_SETS}
+        // A new set starts like the last one, usually the closest match.
+        onClick={() => onChange([...sets, sets[sets.length - 1]])}
+      >
+        <Plus />
+        Add set
+      </Button>
+    </div>
+  );
 }
 
 type ExerciseDetailFieldsProps = {
   idPrefix: string;
   value: ExerciseDetailValues;
   onChange: (value: ExerciseDetailValues) => void;
-  lockType?: boolean;
 };
 
+/** An exercise's planned sets, each for reps or a time, with its weight. */
 export function ExerciseDetailFields({
   idPrefix,
   value,
   onChange,
-  lockType = false,
 }: ExerciseDetailFieldsProps) {
-  function update(field: keyof Omit<ExerciseDetailValues, 'type'>) {
-    return (event: React.ChangeEvent<HTMLInputElement>) =>
-      onChange({...value, [field]: event.target.value});
-  }
-
   return (
-    <div className="space-y-4">
-      {!lockType && (
-        <div
-          role="group"
-          aria-label="Exercise type"
-          className="grid grid-cols-2 gap-2"
-        >
-          {TYPE_OPTIONS.map((option) => (
-            <Button
-              key={option.type}
-              type="button"
-              variant={value.type === option.type ? 'default' : 'outline'}
-              aria-pressed={value.type === option.type}
-              onClick={() => onChange({...value, type: option.type})}
-            >
-              {option.label}
-            </Button>
-          ))}
-        </div>
-      )}
-      {value.type === 'STRENGTH' ? (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="flex flex-col space-y-2">
-            <Label htmlFor={`${idPrefix}-sets`}>Sets</Label>
-            <Input
-              id={`${idPrefix}-sets`}
-              type="number"
-              min={1}
-              value={value.sets}
-              onChange={update('sets')}
-              required
-            />
-          </div>
-          <div className="flex flex-col space-y-2">
-            <Label htmlFor={`${idPrefix}-reps`}>Reps</Label>
-            <Input
-              id={`${idPrefix}-reps`}
-              type="number"
-              min={1}
-              max={MAX_REPS}
-              value={value.reps}
-              onChange={update('reps')}
-              required
-            />
-          </div>
-          <div className="flex flex-col space-y-2">
-            <Label htmlFor={`${idPrefix}-weight`}>Weight</Label>
-            <Input
-              id={`${idPrefix}-weight`}
-              type="number"
-              min={0}
-              step="any"
-              placeholder="Optional"
-              value={value.weight}
-              onChange={update('weight')}
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col space-y-2">
-          <Label htmlFor={`${idPrefix}-durationMin`}>Duration (min)</Label>
-          <Input
-            id={`${idPrefix}-durationMin`}
-            type="number"
-            min={1}
-            value={value.durationMin}
-            onChange={update('durationMin')}
-            required
-          />
-        </div>
-      )}
-    </div>
+    <SetRows
+      idPrefix={idPrefix}
+      sets={value.sets}
+      onChange={(sets) => onChange({sets})}
+    />
   );
 }
 
-export type SetValues = {reps: string; weight: string};
-
-/** A log's work: each strength set, or a duration for timed exercise. */
-export type WorkValues = {durationMin: string; sets: SetValues[] | null};
+/** A log's work, set by set. */
+export type WorkValues = {sets: SetValues[]};
 
 export type ExerciseLogValues = WorkValues & {
   calories: string;
@@ -174,80 +244,48 @@ export type ExerciseLogValues = WorkValues & {
   caloriesEdited: boolean;
 };
 
-type LoggableExercise = {
-  type: string;
-  durationMin: number | null;
-  sets: number | null;
-  reps: number | null;
-  weight: number | null;
-  exerciseSets?: readonly ExerciseSet[];
-};
-
-export function toWorkValues(item: LoggableExercise): WorkValues {
-  if (item.type !== 'STRENGTH') {
-    return {
-      durationMin: item.durationMin ? String(item.durationMin) : '',
-      sets: null,
-    };
-  }
-  const sets = item.exerciseSets?.length
-    ? item.exerciseSets
-    : uniformSets(item.sets ?? 1, item.reps ?? 1, item.weight);
-  return {
-    durationMin: '',
-    sets: sets.map((set) => ({
-      reps: String(set.reps),
-      weight: set.weight != null ? String(set.weight) : '',
-    })),
-  };
+export function toWorkValues(item: ExerciseWithSets): WorkValues {
+  return {sets: setsOf(item).map(toSetValues)};
 }
 
 export function toSetsPayload(sets: readonly SetValues[]): ExerciseSet[] {
-  return sets.map((set) => ({
-    reps: toInt(set.reps),
-    weight: Number(set.weight) > 0 ? Number(set.weight) : null,
-  }));
+  return sets.map(toSet);
 }
 
-/** Details plus each set, as the exercise APIs take them. */
+/** Each set as the exercise APIs take them, plus calories. */
 export function toLogPayload(values: ExerciseLogValues) {
-  const calories = toInt(values.calories);
-  if (!values.sets) {
-    return {
-      calories,
-      type: 'TIME' as const,
-      durationMin: toInt(values.durationMin),
-    };
-  }
-  const exerciseSets = toSetsPayload(values.sets);
   return {
-    calories,
-    type: 'STRENGTH' as const,
-    ...summarizeSets(exerciseSets),
-    exerciseSets,
+    calories: toInt(values.calories),
+    exerciseSets: toSetsPayload(values.sets),
   };
 }
 
+// Roughly the time a rep takes, so reps and timed sets compare as work.
+const SECONDS_PER_REP = 3;
+
 /**
- * Relative amount of work. Weight counts only when every set has one, so
- * adding a weight to an unweighted log doesn't multiply its calories.
+ * Relative amount of work. Weight counts only when every rep set has one,
+ * so adding a weight to an unweighted log doesn't multiply its calories.
  */
 function workRatio(from: WorkValues, to: WorkValues) {
-  if (from.sets && to.sets) {
-    const weighted = [...from.sets, ...to.sets].every(
-      (set) => Number(set.weight) > 0,
+  const repSets = [...from.sets, ...to.sets].filter(
+    (set) => set.mode === 'reps',
+  );
+  const weighted =
+    repSets.length > 0 && repSets.every((set) => Number(set.weight) > 0);
+  const work = ({sets}: WorkValues) =>
+    sets.reduce(
+      (sum, set) =>
+        sum +
+        (set.mode === 'reps'
+          ? Number(set.reps) *
+            SECONDS_PER_REP *
+            (weighted ? Number(set.weight) : 1)
+          : (parseTime(set.time) ?? 0)),
+      0,
     );
-    const volume = (sets: SetValues[]) =>
-      sets.reduce(
-        (sum, set) =>
-          sum + Number(set.reps) * (weighted ? Number(set.weight) : 1),
-        0,
-      );
-    const fromVolume = volume(from.sets);
-    return fromVolume > 0 ? volume(to.sets) / fromVolume : null;
-  }
-  const fromDuration = Number(from.durationMin);
-  return fromDuration > 0 ? Number(to.durationMin) / fromDuration : null;
+  const fromWork = work(from);
+  return fromWork > 0 ? work(to) / fromWork : null;
 }
 
 /** Scales calories burned by the change in work, or null if it can't tell. */
@@ -279,83 +317,6 @@ export function initialLogValues(
   };
 }
 
-const SET_ROW = 'grid grid-cols-[2rem_1fr_1fr_2.25rem] items-center gap-2';
-
-function SetListFields({
-  value,
-  onChange,
-}: {
-  value: SetValues[];
-  onChange: (sets: SetValues[]) => void;
-}) {
-  function update(index: number, field: keyof SetValues) {
-    return (event: React.ChangeEvent<HTMLInputElement>) =>
-      onChange(
-        value.map((set, i) =>
-          i === index ? {...set, [field]: event.target.value} : set,
-        ),
-      );
-  }
-
-  return (
-    <div role="group" aria-label="Sets" className="space-y-2">
-      <div className={`${SET_ROW} text-sm font-medium`} aria-hidden>
-        <span>Set</span>
-        <span>Reps</span>
-        <span>Weight</span>
-      </div>
-      {value.map((set, index) => (
-        <div key={index} className={SET_ROW}>
-          <span className="text-sm tabular-nums text-muted-foreground">
-            {index + 1}
-          </span>
-          <Input
-            type="number"
-            min={1}
-            max={MAX_REPS}
-            aria-label={`Set ${index + 1} reps`}
-            value={set.reps}
-            onChange={update(index, 'reps')}
-            required
-          />
-          <Input
-            type="number"
-            min={0}
-            step="any"
-            placeholder="Optional"
-            aria-label={`Set ${index + 1} weight`}
-            value={set.weight}
-            onChange={update(index, 'weight')}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            aria-label={`Remove set ${index + 1}`}
-            disabled={value.length === 1}
-            onClick={() => onChange(value.filter((_, i) => i !== index))}
-          >
-            <X />
-          </Button>
-        </div>
-      ))}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="w-full"
-        disabled={value.length >= MAX_SETS}
-        // A new set starts like the last one, usually the closest match.
-        onClick={() => onChange([...value, value[value.length - 1]])}
-      >
-        <Plus />
-        Add set
-      </Button>
-    </div>
-  );
-}
-
 type ExerciseLogFieldsProps = {
   idPrefix: string;
   /** What the calories were known for; edits scale them from here. */
@@ -365,7 +326,7 @@ type ExerciseLogFieldsProps = {
   onChange: (value: ExerciseLogValues) => void;
 };
 
-/** What was done, set by set for strength, plus the calories it burned. */
+/** What was done, set by set, plus the calories it burned. */
 export function ExerciseLogFields({
   idPrefix,
   baseline,
@@ -373,41 +334,20 @@ export function ExerciseLogFields({
   value,
   onChange,
 }: ExerciseLogFieldsProps) {
-  function changeWork(work: WorkValues) {
+  function changeSets(sets: SetValues[]) {
     const scaled = value.caloriesEdited
       ? null
-      : scaleCalories(baselineCalories, baseline, work);
+      : scaleCalories(baselineCalories, baseline, {sets});
     onChange({
       ...value,
-      ...work,
+      sets,
       calories: scaled === null ? value.calories : String(scaled),
     });
   }
 
   return (
     <div className="space-y-4">
-      {value.sets ? (
-        <SetListFields
-          value={value.sets}
-          onChange={(sets) =>
-            changeWork({durationMin: value.durationMin, sets})
-          }
-        />
-      ) : (
-        <div className="flex flex-col space-y-2">
-          <Label htmlFor={`${idPrefix}-durationMin`}>Duration (min)</Label>
-          <Input
-            id={`${idPrefix}-durationMin`}
-            type="number"
-            min={1}
-            value={value.durationMin}
-            onChange={(event) =>
-              changeWork({durationMin: event.target.value, sets: null})
-            }
-            required
-          />
-        </div>
-      )}
+      <SetRows idPrefix={idPrefix} sets={value.sets} onChange={changeSets} />
       <div className="flex flex-col space-y-2">
         <Label htmlFor={`${idPrefix}-calories`}>Calories burned</Label>
         <Input

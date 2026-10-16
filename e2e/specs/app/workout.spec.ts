@@ -1,6 +1,7 @@
 import type {Locator, Page} from '@playwright/test';
 import {test, expect, nextApiRequest, trackRequests} from '../../fixtures/test';
-import {seedExerciseGoal} from '../../fixtures/db';
+import {daysAgoIn, noonDaysAgo} from '../../fixtures/dates';
+import {seedExercise, seedExerciseGoal} from '../../fixtures/db';
 import {card, openQuickLog} from '../../fixtures/ui';
 
 /** Opens the dashboard exercise dialog and starts the named planned goal. */
@@ -54,6 +55,50 @@ test('WO-01 strength setup screen', async ({authedPage: page, db, user}) => {
 
   await workout.getByRole('button', {name: 'Cancel'}).click();
   await expect(card(panel, "Today's plan")).toBeVisible();
+});
+
+test('WO-01 setup shows target weights and last week', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  const goal = await seedExerciseGoal(db, user.id, {
+    name: 'Bench',
+    setPlan: JSON.stringify([
+      {reps: 10, weight: 12},
+      {reps: 8, weight: 12},
+      {reps: 6, weight: 14},
+    ]),
+  });
+  await seedExercise(db, user.id, {
+    name: 'Bench',
+    type: 'STRENGTH',
+    exerciseGoalId: goal.id,
+    goalDate: daysAgoIn(7),
+    loggedAt: noonDaysAgo(7),
+    exerciseSets: {
+      create: [
+        {position: 1, reps: 10, weight: 10},
+        {position: 2, reps: 9, weight: 10},
+        {position: 3, reps: 8, weight: 12},
+      ],
+    },
+  });
+  const {workout} = await startGoal(page, 'Bench');
+
+  const row = (label: string) =>
+    workout.locator('div', {has: page.getByText(label, {exact: true})}).last();
+  await expect(row('Sets')).toContainText('10 - 8 - 6');
+  await expect(row('Target Weight (kg)')).toContainText('12 - 12 - 14');
+  await expect(row('Last week (kg)')).toContainText('10 - 10 - 12');
+});
+
+test('WO-01 no last week row without a log', async ({authedPage: page, db, user}) => {
+  await seedExerciseGoal(db, user.id, {name: 'Rows', sets: 3, reps: 12});
+  const {workout} = await startGoal(page, 'Rows');
+  await expect(workout.getByText('Target Weight (kg)')).toBeVisible();
+  await expect(workout.getByText('None', {exact: true})).toBeVisible();
+  await expect(workout.getByText('Last week (kg)')).toHaveCount(0);
 });
 
 test('WO-01 single set label', async ({authedPage: page, db, user}) => {
@@ -282,7 +327,7 @@ test('WO-09 timed workout counts down and logs', async ({authedPage: page, db, u
   await expect(c.timer).toHaveText('0:30');
 
   await page.clock.runFor(30_000);
-  await expect(workout.getByLabel('Duration (min)')).toHaveValue('1');
+  await expect(workout.getByLabel('Set 1 time')).toHaveValue('1:00');
   const logged = nextApiRequest(page, '/api/exercise-goals/log');
   await workout.getByRole('button', {name: 'Set done'}).click();
   expect((await logged).postDataJSON()).toEqual({goalId: goal.id});

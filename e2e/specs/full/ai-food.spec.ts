@@ -182,7 +182,8 @@ test('AIF-06 estimates are normalised', async ({authedPage: page}) => {
 
   const overflow = await estimate(page, f, `Huge [ai:overflow] ${marker()}`);
   expect(await overflow.json()).toMatchObject({
-    name: 'N'.repeat(60),
+    // Names are cut to 100 characters.
+    name: 'N'.repeat(100),
     calories: 513,
     protein: 12.3,
     fat: 10,

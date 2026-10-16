@@ -16,7 +16,15 @@ import {GoalNotes} from '@/components/goal-notes';
 import {Button} from '@/components/ui/button';
 import {ProgressRing} from '@/components/ui/progress-ring';
 import type {PlannedExercise} from '@/components/todays-exercise-plan';
-import {formatExerciseDetail} from '@/lib/exercise';
+import {
+  formatDuration,
+  formatExerciseDetail,
+  formatSetAmount,
+  isRepSet,
+  isUniform,
+  setsOf,
+  type ExerciseSet,
+} from '@/lib/exercise';
 import {
   DEFAULT_TEMPO_MS,
   leadInMs,
@@ -43,6 +51,7 @@ import {
   startWorkout,
   tickWorkout,
   togglePause,
+  type CompletedSet,
   type WorkoutState,
   type WorkoutStep,
 } from '@/lib/workout';
@@ -60,7 +69,7 @@ import {
 } from '@/lib/workout-sound';
 
 /** Reps of each set done, in order. */
-export type WorkoutResult = {setReps: number[]};
+export type WorkoutResult = {sets: CompletedSet[]};
 
 // Sets tick faster so rep cues land close to the beat.
 const SET_TICK_MS = 50;
@@ -298,7 +307,7 @@ export function WorkoutSession({
       ? null
       : {
           make: (startedAt) => ({
-            initial: startWorkout(buildWorkoutSteps(goal), startedAt),
+            initial: startWorkout(buildWorkoutSteps(setsOf(goal)), startedAt),
             // Timed work only has the lead-in, so speak "5, 4, 3, 2, 1, Go".
             mode: 'count',
             sound,
@@ -371,7 +380,12 @@ function StrengthSetup({
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
   const [tempoMs, setTempoMs] = useState(() => loadTempo(goal));
-  const [reps, setRepsValue] = useState(() => clampReps(goal.reps ?? 10));
+  const [planned] = useState(() => setsOf(goal));
+  // Reps can be set for the whole workout only when every set is the same.
+  const sameSets = isUniform(planned);
+  const [reps, setRepsValue] = useState(() =>
+    clampReps(planned.find(isRepSet)?.reps ?? 10),
+  );
 
   function start() {
     savePrefs(prefs);
@@ -379,8 +393,8 @@ function StrengthSetup({
     // Made in the tap, not once the voice loads: iOS only unlocks audio here.
     const sound = createWorkoutSound();
     onStart(prefs.mode, (startedAt) => ({
-      initial: startWorkout(buildWorkoutSteps(goal), startedAt, {
-        reps,
+      initial: startWorkout(buildWorkoutSteps(planned), startedAt, {
+        reps: sameSets ? reps : undefined,
         tempoMs,
       }),
       mode: prefs.mode,
@@ -422,13 +436,29 @@ function StrengthSetup({
         tempoMs={tempoMs}
         onChange={(value) => setTempoMs(clampTempo(value))}
       />
-      <RepsStepper
-        reps={reps}
-        onChange={(value) => setRepsValue(clampReps(value))}
-      />
+      {sameSets ? (
+        <RepsStepper
+          reps={reps}
+          onChange={(value) => setRepsValue(clampReps(value))}
+        />
+      ) : (
+        // Sets that differ are shown as planned; each can be changed when logging.
+        <PlanRow
+          label="Sets"
+          value={planned.map(formatSetAmount).join(' - ')}
+        />
+      )}
+      {/* Weight is changed when logging, so here it is only shown. */}
+      <PlanRow label="Target Weight (kg)" value={formatWeights(planned)} />
+      {goal.lastWeekSets?.length ? (
+        <PlanRow
+          label="Last week (kg)"
+          value={formatWeights(goal.lastWeekSets)}
+        />
+      ) : null}
       <Button className="h-12 w-full" onClick={start}>
         <Play />
-        Start {goal.sets ?? 1} {goal.sets === 1 ? 'set' : 'sets'}
+        Start {planned.length} {planned.length === 1 ? 'set' : 'sets'}
       </Button>
       <Button variant="ghost" size="sm" className="w-full" onClick={onCancel}>
         <X />
@@ -438,10 +468,29 @@ function StrengthSetup({
   );
 }
 
+/** Each set's weight in order, e.g. "12 - 12 - 14", or "None" if unweighted. */
+function formatWeights(sets: readonly ExerciseSet[]): string {
+  if (!sets.some((set) => set.weight)) return 'None';
+  return sets.map((set) => set.weight || '—').join(' - ');
+}
+
+/** A planned value shown in the setup, read-only. */
+function PlanRow({label, value}: {label: string; value: string | number}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 bg-muted/30 px-4 py-3.5">
+      <span className="text-sm font-medium">{label}</span>
+      <span className="text-right text-sm font-semibold tabular-nums">
+        {value}
+      </span>
+    </div>
+  );
+}
+
 function stepLabel(step: WorkoutStep): string {
-  if (step.kind === 'set') return `Set ${step.set} of ${step.sets}`;
   if (step.kind === 'rest') return 'Rest';
-  return 'Workout';
+  // A single timed set is the whole workout.
+  if (step.kind === 'work' && step.sets === 1) return 'Workout';
+  return `Set ${step.set} of ${step.sets}`;
 }
 
 function stepDetail(
@@ -450,11 +499,16 @@ function stepDetail(
   goal: PlannedExercise,
 ): string {
   if (step.kind === 'rest') return `Next: set ${step.nextSet} of ${step.sets}`;
-  if (step.kind === 'set') {
-    const reps = `${state.reps} reps`;
-    return goal.weight ? `${reps} @ ${goal.weight}` : reps;
+  if (step.kind === 'work' && step.sets === 1) {
+    return formatExerciseDetail(goal);
   }
-  return formatExerciseDetail(goal);
+  const amount =
+    step.kind === 'set'
+      ? `${state.reps} reps`
+      : formatDuration(Math.round(step.durationMs / 1000));
+  const sets = setsOf(goal);
+  const {weight} = sets[step.set - 1] ?? sets[sets.length - 1];
+  return weight ? `${amount} @ ${weight}` : amount;
 }
 
 function ActiveWorkout({
@@ -548,16 +602,8 @@ function ActiveWorkout({
   useEffect(() => {
     if (!state.done || completed.current) return;
     completed.current = true;
-    onComplete(
-      goal.type === 'STRENGTH'
-        ? {
-            setReps: state.completedReps.length
-              ? state.completedReps
-              : [state.reps],
-          }
-        : undefined,
-    );
-  }, [state.done, state.completedReps, state.reps, goal.type, onComplete]);
+    onComplete({sets: state.completed});
+  }, [state.done, state.completed, onComplete]);
 
   function changeTempo(tempoMs: number) {
     saveTempo(goal.id, tempoMs);
@@ -629,7 +675,9 @@ function ActiveWorkout({
       {step.kind === 'rest' && (
         <div className="w-full space-y-3">
           {/* Rest is when tempo usually gets tuned, ready for the next set. */}
-          <TempoStepper tempoMs={state.tempoMs} onChange={changeTempo} />
+          {state.steps[state.index + 1]?.kind === 'set' && (
+            <TempoStepper tempoMs={state.tempoMs} onChange={changeTempo} />
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Button
               variant="outline"
@@ -670,7 +718,7 @@ function ActiveWorkout({
           {step.kind === 'rest' ? <SkipForward /> : <Check />}
           {step.kind === 'rest'
             ? 'Skip rest'
-            : step.kind === 'set' && !isLastStep
+            : !isLastStep
               ? 'Set done'
               : 'Finish'}
         </Button>

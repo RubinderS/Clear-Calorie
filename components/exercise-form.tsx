@@ -24,6 +24,7 @@ type SavedExerciseItem = {
   sets: number | null;
   reps: number | null;
   weight: number | null;
+  setPlan: string | null;
   isPinned: boolean;
 };
 

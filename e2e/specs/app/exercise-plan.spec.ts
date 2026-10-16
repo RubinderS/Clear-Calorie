@@ -1,7 +1,7 @@
 import type {Page} from '@playwright/test';
 import {test, expect, nextApiRequest, onNextDialog, trackRequests} from '../../fixtures/test';
 import {seedExerciseGoal} from '../../fixtures/db';
-import {dialog} from '../../fixtures/ui';
+import {dialog, fillSets, repeat} from '../../fixtures/ui';
 import {WEEKDAYS} from '../../../lib/exercise';
 
 const daySection = (page: Page, day: number) => page.locator(`#exerciseGoalsDay-${day}`);
@@ -17,11 +17,11 @@ async function openAdd(page: Page) {
 function goalForm(scope: ReturnType<typeof dialog>) {
   return {
     name: scope.getByLabel('Exercise', {exact: true}),
-    time: scope.getByRole('button', {name: 'Time based'}),
-    sets: scope.getByLabel('Sets', {exact: true}),
-    reps: scope.getByLabel('Reps', {exact: true}),
-    weight: scope.getByLabel('Weight', {exact: true}),
-    duration: scope.getByLabel('Duration (min)'),
+    fillSets: (sets: Parameters<typeof fillSets>[1], weight?: number) =>
+      fillSets(scope, sets, weight),
+    setReps: (n: number) => scope.getByLabel(`Set ${n} reps`),
+    setTime: (n: number) => scope.getByLabel(`Set ${n} time`),
+    setWeight: (n: number) => scope.getByLabel(`Set ${n} weight`),
     calories: scope.getByLabel('Calories burned'),
     notes: scope.getByLabel('Notes'),
     everyDay: scope.getByLabel('Every day'),
@@ -50,9 +50,7 @@ test('EP-02 add a strength goal on Mon/Wed/Fri', async ({authedPage: page, db, u
   const add = await openAdd(page);
   const f = goalForm(add);
   await f.name.fill('Goblet squats');
-  await f.sets.fill('3');
-  await f.reps.fill('10');
-  await f.weight.fill('50');
+  await f.fillSets(repeat(10, 3), 50);
   await f.calories.fill('200');
   await f.notes.fill('Heels down');
   await f.day('Mon').check();
@@ -67,10 +65,7 @@ test('EP-02 add a strength goal on Mon/Wed/Fri', async ({authedPage: page, db, u
     calories: 200,
     notes: 'Heels down',
     days: [1, 3, 5],
-    type: 'STRENGTH',
-    sets: 3,
-    reps: 10,
-    weight: 50,
+    exerciseSets: repeat(10, 3).map((reps) => ({reps, weight: 50})),
   });
   expect((await sent.response())?.status()).toBe(201);
   await expect(add).toBeHidden();
@@ -91,8 +86,7 @@ test('EP-03 time goal without calories', async ({authedPage: page}) => {
   const add = await openAdd(page);
   const f = goalForm(add);
   await f.name.fill('Evening walk');
-  await f.time.click();
-  await f.duration.fill('20');
+  await f.fillSets(['20']);
   await f.day('Sun').check();
 
   const request = nextApiRequest(page, '/api/exercise-goals');
@@ -102,12 +96,50 @@ test('EP-03 time goal without calories', async ({authedPage: page}) => {
     calories: 0,
     notes: '',
     days: [0],
-    type: 'TIME',
-    durationMin: 20,
+    exerciseSets: [{durationSec: 1200, weight: null}],
   });
   const sunday = daySection(page, 0);
   await expect(sunday).toContainText('20 min');
   await expect(sunday).not.toContainText('kcal');
+});
+
+test('EP-03b sets can mix reps and time, each with its own weight', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  const add = await openAdd(page);
+  const f = goalForm(add);
+  await f.name.fill('Farmer carry');
+  await f.fillSets([10]);
+  await f.setWeight(1).fill('20');
+  // An added set starts as a copy of the last, weight included.
+  await add.getByRole('button', {name: 'Add set'}).click();
+  await expect(f.setReps(2)).toHaveValue('10');
+  await expect(f.setWeight(2)).toHaveValue('20');
+  await f.fillSets([10, 10, '0:45']);
+  await f.setWeight(2).fill('25');
+  await f.setWeight(3).fill('30');
+  await f.day('Mon').check();
+
+  const request = nextApiRequest(page, '/api/exercise-goals');
+  await add.getByRole('button', {name: 'Add exercise'}).click();
+  expect((await request).postDataJSON()).toMatchObject({
+    exerciseSets: [
+      {reps: 10, weight: 20},
+      {reps: 10, weight: 25},
+      {durationSec: 45, weight: 30},
+    ],
+  });
+  await expect(daySection(page, 1)).toContainText('10 @ 20, 10 @ 25, 45s @ 30');
+  expect(
+    await db.exerciseGoal.findFirst({where: {userId: user.id, name: 'Farmer carry'}}),
+  ).toMatchObject({type: 'STRENGTH', sets: 3, reps: 10, weight: 25, durationMin: 1});
+
+  await daySection(page, 1).getByRole('button', {name: 'Edit Farmer carry'}).click();
+  const edit = goalForm(dialog(page, 'Edit exercise'));
+  await expect(edit.setTime(3)).toHaveValue('0:45');
+  await expect(edit.setWeight(2)).toHaveValue('25');
 });
 
 test('EP-04 at least one day is required', async ({authedPage: page}) => {
@@ -115,8 +147,7 @@ test('EP-04 at least one day is required', async ({authedPage: page}) => {
   const add = await openAdd(page);
   const f = goalForm(add);
   await f.name.fill('Plank');
-  await f.time.click();
-  await f.duration.fill('2');
+  await f.fillSets(['2']);
   await add.getByRole('button', {name: 'Add exercise'}).click();
   await expect(f.alert).toHaveText('Select at least one day.');
   expect(calls).toEqual([]);
@@ -157,9 +188,8 @@ test('EP-07 edit a goal', async ({authedPage: page, db, user}) => {
   const f = goalForm(edit);
   await expect(edit.getByRole('heading', {name: 'Edit exercise'})).toBeVisible();
   await expect(f.name).toHaveValue('Rows');
-  await expect(f.sets).toHaveValue('3');
-  await expect(f.reps).toHaveValue('8');
-  await expect(f.weight).toHaveValue('20');
+  for (const n of [1, 2, 3]) await expect(f.setReps(n)).toHaveValue('8');
+  for (const n of [1, 2, 3]) await expect(f.setWeight(n)).toHaveValue('20');
   await expect(f.calories).toHaveValue('150');
   await expect(f.notes).toHaveValue('Squeeze');
   await expect(f.day('Tue')).toBeChecked();
@@ -167,7 +197,7 @@ test('EP-07 edit a goal', async ({authedPage: page, db, user}) => {
   await expect(f.day('Mon')).not.toBeChecked();
 
   await f.name.fill('Cable rows');
-  await f.reps.fill('12');
+  await f.fillSets(repeat(12, 3));
   await f.day('Thu').uncheck();
   await f.day('Sat').check();
 
@@ -177,7 +207,7 @@ test('EP-07 edit a goal', async ({authedPage: page, db, user}) => {
   expect(sent.postDataJSON()).toMatchObject({
     id: goal.id,
     name: 'Cable rows',
-    reps: 12,
+    exerciseSets: repeat(12, 3).map((reps) => ({reps, weight: 20})),
     days: [2, 6],
   });
   expect((await sent.response())?.status()).toBe(200);

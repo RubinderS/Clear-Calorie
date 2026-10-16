@@ -141,7 +141,9 @@ model ExerciseSet {
   exerciseLogId String
   // 1-based order within the log
   position      Int
-  reps          Int
+  // A set is done either for reps or for a time
+  reps          Int?
+  durationSec   Int?
   weight        Float?
 
   exerciseLog ExerciseLog @relation(fields: [exerciseLogId], references: [id], onDelete: Cascade)
@@ -159,6 +161,8 @@ model SavedExerciseItem {
   sets        Int?
   reps        Int?
   weight      Float?
+  // JSON array of each planned set (reps or durationSec, weight); columns above summarize it
+  setPlan     String?
   isPinned    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -179,6 +183,8 @@ model ExerciseGoal {
   sets        Int?
   reps        Int?
   weight      Float?
+  // JSON array of each planned set (reps or durationSec, weight); columns above summarize it
+  setPlan     String?
   // Workout rep tempo; null uses the app default
   tempoMs     Int?
   // Free-form notes shown in the plan and during the workout

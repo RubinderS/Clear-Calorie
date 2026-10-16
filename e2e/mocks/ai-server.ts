@@ -25,7 +25,7 @@ function foodResponse(scenario: string | undefined, hasHealthNotes: boolean) {
   } else if (scenario === 'overflow') {
     estimate = {
       ...estimate,
-      name: 'N'.repeat(80),
+      name: 'N'.repeat(120),
       calories: 512.6,
       protein: 12.345,
       fat: 10,

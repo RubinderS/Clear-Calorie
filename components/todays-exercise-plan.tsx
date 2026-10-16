@@ -6,12 +6,14 @@ import {useRouter} from 'next/navigation';
 import {Check, Play, X} from 'lucide-react';
 import {
   ExerciseLogFields,
+  formatTimeInput,
   initialLogValues,
   toLogPayload,
   toWorkValues,
   type ExerciseLogValues,
   type WorkValues,
 } from '@/components/exercise-detail-fields';
+import {GoalNotes} from '@/components/goal-notes';
 import {Button} from '@/components/ui/button';
 import {
   Card,
@@ -27,7 +29,7 @@ import {
   unlockAudio,
   type WorkoutSound,
 } from '@/lib/workout-sound';
-import {formatExerciseDetail, type ExerciseSet} from '@/lib/exercise';
+import {formatExerciseDetail, setsOf, type ExerciseSet} from '@/lib/exercise';
 
 export type PlannedExercise = {
   id: string;
@@ -38,14 +40,16 @@ export type PlannedExercise = {
   sets: number | null;
   reps: number | null;
   weight: number | null;
+  setPlan: string | null;
   tempoMs: number | null;
   notes: string | null;
+  /** Sets logged for this goal on the same weekday last week, if any. */
+  lastWeekSets?: ExerciseSet[] | null;
 };
 
 /** What was actually done, where it differs from the goal. */
 export type LogDetails = {
   exerciseSets?: ExerciseSet[];
-  durationMin?: number;
   calories?: number;
 };
 
@@ -174,7 +178,7 @@ export function TodaysExercisePlan({
           <CardTitle className="truncate">{review.goal.name}</CardTitle>
           <CardDescription>Check what you did, then log it</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <LogReview
             goal={review.goal}
             result={review.result}
@@ -184,6 +188,7 @@ export function TodaysExercisePlan({
             }}
             onCancel={() => setReview(null)}
           />
+          <GoalNotes goalId={review.goal.id} initialNotes={review.goal.notes} />
         </CardContent>
       </Card>
     );
@@ -204,7 +209,10 @@ export function TodaysExercisePlan({
         {goals.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nothing planned for today.{' '}
-            <Link href="/exercise-plan" className="text-primary hover:underline">
+            <Link
+              href="/exercise-plan"
+              className="text-primary hover:underline"
+            >
               Plan your exercises
             </Link>
           </p>
@@ -305,27 +313,32 @@ function changedDetails(
 ): LogDetails {
   const payload = toLogPayload(values);
   const changes: LogDetails = {};
-  if (payload.type === 'STRENGTH') {
-    const asPlanned =
-      payload.exerciseSets.length === goal.sets &&
-      payload.exerciseSets.every(
-        (set) => set.reps === goal.reps && set.weight === goal.weight,
-      );
-    if (!asPlanned) changes.exerciseSets = payload.exerciseSets;
-  } else if (payload.durationMin !== goal.durationMin) {
-    changes.durationMin = payload.durationMin;
-  }
+  const planned = setsOf(goal);
+  const asPlanned =
+    payload.exerciseSets.length === planned.length &&
+    payload.exerciseSets.every(
+      (set, index) =>
+        (set.reps ?? null) === (planned[index].reps ?? null) &&
+        (set.durationSec ?? null) === (planned[index].durationSec ?? null) &&
+        (set.weight ?? null) === (planned[index].weight ?? null),
+    );
+  if (!asPlanned) changes.exerciseSets = payload.exerciseSets;
   if (payload.calories !== goal.calories) changes.calories = payload.calories;
   return changes;
 }
 
-/** The goal's work, with the reps of each set from a workout if there was one. */
+/** The goal's work, with each set as done in a workout if there was one. */
 function doneWork(planned: WorkValues, result?: WorkoutResult): WorkValues {
-  if (!result || !planned.sets) return planned;
-  const {weight} = planned.sets[0];
+  if (!result?.sets.length) return planned;
+  const {sets} = planned;
   return {
-    ...planned,
-    sets: result.setReps.map((reps) => ({reps: String(reps), weight})),
+    // Extra sets keep the last planned set's weight.
+    sets: result.sets.map((set, index) => ({
+      ...('reps' in set
+        ? {mode: 'reps' as const, reps: String(set.reps), time: ''}
+        : {mode: 'time' as const, reps: '', time: formatTimeInput(set.durationSec)}),
+      weight: (sets[index] ?? sets[sets.length - 1]).weight,
+    })),
   };
 }
 

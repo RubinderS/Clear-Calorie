@@ -30,7 +30,11 @@ import {QuickLog} from '@/components/quick-log';
 import {Button} from '@/components/ui/button';
 import {formatWeekRange} from '@/components/weekly-report';
 import {Decimal, sumNumbers} from '@/lib/decimal';
-import {getPlannedCounts, getPlannedExerciseGoals} from '@/lib/exercise-plan';
+import {
+  getLastWeekSets,
+  getPlannedCounts,
+  getPlannedExerciseGoals,
+} from '@/lib/exercise-plan';
 import {isAiEnabled} from '@/lib/ai';
 
 export default async function DashboardPage() {
@@ -53,6 +57,7 @@ export default async function DashboardPage() {
     weekFood,
     weekExercise,
     plannedGoals,
+    lastWeekSets,
     weekPlannedCounts,
     unseenReport,
   ] = await Promise.all([
@@ -85,6 +90,7 @@ export default async function DashboardPage() {
       orderBy: {loggedAt: 'asc'},
     }),
     getPlannedExerciseGoals(userId, timeZone),
+    getLastWeekSets(userId, timeZone),
     getPlannedCounts(userId, weekDates, timeZone),
     prisma.weeklyReport.findFirst({
       where: {userId, seenAt: null},
@@ -269,8 +275,10 @@ export default async function DashboardPage() {
           sets: goal.sets,
           reps: goal.reps,
           weight: goal.weight,
+          setPlan: goal.setPlan,
           tempoMs: goal.tempoMs,
           notes: goal.notes,
+          lastWeekSets: lastWeekSets.get(goal.id) ?? null,
           completed: goal.completed,
         }))}
       />

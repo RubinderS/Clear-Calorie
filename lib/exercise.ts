@@ -5,17 +5,32 @@ export const EXERCISE_TYPES = ['TIME', 'STRENGTH'] as const;
 export type ExerciseType = (typeof EXERCISE_TYPES)[number];
 
 export const MAX_SETS = 20;
+// A day, which no single set should take.
+export const MAX_SET_SEC = 24 * 60 * 60;
 
 const weightSchema = z.number().positive().nullish();
 
-/** One logged set; sets in a log can differ, e.g. a heavier weight each set. */
-export const exerciseSetSchema = z.object({
-  reps: z.number().int().min(1).max(MAX_REPS),
-  weight: weightSchema,
-});
+/**
+ * One set, done either for reps or for a time. Sets in a log or plan can
+ * differ, e.g. a heavier weight each set or a hold after some reps.
+ */
+export const exerciseSetSchema = z
+  .object({
+    reps: z.number().int().min(1).max(MAX_REPS).nullish(),
+    durationSec: z.number().int().min(1).max(MAX_SET_SEC).nullish(),
+    weight: weightSchema,
+  })
+  .refine((set) => (set.reps != null) !== (set.durationSec != null), {
+    message: 'Each set needs either reps or a time',
+  });
 export const exerciseSetsSchema = z.array(exerciseSetSchema).min(1).max(MAX_SETS);
-export type ExerciseSet = {reps: number; weight?: number | null};
+export type ExerciseSet = {
+  reps?: number | null;
+  durationSec?: number | null;
+  weight?: number | null;
+};
 
+/** The older summary form of an exercise, still accepted by the APIs. */
 export const exerciseDetailsSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('TIME'),
@@ -30,6 +45,13 @@ export const exerciseDetailsSchema = z.discriminatedUnion('type', [
 ]);
 export type ExerciseDetails = z.infer<typeof exerciseDetailsSchema>;
 
+/** An exercise as sent: each set listed, or the older summary. */
+export const exerciseInputSchema = z.union([
+  z.object({exerciseSets: exerciseSetsSchema}),
+  exerciseDetailsSchema,
+]);
+export type ExerciseInput = z.infer<typeof exerciseInputSchema>;
+
 export type ExerciseFields = {
   type: ExerciseType;
   durationMin: number | null;
@@ -37,26 +59,6 @@ export type ExerciseFields = {
   reps: number | null;
   weight: number | null;
 };
-
-/** Flattens validated details into DB columns, nulling fields that don't apply to the type. */
-export function toExerciseFields(details: ExerciseDetails): ExerciseFields {
-  if (details.type === 'STRENGTH') {
-    return {
-      type: 'STRENGTH',
-      durationMin: null,
-      sets: details.sets,
-      reps: details.reps,
-      weight: details.weight ?? null,
-    };
-  }
-  return {
-    type: 'TIME',
-    durationMin: details.durationMin,
-    sets: null,
-    reps: null,
-    weight: null,
-  };
-}
 
 /** The same reps and weight for every set, as planned. */
 export function uniformSets(
@@ -67,9 +69,21 @@ export function uniformSets(
   return Array.from({length: sets}, () => ({reps, weight: weight ?? null}));
 }
 
+/** The sets an input describes, expanding the older summary form. */
+export function inputSets(input: ExerciseInput): ExerciseSet[] {
+  if ('exerciseSets' in input) return input.exerciseSets;
+  return input.type === 'STRENGTH'
+    ? uniformSets(input.sets, input.reps, input.weight)
+    : [{durationSec: input.durationMin * 60, weight: null}];
+}
+
+export function isRepSet(set: ExerciseSet): boolean {
+  return set.reps != null;
+}
+
 /**
- * Summary columns for a log's sets: the count, plus the top set (heaviest,
- * then most reps) so weight trends follow the best lift.
+ * Summary of rep sets: the count, plus the top set (heaviest, then most
+ * reps) so weight trends follow the best lift.
  */
 export function summarizeSets(sets: readonly ExerciseSet[]): {
   sets: number;
@@ -79,59 +93,147 @@ export function summarizeSets(sets: readonly ExerciseSet[]): {
   const top = sets.reduce((best, set) => {
     const weight = set.weight ?? 0;
     const bestWeight = best.weight ?? 0;
-    return weight > bestWeight || (weight === bestWeight && set.reps > best.reps)
+    return weight > bestWeight ||
+      (weight === bestWeight && (set.reps ?? 0) > (best.reps ?? 0))
       ? set
       : best;
   });
-  return {sets: sets.length, reps: top.reps, weight: top.weight ?? null};
+  return {sets: sets.length, reps: top.reps ?? 0, weight: top.weight ?? null};
+}
+
+/**
+ * Summary columns for a list of sets. An exercise with any rep sets counts
+ * as strength; time is kept as total minutes either way.
+ */
+export function toExerciseFields(sets: readonly ExerciseSet[]): ExerciseFields {
+  const seconds = sets.reduce((sum, set) => sum + (set.durationSec ?? 0), 0);
+  const durationMin = seconds > 0 ? Math.ceil(seconds / 60) : null;
+  const repSets = sets.filter(isRepSet);
+  if (repSets.length > 0) {
+    return {
+      type: 'STRENGTH',
+      durationMin,
+      ...summarizeSets(repSets),
+      sets: sets.length,
+    };
+  }
+  const weights = sets.flatMap((set) => (set.weight ? [set.weight] : []));
+  return {
+    type: 'TIME',
+    durationMin,
+    sets: sets.length,
+    reps: null,
+    weight: weights.length > 0 ? Math.max(...weights) : null,
+  };
+}
+
+/** Only the fields a set uses, so stored plans stay tidy. */
+function cleanSet(set: ExerciseSet): ExerciseSet {
+  return isRepSet(set)
+    ? {reps: set.reps, weight: set.weight ?? null}
+    : {durationSec: set.durationSec, weight: set.weight ?? null};
+}
+
+/** Columns for plans and saved items, which keep every set as well. */
+export function toPlanFields(sets: readonly ExerciseSet[]) {
+  return {
+    ...toExerciseFields(sets),
+    setPlan: JSON.stringify(sets.map(cleanSet)),
+  };
+}
+
+/** A plan's stored sets, or null when it has none or they can't be read. */
+export function parseSetPlan(
+  value: string | null | undefined,
+): ExerciseSet[] | null {
+  if (!value) return null;
+  try {
+    const parsed = exerciseSetsSchema.safeParse(JSON.parse(value));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+export type ExerciseWithSets = {
+  type: string;
+  durationMin?: number | null;
+  sets?: number | null;
+  reps?: number | null;
+  weight?: number | null;
+  setPlan?: string | null;
+  exerciseSets?: readonly ExerciseSet[];
+};
+
+/**
+ * Every set of a log or plan. Entries saved before sets were stored are
+ * rebuilt from their summary: the same set repeated, or one timed set.
+ */
+export function setsOf(item: ExerciseWithSets): ExerciseSet[] {
+  if (item.exerciseSets?.length) return [...item.exerciseSets];
+  const plan = parseSetPlan(item.setPlan);
+  if (plan) return plan;
+  if (item.type === 'STRENGTH') {
+    return uniformSets(item.sets ?? 1, item.reps ?? 1, item.weight);
+  }
+  return [{durationSec: Math.max(1, item.durationMin ?? 1) * 60, weight: null}];
 }
 
 /** Nested-create rows for a log's sets, numbered from 1. */
 export function toSetRows(sets: readonly ExerciseSet[]) {
   return sets.map((set, index) => ({
     position: index + 1,
-    reps: set.reps,
+    reps: set.reps ?? null,
+    durationSec: isRepSet(set) ? null : (set.durationSec ?? null),
     weight: set.weight ?? null,
   }));
 }
 
 export function isUniform(sets: readonly ExerciseSet[]): boolean {
+  const [first] = sets;
   return sets.every(
     (set) =>
-      set.reps === sets[0].reps && (set.weight ?? null) === (sets[0].weight ?? null),
+      (set.reps ?? null) === (first.reps ?? null) &&
+      (set.durationSec ?? null) === (first.durationSec ?? null) &&
+      (set.weight ?? null) === (first.weight ?? null),
   );
 }
 
-export function formatExerciseDetail(item: {
-  type: string;
-  durationMin?: number | null;
-  sets?: number | null;
-  reps?: number | null;
-  weight?: number | null;
-  exerciseSets?: readonly ExerciseSet[];
-}): string {
-  const list = item.exerciseSets;
-  if (item.type === 'STRENGTH' && list?.length && !isUniform(list)) {
-    if (list.every((set) => !set.weight)) {
-      return `${list.map((set) => set.reps).join(', ')} reps`;
-    }
-    return list
-      .map((set) => (set.weight ? `${set.reps} @ ${set.weight}` : `${set.reps}`))
-      .join(', ');
+/** A set's time: whole minutes as "30 min", short holds as "45s", else m:ss. */
+export function formatDuration(seconds: number): string {
+  if (seconds % 60 === 0) return `${seconds / 60} min`;
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+/** A set's reps or time, without its weight. */
+export function formatSetAmount(set: ExerciseSet): string {
+  return isRepSet(set)
+    ? String(set.reps)
+    : formatDuration(set.durationSec ?? 0);
+}
+
+export function formatExerciseDetail(item: ExerciseWithSets): string {
+  const list = setsOf(item);
+  if (isUniform(list)) {
+    const [set] = list;
+    const amount = formatSetAmount(set);
+    // A single timed set reads as just its time, e.g. "30 min".
+    const base =
+      list.length === 1 && !isRepSet(set)
+        ? amount
+        : `${list.length} × ${amount}`;
+    return set.weight ? `${base} @ ${set.weight}` : base;
   }
-  if (item.type === 'STRENGTH' && list?.length) {
-    return formatExerciseDetail({
-      type: 'STRENGTH',
-      sets: list.length,
-      reps: list[0].reps,
-      weight: list[0].weight,
-    });
+  if (list.every((set) => isRepSet(set) && !set.weight)) {
+    return `${list.map((set) => set.reps).join(', ')} reps`;
   }
-  if (item.type === 'STRENGTH') {
-    const base = `${item.sets ?? 0} × ${item.reps ?? 0}`;
-    return item.weight ? `${base} @ ${item.weight}` : base;
-  }
-  return `${item.durationMin ?? 0} min`;
+  return list
+    .map((set) => {
+      const amount = formatSetAmount(set);
+      return set.weight ? `${amount} @ ${set.weight}` : amount;
+    })
+    .join(', ');
 }
 
 export const EXERCISE_NOTES_MAX = 500;
@@ -141,7 +243,7 @@ export const EXERCISE_LOG_INCLUDE = {
   exerciseGoal: {select: {notes: true}},
   exerciseSets: {
     orderBy: {position: 'asc'},
-    select: {reps: true, weight: true},
+    select: {reps: true, durationSec: true, weight: true},
   },
 } as const;
 
