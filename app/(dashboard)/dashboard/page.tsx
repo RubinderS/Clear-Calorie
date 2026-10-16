@@ -27,6 +27,7 @@ import {
 } from '@/components/exercise-chart';
 import {NutritionProgress} from '@/components/nutrition-progress';
 import {QuickLog} from '@/components/quick-log';
+import {MusicTrackTester} from '@/components/music-track-tester';
 import {Button} from '@/components/ui/button';
 import {formatWeekRange} from '@/components/weekly-report';
 import {Decimal, sumNumbers} from '@/lib/decimal';
@@ -290,6 +291,16 @@ export default async function DashboardPage() {
           completed: goal.completed,
         }))}
       />
+
+      {/* TODO: temporary, for trying out the workout music tracks. */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Workout music</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MusicTrackTester />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

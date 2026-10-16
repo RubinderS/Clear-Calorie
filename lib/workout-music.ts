@@ -1,4 +1,5 @@
-// A gym beat synthesized in the browser to play behind the workout timer.
+// Gym beats synthesized in the browser to play behind the workout timer; each
+// exercise gets a track picked at random.
 // Tone.js only loads once music is turned on, and it shares the cue sounds'
 // AudioContext so the tap that unlocks cues on iOS unlocks the music too.
 
@@ -17,12 +18,10 @@ export type WorkoutMusic = {
   dispose: () => void;
 };
 
-const BPM = 126;
 const STEPS_PER_BAR = 16;
 // The first pass builds up over the intro; later passes loop the rest.
 const INTRO_BARS = 4;
 const BARS = 16;
-const ARP_FROM_BAR = 8;
 
 // Music sits at a steady level below the cues, which play on top of it.
 const MUSIC_LEVEL = 0.3;
@@ -31,16 +30,141 @@ const FADE_OUT_S = 1;
 const OPEN_FILTER_HZ = 18_000;
 const REST_FILTER_HZ = 600;
 
-// Am – F – C – G, one chord a bar. Bass sits an octave higher than a club
-// mix would so phone speakers can still carry it.
-const CHORDS = [
-  { bass: "A2", pad: ["A3", "C4", "E4"], arp: ["A4", "C5", "E5", "A5"] },
-  { bass: "F2", pad: ["F3", "A3", "C4"], arp: ["F4", "A4", "C5", "F5"] },
-  { bass: "C3", pad: ["G3", "C4", "E4"], arp: ["E4", "G4", "C5", "E5"] },
-  { bass: "G2", pad: ["G3", "B3", "D4"], arp: ["D4", "G4", "B4", "D5"] },
+type Chord = { bass: string; pad: string[]; arp: string[] };
+type Oscillator = "sine" | "triangle" | "square" | "sawtooth";
+
+/**
+ * One loop. Drum and bass patterns are a char per 16th of the bar:
+ * "x" hits, "o" is a ghost hat (only with the full beat), "." is silent.
+ */
+type Track = {
+  name: string;
+  bpm: number;
+  /** Delays every other 16th, 0–1. */
+  swing: number;
+  /** One chord a bar, looping. */
+  chords: Chord[];
+  kick: string;
+  /** The soft kick that carries the intro before the full beat lands. */
+  introKick: string;
+  clap: string;
+  hat: string;
+  bass: string;
+  /** Which arp note plays on each 16th; -1 rests. */
+  arp: number[];
+  arpFromBar: number;
+  bassOscillator: Oscillator;
+  padOscillator: "fatsawtooth" | "fattriangle" | "fatsquare";
+  arpOscillator: Oscillator;
+};
+
+// Bass sits an octave higher than a club mix would so phone speakers can
+// still carry it.
+const TRACKS: Track[] = [
+  {
+    name: "House",
+    bpm: 126,
+    swing: 0,
+    // Am – F – C – G
+    chords: [
+      { bass: "A2", pad: ["A3", "C4", "E4"], arp: ["A4", "C5", "E5", "A5"] },
+      { bass: "F2", pad: ["F3", "A3", "C4"], arp: ["F4", "A4", "C5", "F5"] },
+      { bass: "C3", pad: ["G3", "C4", "E4"], arp: ["E4", "G4", "C5", "E5"] },
+      { bass: "G2", pad: ["G3", "B3", "D4"], arp: ["D4", "G4", "B4", "D5"] },
+    ],
+    kick: "x...x...x...x...",
+    introKick: "x.......x.......",
+    clap: "....x.......x...",
+    hat: ".oxo.oxo.oxo.oxo",
+    bass: "..x...x...x...x.",
+    arp: [0, 1, 2, 3, 2, 1, 2, 3, 0, 1, 2, 3, 2, 3, 1, 2],
+    arpFromBar: 8,
+    bassOscillator: "sawtooth",
+    padOscillator: "fatsawtooth",
+    arpOscillator: "square",
+  },
+  {
+    name: "Techno",
+    bpm: 132,
+    swing: 0,
+    // Em – C – G – D
+    chords: [
+      { bass: "E2", pad: ["E3", "G3", "B3"], arp: ["E4", "G4", "B4", "E5"] },
+      { bass: "C3", pad: ["E3", "G3", "C4"], arp: ["E4", "G4", "C5", "E5"] },
+      { bass: "G2", pad: ["D3", "G3", "B3"], arp: ["D4", "G4", "B4", "D5"] },
+      { bass: "D3", pad: ["D3", "F#3", "A3"], arp: ["D4", "F#4", "A4", "D5"] },
+    ],
+    kick: "x...x...x...x...",
+    introKick: "x...x...x...x...",
+    clap: "....x.......x...",
+    hat: "oox.oox.oox.oox.",
+    // A rolling bass that ducks out of the kick's way.
+    bass: ".xxx.xxx.xxx.xxx",
+    arp: [0, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 2],
+    arpFromBar: 4,
+    bassOscillator: "square",
+    padOscillator: "fatsquare",
+    arpOscillator: "sawtooth",
+  },
+  {
+    name: "Boom bap",
+    bpm: 94,
+    swing: 0.3,
+    // Dm7 – Gm7 – B♭maj7 – A7
+    chords: [
+      { bass: "D2", pad: ["F3", "A3", "C4", "D4"], arp: ["D4", "F4", "A4", "C5"] },
+      { bass: "G2", pad: ["F3", "Bb3", "D4", "G4"], arp: ["G4", "Bb4", "D5", "F5"] },
+      { bass: "Bb2", pad: ["F3", "A3", "D4"], arp: ["Bb4", "D5", "F5", "A5"] },
+      { bass: "A2", pad: ["E3", "G3", "C#4"], arp: ["A4", "C#5", "E5", "G5"] },
+    ],
+    kick: "x......x..x.....",
+    introKick: "x.........x.....",
+    clap: "....x.......x...",
+    hat: "x.x.x.xox.x.x.xo",
+    bass: "x......x..x.....",
+    arp: [0, -1, -1, 2, -1, -1, 1, -1, 3, -1, -1, 2, -1, 1, -1, -1],
+    arpFromBar: 8,
+    bassOscillator: "triangle",
+    padOscillator: "fattriangle",
+    arpOscillator: "sine",
+  },
+  {
+    name: "Synthwave",
+    bpm: 108,
+    swing: 0,
+    // Fm – D♭ – A♭ – E♭
+    chords: [
+      { bass: "F2", pad: ["F3", "Ab3", "C4"], arp: ["F4", "Ab4", "C5", "F5"] },
+      { bass: "Db2", pad: ["F3", "Ab3", "Db4"], arp: ["Db4", "F4", "Ab4", "Db5"] },
+      { bass: "Ab2", pad: ["Eb3", "Ab3", "C4"], arp: ["Eb4", "Ab4", "C5", "Eb5"] },
+      { bass: "Eb2", pad: ["Eb3", "G3", "Bb3"], arp: ["Eb4", "G4", "Bb4", "Eb5"] },
+    ],
+    kick: "x.......x.......",
+    introKick: "x.......x.......",
+    clap: "....x.......x...",
+    hat: "..x.o.x...x.o.x.",
+    bass: "x.x.x.x.x.x.x.x.",
+    arp: [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3],
+    arpFromBar: 4,
+    bassOscillator: "sawtooth",
+    padOscillator: "fatsawtooth",
+    arpOscillator: "sawtooth",
+  },
 ];
-// Which arp note plays on each 16th of the bar.
-const ARP_PATTERN = [0, 1, 2, 3, 2, 1, 2, 3, 0, 1, 2, 3, 2, 3, 1, 2];
+
+/** Track names, for previewing a specific one. */
+export const MUSIC_TRACKS = TRACKS.map((track) => track.name);
+
+let lastTrack = -1;
+
+/** A random track, never the one the last exercise played. */
+function pickTrack(): Track {
+  const choices = lastTrack < 0 ? TRACKS.length : TRACKS.length - 1;
+  let index = Math.floor(Math.random() * choices);
+  if (lastTrack >= 0 && index >= lastTrack) index++;
+  lastTrack = index;
+  return TRACKS[index];
+}
 
 let tonePromise: Promise<Tone> | null = null;
 let toneContext: AudioContext | null = null;
@@ -56,9 +180,15 @@ export function preloadWorkoutMusic(): Promise<Tone> {
   return tonePromise;
 }
 
-/** Call after a tap has unlocked audio (see unlockAudio). */
-export async function createWorkoutMusic(): Promise<WorkoutMusic> {
+/**
+ * Call after a tap has unlocked audio (see unlockAudio). Plays a random track
+ * unless one is named.
+ */
+export async function createWorkoutMusic(
+  trackName?: string,
+): Promise<WorkoutMusic> {
   const Tone = await preloadWorkoutMusic();
+  const song = TRACKS.find((track) => track.name === trackName) ?? pickTrack();
   const context = getAudioContext();
   if (!context) throw new Error("Web Audio is not supported");
   if (toneContext !== context) {
@@ -119,7 +249,7 @@ export async function createWorkoutMusic(): Promise<WorkoutMusic> {
 
   const bass = track(
     new Tone.MonoSynth({
-      oscillator: { type: "sawtooth" },
+      oscillator: { type: song.bassOscillator },
       filter: { type: "lowpass", Q: 2 },
       filterEnvelope: {
         attack: 0.005,
@@ -139,7 +269,7 @@ export async function createWorkoutMusic(): Promise<WorkoutMusic> {
   );
   const pad = track(
     new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: "fatsawtooth", count: 3, spread: 30 },
+      oscillator: { type: song.padOscillator, count: 3, spread: 30 },
       envelope: { attack: 0.3, decay: 0.3, sustain: 0.7, release: 1.2 },
       volume: -16,
     }),
@@ -153,7 +283,7 @@ export async function createWorkoutMusic(): Promise<WorkoutMusic> {
   ).connect(arpDelay);
   const arp = track(
     new Tone.Synth({
-      oscillator: { type: "square" },
+      oscillator: { type: song.arpOscillator },
       envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.1 },
       volume: -20,
     }),
@@ -185,28 +315,27 @@ export async function createWorkoutMusic(): Promise<WorkoutMusic> {
       pass < BARS ? pass : INTRO_BARS + ((pass - INTRO_BARS) % (BARS - INTRO_BARS));
     // Drums only come back on a bar line, so a set starts on the downbeat.
     if (pos === 0) drums = wantDrums;
-    const chord = CHORDS[bar % CHORDS.length];
+    const chord = song.chords[bar % song.chords.length];
     const intro = bar < INTRO_BARS;
     const full = drums && !intro;
-    const beat = pos % 4 === 0;
 
     if (pos === 0) pad.triggerAttackRelease(chord.pad, "1m", time, 0.8);
 
-    // The intro keeps a soft kick on 1 and 3 until the full beat lands.
-    if (drums && (full ? beat : pos % 8 === 0)) {
+    if (full ? song.kick[pos] === "x" : drums && song.introKick[pos] === "x") {
       kick.triggerAttackRelease("C1", "8n", time, full ? 1 : 0.6);
     }
-    if (full && (pos === 4 || pos === 12)) clap.triggerAttackRelease("16n", time);
-    if (pos % 4 === 2) hat.triggerAttackRelease("32n", time, drums ? 0.9 : 0.4);
-    else if (drums && !intro && !beat) {
+    if (full && song.clap[pos] === "x") clap.triggerAttackRelease("16n", time);
+    if (song.hat[pos] === "x") {
+      hat.triggerAttackRelease("32n", time, drums ? 0.9 : 0.4);
+    } else if (full && song.hat[pos] === "o") {
       hat.triggerAttackRelease("32n", time, 0.2 + Math.random() * 0.15);
     }
-    if (full && pos % 4 === 2) {
+    if (full && song.bass[pos] === "x") {
       bass.triggerAttackRelease(chord.bass, "16n", time);
     }
-    if (bar >= ARP_FROM_BAR) {
-      const note = chord.arp[ARP_PATTERN[pos]];
-      arp.triggerAttackRelease(note, "32n", time, drums ? 0.8 : 0.4);
+    const arpNote = song.arp[pos];
+    if (bar >= song.arpFromBar && arpNote >= 0) {
+      arp.triggerAttackRelease(chord.arp[arpNote], "32n", time, drums ? 0.8 : 0.4);
     }
     if (bar === BARS - 1 && drums) {
       if (pos === 0) riser.triggerAttackRelease("1m", time);
@@ -220,7 +349,9 @@ export async function createWorkoutMusic(): Promise<WorkoutMusic> {
     transport.position = 0;
   }
   liveCount++;
-  transport.bpm.value = BPM;
+  transport.bpm.value = song.bpm;
+  transport.swing = song.swing;
+  transport.swingSubdivision = "16n";
   const eventId = transport.scheduleRepeat(playStep, "16n");
 
   // Created silent and stopped, so it can load early and start on cue.
