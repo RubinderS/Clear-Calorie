@@ -57,8 +57,8 @@ test('PUB-06 legacy log URLs end at login when signed out', async ({page}) => {
 
 test('PUB-06 legacy log URLs open the matching tab', async ({authedPage: page}) => {
   await page.goto('/weight');
-  await expect(page).toHaveURL('/logs?tab=weight');
-  await expect(page.getByRole('link', {name: 'Weight'})).toHaveAttribute(
+  await expect(page).toHaveURL('/logs?tab=body');
+  await expect(page.getByRole('link', {name: 'Body'})).toHaveAttribute(
     'aria-current',
     'page',
   );

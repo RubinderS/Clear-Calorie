@@ -108,6 +108,25 @@ export function seedWeight(
   return db.weightLog.create({data: {weight: 75, ...data, userId}});
 }
 
+/** A tracked body metric; a waist preset in cm unless overridden. */
+export function seedBodyMetric(
+  db: PrismaClient,
+  userId: string,
+  data: Partial<Omit<Prisma.BodyMetricUncheckedCreateInput, 'userId'>> = {},
+) {
+  return db.bodyMetric.create({
+    data: {key: 'waist', label: 'Waist', unit: 'cm', direction: 'down', ...data, userId},
+  });
+}
+
+export function seedBodyMetricLog(
+  db: PrismaClient,
+  metricId: string,
+  data: {value?: number; loggedAt?: Date} = {},
+) {
+  return db.bodyMetricLog.create({data: {value: 85, ...data, metricId}});
+}
+
 type GoalSeed = Partial<
   Omit<Prisma.ExerciseGoalUncheckedCreateInput, 'userId' | 'daysMask'>
 > & {days?: number[]};

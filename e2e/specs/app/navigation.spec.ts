@@ -90,7 +90,7 @@ test.describe('Mobile @mobile', () => {
         '/dashboard',
         '/logs',
         '/logs?tab=exercise',
-        '/logs?tab=weight',
+        '/logs?tab=body',
         '/food-goal',
         '/exercise-plan',
       ]) {
@@ -100,7 +100,7 @@ test.describe('Mobile @mobile', () => {
       }
 
       await page.goto('/dashboard');
-      for (const panel of ['food', 'exercise', 'weight'] as const) {
+      for (const panel of ['food', 'exercise', 'body'] as const) {
         const panelDialog = await openQuickLog(page, panel);
         const box = await panelDialog.boundingBox();
         expect(box!.x).toBeGreaterThanOrEqual(0);

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {
+  computeBodyMetricSummaries,
   computeStrengthProgress,
   computeTopIssues,
   computeWeekMetrics,
@@ -279,4 +280,19 @@ test('focus results report met, improved, missed and streaks', () => {
     empty.map(({status, streak}) => ({status, streak})),
     [{status: 'no-data', streak: 0}],
   );
+});
+
+test('body metric summaries average the week beside the previous one', () => {
+  const waist = {key: 'waist', label: 'Waist', unit: 'cm', direction: 'down', decimals: 1};
+  const summaries = computeBodyMetricSummaries([
+    {...waist, values: [84.2, 83.9], previousValues: [85, 85.4]},
+    // Only logged before this week: still shown, as a gap to mention
+    {...waist, key: null, label: 'Bicep', values: [], previousValues: [36]},
+    // Never logged: left out
+    {...waist, key: 'hips', label: 'Hips', values: [], previousValues: []},
+  ]);
+  assert.deepEqual(summaries, [
+    {...waist, count: 2, avg: 84.1, prevAvg: 85.2},
+    {...waist, key: null, label: 'Bicep', count: 0, avg: null, prevAvg: 36},
+  ]);
 });

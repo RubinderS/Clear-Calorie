@@ -111,6 +111,44 @@ test('RPT-02 shows the latest report, its focus follow-up and older weeks', asyn
   await expect(page.getByText('Latest week headline')).toBeVisible();
 });
 
+test('RPT-06 shows body measurements with direction-aware changes', async ({
+  authedPage: page,
+  user,
+  db,
+}) => {
+  const metric = {direction: 'down', decimals: 1};
+  await seedWeeklyReport(db, user.id, {
+    weekStart: lastCompletedWeekStart('UTC'),
+    bodyMetrics: JSON.stringify([
+      {...metric, key: 'waist', label: 'Waist', unit: 'cm', count: 1, avg: 84, prevAvg: 85.5},
+      {...metric, key: 'body_fat', label: 'Body fat', unit: '%', count: 2, avg: 22.4, prevAvg: 22},
+      {...metric, key: null, label: 'Bicep', unit: 'cm', direction: 'up', count: 0, avg: null, prevAvg: 36},
+    ]),
+  });
+
+  await page.goto('/reports');
+  await expect(page.getByText('Body measurements')).toBeVisible();
+  const stat = (label: string) =>
+    page.locator('div.rounded-xl').filter({hasText: label}).last();
+  await expect(stat('Waist (avg)')).toContainText('84 cm');
+  await expect(stat('Waist (avg)')).toContainText('-1.5 cm vs last week');
+  await expect(stat('Waist (avg)').getByText('84 cm')).toHaveClass(/text-primary/);
+  await expect(stat('Body fat (avg)')).toContainText('+0.4% vs last week');
+  await expect(stat('Body fat (avg)').getByText('22.4%')).toHaveClass(/text-red-600/);
+  await expect(stat('Bicep (avg)')).toContainText('not measured this week');
+});
+
+test('RPT-07 older reports without body measurements hide the row', async ({
+  authedPage: page,
+  user,
+  db,
+}) => {
+  await seedWeeklyReport(db, user.id, {weekStart: lastCompletedWeekStart('UTC')});
+  await page.goto('/reports');
+  await expect(page.getByText('Seeded headline')).toBeVisible();
+  await expect(page.getByText('Body measurements')).toHaveCount(0);
+});
+
 test('RPT-03 another user’s report is never shown', async ({
   authedPage: page,
   makeUser,

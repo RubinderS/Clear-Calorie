@@ -9,7 +9,7 @@ const weightDate = (days: number) => format(parseISO(daysAgoIn(days)), 'MMM dd, 
 test.describe('Weight', () => {
   test('WT-01 quick-log a weight', async ({authedPage: page, db, user}) => {
     await page.goto('/dashboard');
-    const panel = await openQuickLog(page, 'weight');
+    const panel = await openQuickLog(page, 'body');
     await panel.getByLabel('Weight').fill('72.5');
 
     const request = nextApiRequest(page, '/api/weight');
@@ -20,14 +20,14 @@ test.describe('Weight', () => {
     await expect(panel).toBeHidden();
     expect((await db.weightLog.findFirst({where: {userId: user.id}}))?.weight).toBe(72.5);
 
-    await page.goto('/logs?tab=weight');
-    await expect(card(page, 'Recent entries').getByRole('listitem')).toHaveText([/72\.5/]);
+    await page.goto('/logs?tab=body');
+    await expect(card(page, 'Weight').getByRole('listitem')).toHaveText([/72\.5/]);
   });
 
   test('WT-02 browser validation', async ({authedPage: page}) => {
     const calls = trackRequests(page, '/api/weight');
     await page.goto('/dashboard');
-    const panel = await openQuickLog(page, 'weight');
+    const panel = await openQuickLog(page, 'body');
     const input = panel.getByLabel('Weight');
     const submit = panel.getByRole('button', {name: 'Log weight'});
 
@@ -42,29 +42,47 @@ test.describe('Weight', () => {
     expect(calls).toEqual([]);
   });
 
-  test('WT-03 recent entries show the newest ten', async ({authedPage: page, db, user}) => {
+  test('WT-03 chart above five entries, the rest scroll', async ({authedPage: page, db, user}) => {
     for (let days = 11; days >= 0; days--) {
       await seedWeight(db, user.id, {weight: 70 + days, loggedAt: noonDaysAgo(days)});
     }
-    await page.goto('/logs?tab=weight');
-    const items = card(page, 'Recent entries').getByRole('listitem');
-    await expect(items).toHaveCount(10);
+    await page.goto('/logs?tab=body');
+    const weight = card(page, 'Weight');
+    // The chart and list cover everything loaded (up to 30), newest first.
+    await expect(weight.locator('.recharts-area-dots circle')).toHaveCount(12);
+    const items = weight.getByRole('listitem');
+    await expect(items).toHaveCount(12);
     await expect(items.first()).toContainText('70');
     await expect(items.first()).toContainText(weightDate(0));
-    await expect(items.last()).toContainText(weightDate(9));
-    // The chart plots everything loaded (up to 30).
-    await expect(card(page, 'Weight trend').locator('.recharts-area-dots circle')).toHaveCount(12);
+    await expect(items.last()).toContainText(weightDate(11));
+
+    const list = weight.getByRole('region', {name: 'Weight entries'});
+    await list.scrollIntoViewIfNeeded();
+    await expect(items.nth(4)).toBeInViewport();
+    await expect(items.last()).not.toBeInViewport();
+    expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+    await list.evaluate((el) => el.scrollTo({top: el.scrollHeight}));
+    await expect(items.last()).toBeInViewport();
+  });
+
+  test('WT-03b a short list does not scroll', async ({authedPage: page, db, user}) => {
+    for (let days = 4; days >= 0; days--) {
+      await seedWeight(db, user.id, {loggedAt: noonDaysAgo(days)});
+    }
+    await page.goto('/logs?tab=body');
+    await expect(card(page, 'Weight').getByRole('listitem')).toHaveCount(5);
+    await expect(page.getByRole('region', {name: 'Weight entries'})).toHaveCount(0);
   });
 
   test('WT-04 empty state', async ({authedPage: page}) => {
-    await page.goto('/logs?tab=weight');
+    await page.goto('/logs?tab=body');
     await expect(page.getByText('No weight entries yet.')).toBeVisible();
   });
 
   test('WT-05 delete any entry after confirming', async ({authedPage: page, db, user}) => {
     const old = await seedWeight(db, user.id, {weight: 81, loggedAt: noonDaysAgo(4)});
     await seedWeight(db, user.id, {weight: 80});
-    await page.goto('/logs?tab=weight');
+    await page.goto('/logs?tab=body');
 
     const label = `Delete weight entry from ${weightDate(4)}`;
     const dismissed = onNextDialog(page, 'dismiss');
@@ -77,7 +95,7 @@ test.describe('Weight', () => {
     await page.getByRole('button', {name: label}).click();
     expect((await (await request).response())?.status()).toBe(204);
     await expect(page.getByRole('button', {name: label})).toHaveCount(0);
-    await expect(card(page, 'Recent entries').getByRole('listitem')).toHaveCount(1);
+    await expect(card(page, 'Weight').getByRole('listitem')).toHaveCount(1);
   });
 });
 

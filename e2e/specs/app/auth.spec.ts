@@ -197,7 +197,7 @@ test.describe('Sign in', () => {
 });
 
 test('LOG-07 protected pages require sign in', async ({page}) => {
-  for (const path of ['/dashboard', '/logs', '/logs?tab=weight', '/food-goal', '/exercise-plan']) {
+  for (const path of ['/dashboard', '/logs', '/logs?tab=body', '/food-goal', '/exercise-plan']) {
     await page.goto(path);
     await expect(page, path).toHaveURL('/login');
   }

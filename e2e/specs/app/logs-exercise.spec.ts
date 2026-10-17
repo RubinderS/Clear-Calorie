@@ -1,7 +1,7 @@
 import {test, expect, nextApiRequest, onNextDialog} from '../../fixtures/test';
 import {seedExercise, seedExerciseGoal} from '../../fixtures/db';
 import {daysAgoIn, longDate, noonDaysAgo, todayIn} from '../../fixtures/dates';
-import {card, dialog, exerciseProgress, logRow} from '../../fixtures/ui';
+import {card, dialog, exerciseProgress, logRow, setMode} from '../../fixtures/ui';
 
 const STRENGTH = {
   name: 'Bench press',
@@ -137,7 +137,7 @@ test.describe('EL-03 editing what was done', () => {
     await page.goto('/logs?tab=exercise');
     await logRow(page, 'Plank').getByRole('button', {name: 'Edit Plank'}).click();
     const edit = dialog(page, 'Edit exercise');
-    await edit.getByLabel('Set 3 type').selectOption('time');
+    await setMode(edit, 3, 'time').check();
     await edit.getByLabel('Set 3 time').fill('1:15');
 
     const request = nextApiRequest(page, '/api/exercise', 'PATCH');

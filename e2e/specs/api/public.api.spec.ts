@@ -33,9 +33,13 @@ for (const path of ['/icon', '/icon-192', '/icon-512', '/apple-icon']) {
   });
 }
 
-for (const tab of ['food', 'exercise', 'weight']) {
-  test(`PUB-06 /${tab} redirects to the logs tab`, async ({request}) => {
-    const response = await request.get(`/${tab}`, {maxRedirects: 0});
+for (const [page, tab] of [
+  ['food', 'food'],
+  ['exercise', 'exercise'],
+  ['weight', 'body'],
+]) {
+  test(`PUB-06 /${page} redirects to the logs tab`, async ({request}) => {
+    const response = await request.get(`/${page}`, {maxRedirects: 0});
     expect(response.status()).toBe(307);
     expect(response.headers().location).toBe(`/logs?tab=${tab}`);
   });

@@ -269,6 +269,51 @@ export function computeTopIssues(input: WeekInput, metrics: WeekMetrics): TopIss
 }
 
 // ---------------------------------------------------------------------------
+// Body metrics
+// ---------------------------------------------------------------------------
+
+export type ReportBodyMetric = {
+  /** Preset key; null for the user's own metrics. */
+  key: string | null;
+  label: string;
+  unit: string;
+  direction: string;
+  decimals: number;
+  /** This week's values. */
+  values: number[];
+  /** The previous week's values, or the latest earlier one if it had none. */
+  previousValues: number[];
+};
+
+export type BodyMetricSummary = Omit<
+  ReportBodyMetric,
+  'values' | 'previousValues'
+> & {
+  count: number;
+  /** Average of this week's values; null when there were none. */
+  avg: number | null;
+  /** Average of `previousValues`, the baseline for the weekly change. */
+  prevAvg: number | null;
+};
+
+/**
+ * This week's average for each tracked body metric, beside last week's, the
+ * same way as weight. Metrics never logged are left out.
+ */
+export function computeBodyMetricSummaries(
+  metrics: ReportBodyMetric[],
+): BodyMetricSummary[] {
+  return metrics
+    .filter((metric) => metric.values.length + metric.previousValues.length > 0)
+    .map(({values, previousValues, ...metric}) => ({
+      ...metric,
+      count: values.length,
+      avg: values.length === 0 ? null : average(values),
+      prevAvg: previousValues.length === 0 ? null : average(previousValues),
+    }));
+}
+
+// ---------------------------------------------------------------------------
 // Strength progress
 // ---------------------------------------------------------------------------
 

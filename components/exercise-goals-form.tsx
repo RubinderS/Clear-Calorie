@@ -253,7 +253,8 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
                         )}
                       />
                       {name}
-                      {collapsed && (
+                      {/* An open rest day already says so below. */}
+                      {(collapsed || dayGoals.length > 0) && (
                         <span className="ml-auto font-normal">
                           {dayGoals.length === 0
                             ? 'Rest day'

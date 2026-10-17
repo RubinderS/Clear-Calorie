@@ -9,6 +9,7 @@ import {Prisma, type WeeklyReport} from '@prisma/client';
 import {prisma} from '@/lib/prisma';
 import {getDateRange, getTodayDate, toZoned} from '@/lib/timezone';
 import {getPlannedCounts} from '@/lib/exercise-plan';
+import {METRIC_ORDER} from '@/lib/body-metrics';
 import {
   WEEKLY_REPORT_PROMPT_VERSION,
   getAiModel,
@@ -27,8 +28,10 @@ import {
   evaluateFocus,
   lastCompletedWeekStart,
   parseFocusProposals,
+  computeBodyMetricSummaries,
   planAdherence,
   weekDates,
+  type BodyMetricSummary,
   type DayBreakdown,
   type FocusItem,
   type FocusResult,
@@ -67,7 +70,7 @@ async function loadWeekInput(
   dates: string[],
   timeZone: string,
   goals: ReportGoals,
-): Promise<{input: WeekInput; start: Date; end: Date}> {
+): Promise<{input: WeekInput; start: Date; end: Date; previousStart: Date}> {
   const start = getDateRange(dates[0], timeZone)!.start;
   const end = getDateRange(dates.at(-1)!, timeZone)!.end;
   const loggedAt = {gte: start, lte: end};
@@ -111,6 +114,7 @@ async function loadWeekInput(
   return {
     start,
     end,
+    previousStart,
     input: {
       dates,
       goals,
@@ -146,6 +150,54 @@ function toReportExercise(
     exerciseGoalId: entry.exerciseGoalId,
     goalDate: entry.goalDate,
   };
+}
+
+/**
+ * Week averages of the user's active body metrics, with the previous week (or
+ * the latest earlier value) as the baseline, like weight.
+ */
+async function loadBodyMetrics(
+  userId: string,
+  previousStart: Date,
+  start: Date,
+  end: Date,
+): Promise<BodyMetricSummary[]> {
+  const metrics = await prisma.bodyMetric.findMany({
+    where: {userId, archivedAt: null},
+    orderBy: [...METRIC_ORDER],
+    include: {
+      logs: {
+        where: {loggedAt: {gte: previousStart, lte: end}},
+        orderBy: {loggedAt: 'asc'},
+        select: {value: true, loggedAt: true},
+      },
+    },
+  });
+
+  const withValues = await Promise.all(
+    metrics.map(async ({logs, ...metric}) => {
+      const values = logs.filter((log) => log.loggedAt >= start);
+      const previous = logs.filter((log) => log.loggedAt < start);
+      const previousValues = previous.length
+        ? previous
+        : await prisma.bodyMetricLog.findMany({
+            where: {metricId: metric.id, loggedAt: {lt: previousStart}},
+            orderBy: {loggedAt: 'desc'},
+            take: 1,
+            select: {value: true},
+          });
+      return {
+        key: metric.key,
+        label: metric.label,
+        unit: metric.unit,
+        direction: metric.direction,
+        decimals: metric.decimals,
+        values: values.map((log) => log.value),
+        previousValues: previousValues.map((log) => log.value),
+      };
+    }),
+  );
+  return computeBodyMetricSummaries(withValues);
 }
 
 async function loadStrengthProgress(
@@ -221,6 +273,8 @@ export type WeeklyReportPrompt = {
   days: DayBreakdown[];
   topIssues: TopIssue[];
   strengthProgress: StrengthProgress[];
+  /** The user's own body measurements beyond weight. */
+  bodyMetrics: BodyMetricSummary[];
   previousWeek: {weekStart: string; weeksAgo: number; metrics: WeekMetrics} | null;
   previousFocusResults: FocusResult[] | null;
   focusMetrics: Record<string, {description: string; direction: string | null}>;
@@ -234,7 +288,7 @@ export type ReportWriter = {
 
 /**
  * Builds and saves the report for one Monday-Sunday week. Skips weeks with no
- * food, exercise or weight logged. Metrics and focus checks are computed here; the AI only writes
+ * food, exercise, weight or body metrics logged. Metrics and focus checks are computed here; the AI only writes
  * the text and proposes next week's focus. `writer` replaces the AI, e.g. for
  * seeding demo data.
  */
@@ -256,12 +310,19 @@ export async function generateWeeklyReport(
   const elapsed = dates.filter((date) => date <= today);
   if (elapsed.length === 0) return 'no-data';
   const {goals, healthNotes} = await getReportGoals(userId);
-  const {input, start} = await loadWeekInput(userId, elapsed, timeZone, goals);
+  const {input, start, end, previousStart} = await loadWeekInput(
+    userId,
+    elapsed,
+    timeZone,
+    goals,
+  );
+  const bodyMetrics = await loadBodyMetrics(userId, previousStart, start, end);
   // Nothing logged at all means the user wasn't active that week.
   if (
     input.food.length === 0 &&
     input.exercise.length === 0 &&
-    input.weights.length === 0
+    input.weights.length === 0 &&
+    bodyMetrics.every((metric) => metric.count === 0)
   ) {
     return 'no-data';
   }
@@ -298,6 +359,7 @@ export async function generateWeeklyReport(
     days: dailyBreakdown,
     topIssues,
     strengthProgress,
+    bodyMetrics,
     previousWeek: previous
       ? {
           weekStart: previous.weekStart,
@@ -341,6 +403,7 @@ export async function generateWeeklyReport(
         dailyBreakdown: JSON.stringify(dailyBreakdown),
         topIssues: JSON.stringify(topIssues),
         strengthProgress: JSON.stringify(strengthProgress),
+        bodyMetrics: bodyMetrics.length ? JSON.stringify(bodyMetrics) : null,
         lastWeekFocusResults: focusResults
           ? JSON.stringify(focusResults)
           : null,
@@ -409,6 +472,7 @@ export type WeeklyReportView = {
   dailyBreakdown: DayBreakdown[];
   topIssues: TopIssue[];
   strengthProgress: StrengthProgress[];
+  bodyMetrics: BodyMetricSummary[];
   lastWeekFocusResults: FocusResult[] | null;
   nextWeekFocus: FocusItem[];
   sections: WeeklyReportSection[];
@@ -421,6 +485,7 @@ export function toReportView(report: WeeklyReport): WeeklyReportView {
     topIssues: parseJson<TopIssue[]>(report.topIssues) ?? [],
     strengthProgress:
       parseJson<StrengthProgress[]>(report.strengthProgress) ?? [],
+    bodyMetrics: parseJson<BodyMetricSummary[]>(report.bodyMetrics) ?? [],
     lastWeekFocusResults: parseJson<FocusResult[]>(report.lastWeekFocusResults),
     nextWeekFocus: parseJson<FocusItem[]>(report.nextWeekFocus) ?? [],
     sections: parseJson<WeeklyReportSection[]>(report.narrative) ?? [],

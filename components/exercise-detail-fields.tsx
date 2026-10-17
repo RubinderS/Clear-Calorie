@@ -1,9 +1,10 @@
 'use client';
 
-import {ChevronDown, Plus, X} from 'lucide-react';
+import {Plus, X} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
+import {Toggler, type TogglerOption} from '@/components/ui/toggler';
 import {Decimal} from '@/lib/decimal';
 import {
   MAX_SETS,
@@ -110,7 +111,28 @@ type SetRowsProps = {
   onChange: (sets: SetValues[]) => void;
 };
 
-const ROW = 'grid grid-cols-[1.5rem_5.5rem_1fr_1fr_2.25rem] items-center gap-2';
+const SET_MODES: TogglerOption<SetMode>[] = [
+  {value: 'reps', label: 'Reps'},
+  {value: 'time', label: 'Time'},
+];
+
+/** An input with its unit shown inside, so a typed value stays readable. */
+function UnitInput({
+  unit,
+  ...props
+}: React.ComponentProps<typeof Input> & {unit: string}) {
+  return (
+    <div className="relative col-span-2 min-w-0 sm:col-span-1">
+      <Input {...props} className="pl-3 pr-12" />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
+      >
+        {unit}
+      </span>
+    </div>
+  );
+}
 
 /** Each set on its own row, done for reps or for a time, with its weight. */
 function SetRows({idPrefix, sets, onChange}: SetRowsProps) {
@@ -119,55 +141,41 @@ function SetRows({idPrefix, sets, onChange}: SetRowsProps) {
   }
 
   return (
-    <div role="group" aria-label="Sets" className="space-y-2">
-      <div className={`${ROW} text-sm font-medium`} aria-hidden>
-        <span>Set</span>
-        <span>Type</span>
-        <span>Amount</span>
-        <span>Weight (kg)</span>
-      </div>
+    <div role="group" aria-label="Sets" className="space-y-4 sm:space-y-2">
       {sets.map((set, index) => {
         const label = `Set ${index + 1}`;
         return (
-          <div key={index} className={ROW}>
-            <span className="text-sm tabular-nums text-muted-foreground">
-              {index + 1}
-            </span>
-            {/* The native arrow ignores padding, so it's hidden and drawn here instead. */}
-            <div className="relative">
-              <select
-                id={`${idPrefix}-set-${index}-mode`}
-                aria-label={`${label} type`}
-                value={set.mode}
-                onChange={(event) =>
-                  update(index, {mode: event.target.value as SetMode})
-                }
-                className="h-10 w-full appearance-none rounded-xl border border-input bg-background/60 pl-3 pr-8 text-sm shadow-sm focus-visible:border-primary/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10"
-              >
-                <option value="reps">Reps</option>
-                <option value="time">Time</option>
-              </select>
-              <ChevronDown
-                aria-hidden
-                className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-              />
-            </div>
+          // On phones the type and remove button share the first line, then
+          // the amount and the weight each get a full-width line.
+          <div
+            key={index}
+            className="grid grid-cols-[1fr_2.25rem] items-center gap-2 sm:grid-cols-[auto_1fr_1fr_2.25rem]"
+          >
+            <Toggler
+              name={`${idPrefix}-set-${index}-mode`}
+              label={`${label} type`}
+              options={SET_MODES}
+              value={set.mode}
+              onChange={(mode) => update(index, {mode})}
+              className="justify-self-start"
+            />
             {set.mode === 'reps' ? (
-              <Input
+              <UnitInput
+                unit="reps"
                 type="number"
                 min={1}
                 max={MAX_REPS}
-                placeholder="Reps"
                 aria-label={`${label} reps`}
                 value={set.reps}
                 onChange={(event) => update(index, {reps: event.target.value})}
                 required
               />
             ) : (
-              <Input
+              <UnitInput
+                unit="m:ss"
                 inputMode="numeric"
                 pattern={TIME_PATTERN}
-                placeholder="m:ss"
+                placeholder="0:30"
                 title="Minutes, or minutes:seconds, e.g. 30 or 0:45"
                 aria-label={`${label} time`}
                 value={set.time}
@@ -175,7 +183,8 @@ function SetRows({idPrefix, sets, onChange}: SetRowsProps) {
                 required
               />
             )}
-            <Input
+            <UnitInput
+              unit="kg"
               type="number"
               min={0}
               step="any"
@@ -188,7 +197,7 @@ function SetRows({idPrefix, sets, onChange}: SetRowsProps) {
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9"
+              className="col-start-2 row-start-1 h-9 w-9 sm:col-start-auto sm:row-start-auto"
               aria-label={`Remove set ${index + 1}`}
               disabled={sets.length === 1}
               onClick={() => onChange(sets.filter((_, i) => i !== index))}

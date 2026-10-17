@@ -1,5 +1,7 @@
 import {test, expect} from '../../fixtures/test';
 import {
+  seedBodyMetric,
+  seedBodyMetricLog,
   seedExercise,
   seedExerciseGoal,
   seedFood,
@@ -33,6 +35,11 @@ const PROTECTED: [method: string, path: string][] = [
   ['POST', '/api/weight'],
   ['DELETE', '/api/weight?id=x'],
   ['POST', '/api/goals'],
+  ['POST', '/api/body-metrics'],
+  ['PATCH', '/api/body-metrics?id=x'],
+  ['DELETE', '/api/body-metrics?id=x'],
+  ['POST', '/api/body-metrics/log'],
+  ['DELETE', '/api/body-metrics/log?id=x'],
 ];
 
 test.describe('SEC-01 unauthenticated requests', () => {
@@ -132,6 +139,43 @@ test.describe('SEC-03 users cannot touch each other’s data', () => {
     const stored = await db.exerciseGoal.findUnique({where: {id: goal.id}});
     expect(stored?.name).toBe('Owner squats');
     expect(stored?.tempoMs).toBeNull();
+  });
+
+  test('body metrics and their logs', async ({db, user, makeUser, apiAs}) => {
+    const metric = await seedBodyMetric(db, user.id);
+    const archived = await seedBodyMetric(db, user.id, {
+      key: null,
+      label: 'Bicep',
+      archivedAt: new Date(),
+    });
+    const log = await seedBodyMetricLog(db, metric.id);
+    const intruder = await apiAs(await makeUser());
+
+    const archive = await intruder.patch(`/api/body-metrics?id=${metric.id}`, {
+      data: {archived: true},
+    });
+    expect(archive.status()).toBe(404);
+    expect(
+      (await intruder.delete(`/api/body-metrics?id=${archived.id}`)).status(),
+    ).toBe(404);
+    const write = await intruder.post('/api/body-metrics/log', {
+      data: {entries: [{metricId: metric.id, value: 80}]},
+    });
+    expect(write.status()).toBe(404);
+    expect(
+      (await intruder.delete(`/api/body-metrics/log?id=${log.id}`)).status(),
+    ).toBe(404);
+    // The same custom name is free for another user.
+    const own = await intruder.post('/api/body-metrics', {
+      data: {label: 'Bicep', unit: 'cm', direction: 'up'},
+    });
+    expect(own.status()).toBe(201);
+
+    expect(await db.bodyMetric.findUnique({where: {id: metric.id}})).toMatchObject({
+      archivedAt: null,
+    });
+    expect(await db.bodyMetric.count({where: {id: archived.id}})).toBe(1);
+    expect(await db.bodyMetricLog.count({where: {metricId: metric.id}})).toBe(1);
   });
 });
 

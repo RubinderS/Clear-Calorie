@@ -401,6 +401,13 @@ function writeMockReport(prompt: WeeklyReportPrompt) {
         : metrics.prevWeightAvg === null
           ? `Weight averaged ${metrics.weightAvg} over ${metrics.weighInCount} weigh-ins.`
           : `Weight averaged ${metrics.weightAvg}, against ${metrics.prevWeightAvg} the week before.`,
+      ...prompt.bodyMetrics
+        .filter((metric) => metric.avg !== null)
+        .map((metric) =>
+          metric.prevAvg === null
+            ? `${metric.label} averaged ${metric.avg} ${metric.unit}.`
+            : `${metric.label} averaged ${metric.avg} ${metric.unit}, against ${metric.prevAvg} ${metric.unit} the week before.`,
+        ),
     ],
   });
 
@@ -727,6 +734,70 @@ async function main() {
   weightLogs.push({ userId: user.id, weight: 173, loggedAt: dayAt(0) });
   await prisma.weightLog.createMany({ data: weightLogs });
 
+  // Body measurements: waist weekly, body fat a couple of times a week, both
+  // trending down; plus an archived custom metric to show restoring.
+  const [waist, bodyFat, bicep] = await prisma.$transaction([
+    prisma.bodyMetric.create({
+      data: {
+        userId: user.id,
+        key: "waist",
+        label: "Waist",
+        unit: "in",
+        direction: "down",
+        sortOrder: 0,
+      },
+    }),
+    prisma.bodyMetric.create({
+      data: {
+        userId: user.id,
+        key: "body_fat",
+        label: "Body fat",
+        unit: "%",
+        direction: "down",
+        sortOrder: 1,
+      },
+    }),
+    prisma.bodyMetric.create({
+      data: {
+        userId: user.id,
+        label: "Bicep",
+        unit: "in",
+        direction: "up",
+        sortOrder: 2,
+        archivedAt: dayAt(30),
+      },
+    }),
+  ]);
+  const metricLogs: Prisma.BodyMetricLogCreateManyInput[] = [];
+  const progress = (daysAgo: number) =>
+    (HISTORY_DAYS - 1 - daysAgo) / HISTORY_DAYS;
+  for (let daysAgo = HISTORY_DAYS - 1; daysAgo >= 0; daysAgo--) {
+    if (daysAgo % 7 === 1) {
+      const noise = Math.round((random() - 0.5) * 4) / 10;
+      metricLogs.push({
+        metricId: waist.id,
+        value: Math.round((37 - progress(daysAgo) * 2 + noise) * 10) / 10,
+        loggedAt: dayAt(daysAgo, 5),
+      });
+    }
+    if (daysAgo % 7 === 1 || daysAgo % 7 === 4) {
+      const noise = Math.round((random() - 0.5) * 8) / 10;
+      metricLogs.push({
+        metricId: bodyFat.id,
+        value: Math.round((25 - progress(daysAgo) * 3 + noise) * 10) / 10,
+        loggedAt: dayAt(daysAgo, 5),
+      });
+    }
+    if (daysAgo >= 30 && daysAgo % 14 === 2) {
+      metricLogs.push({
+        metricId: bicep.id,
+        value: Math.round((14 + progress(daysAgo) * 0.5) * 10) / 10,
+        loggedAt: dayAt(daysAgo, 5),
+      });
+    }
+  }
+  await prisma.bodyMetricLog.createMany({ data: metricLogs });
+
   // Weekly reports for the last REPORT_WEEKS weeks and this week so far,
   // oldest first so each one follows up on the one before.
   const thisWeek = currentWeekStart("UTC", now);
@@ -750,6 +821,7 @@ async function main() {
       `${exerciseLogs.length + goalLogs.length} exercise logs, ` +
       `${goals.length} goals, ${frozenDays.length} frozen plan days, ` +
       `${weightLogs.length} weight logs, ` +
+      `${metricLogs.length} body measurements, ` +
       `${reportCount} weekly reports`,
   );
 }

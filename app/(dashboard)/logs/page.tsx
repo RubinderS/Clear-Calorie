@@ -6,21 +6,38 @@ import {authOptions} from '@/lib/auth-options';
 import {EXERCISE_LOG_INCLUDE} from '@/lib/exercise';
 import {prisma} from '@/lib/prisma';
 import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
-import {cn} from '@/lib/utils';
+import {TogglerNav} from '@/components/ui/toggler';
 import {FoodLog} from '@/components/food-log';
 import {ExerciseLog} from '@/components/exercise-log';
 import {WeightLog} from '@/components/weight-log';
+import {BodyMetricLog} from '@/components/body-metric-log';
+import {BodyMetricsManager} from '@/components/body-metrics-manager';
+import {
+  METRIC_ORDER,
+  TRACKED_METRIC_SELECT,
+  type TrackedMetric,
+} from '@/lib/body-metrics';
+
+/** Just the fields the client component needs, without logs. */
+function toTrackedMetric(metric: TrackedMetric): TrackedMetric {
+  const {id, key, label, unit, direction, decimals} = metric;
+  return {id, key, label, unit, direction, decimals};
+}
 
 const TABS = [
   {id: 'food', label: 'Food'},
   {id: 'exercise', label: 'Exercise'},
-  {id: 'weight', label: 'Weight'},
+  {id: 'body', label: 'Body'},
 ] as const;
 
 type Tab = (typeof TABS)[number]['id'];
 
 function isTab(value: unknown): value is Tab {
   return TABS.some((tab) => tab.id === value);
+}
+
+function tabHref(tab: Tab) {
+  return `/logs?tab=${tab}`;
 }
 
 export default async function LogsPage({
@@ -32,57 +49,92 @@ export default async function LogsPage({
   if (!session?.user?.id) redirect('/login');
 
   const userId = session.user.id;
-  const {tab: tabParam} = await searchParams;
+  const {tab: tabParam, manage} = await searchParams;
+  // The Body tab was called Weight before it held other measurements.
+  if (tabParam === 'weight') redirect('/logs?tab=body');
   const tab: Tab = isTab(tabParam) ? tabParam : 'food';
   const timeZone = await getUserTimeZone();
-  const content = await renderTab(tab, userId, timeZone);
+  const content = await renderTab(tab, userId, timeZone, manage === '1');
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="hidden text-3xl font-bold md:block">Logs</h1>
         <p className="text-muted-foreground">
-          Your logged meals, workouts, and weights. Add new entries from the{' '}
+          Your logged meals, workouts, weight and body measurements. Add new
+          entries from the{' '}
           <Link href="/dashboard" className="underline underline-offset-4">
             Dashboard
           </Link>
         </p>
       </div>
 
-      <nav
-        aria-label="Log type"
-        className="flex w-full rounded-lg bg-muted p-1 sm:inline-flex sm:w-auto"
-      >
-        {TABS.map((item) => (
-          <Link
-            key={item.id}
-            href={`/logs?tab=${item.id}`}
-            aria-current={item.id === tab ? 'page' : undefined}
-            className={cn(
-              'flex-1 rounded-md px-4 py-1.5 text-center text-sm font-medium transition-colors sm:flex-none',
-              item.id === tab
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      <TogglerNav
+        label="Log type"
+        items={TABS.map((item) => ({
+          href: tabHref(item.id),
+          label: item.label,
+        }))}
+        current={tabHref(tab)}
+        className="w-full sm:inline-grid sm:w-auto"
+      />
 
       {content}
     </div>
   );
 }
 
-async function renderTab(tab: Tab, userId: string, timeZone: string) {
-  if (tab === 'weight') {
-    const entries = await prisma.weightLog.findMany({
-      where: {userId},
-      orderBy: {loggedAt: 'desc'},
-      take: 30,
-    });
-    return <WeightLog entries={entries} timeZone={timeZone} />;
+async function renderTab(
+  tab: Tab,
+  userId: string,
+  timeZone: string,
+  /** Open the body measurements dialog. */
+  manage: boolean,
+) {
+  if (tab === 'body') {
+    const [entries, metrics] = await Promise.all([
+      prisma.weightLog.findMany({
+        where: {userId},
+        orderBy: {loggedAt: 'desc'},
+        take: 30,
+      }),
+      prisma.bodyMetric.findMany({
+        where: {userId},
+        orderBy: [...METRIC_ORDER],
+        select: {
+          ...TRACKED_METRIC_SELECT,
+          archivedAt: true,
+          logs: {
+            orderBy: {loggedAt: 'desc'},
+            take: 30,
+            select: {id: true, value: true, loggedAt: true},
+          },
+          _count: {select: {logs: true}},
+        },
+      }),
+    ]);
+    const active = metrics.filter((metric) => !metric.archivedAt);
+    const archived = metrics
+      .filter((metric) => metric.archivedAt)
+      .map(({_count, ...metric}) => ({...metric, logCount: _count.logs}));
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <BodyMetricsManager
+            active={active.map(toTrackedMetric)}
+            archived={archived.map((metric) => ({
+              ...toTrackedMetric(metric),
+              logCount: metric.logCount,
+            }))}
+            defaultOpen={manage}
+          />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <WeightLog entries={entries} timeZone={timeZone} />
+          <BodyMetricLog metrics={active} timeZone={timeZone} />
+        </div>
+      </div>
+    );
   }
 
   const {start: todayStart, end: todayEnd} = getTodayRange(timeZone);

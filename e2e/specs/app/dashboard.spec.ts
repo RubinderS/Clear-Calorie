@@ -254,7 +254,7 @@ test('DSH-10 weight chart shows the latest seven entries', async ({
 });
 
 test.describe('DSH-11 quick log dialogs', () => {
-  for (const panel of ['food', 'exercise', 'weight'] as const) {
+  for (const panel of ['food', 'exercise', 'body'] as const) {
     test(`${panel}: opens, closes and links to logs`, async ({authedPage: page}) => {
       await page.goto('/dashboard');
 
@@ -269,6 +269,7 @@ test.describe('DSH-11 quick log dialogs', () => {
 
       panelDialog = await openQuickLog(page, panel);
       await panelDialog.getByRole('link', {name: 'View logs'}).click();
+      // Weight lives on the Body tab.
       await expect(page).toHaveURL(`/logs?tab=${panel}`);
       await expect(dialog(page, `Log ${panel}`)).toHaveCount(0);
     });

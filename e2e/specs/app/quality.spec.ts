@@ -11,7 +11,7 @@ const APP_PAGES = [
   '/dashboard',
   '/logs',
   '/logs?tab=exercise',
-  '/logs?tab=weight',
+  '/logs?tab=body',
   '/food-goal',
   '/exercise-plan',
 ];
@@ -97,7 +97,7 @@ test.describe('Q-02 accessibility (axe, WCAG 2.1 AA)', () => {
   test('dialogs', async ({authedPage: page, db, user}) => {
     await seedEverything({db, user});
     await page.goto('/dashboard');
-    for (const panel of ['food', 'exercise', 'weight'] as const) {
+    for (const panel of ['food', 'exercise', 'body'] as const) {
       await openQuickLog(page, panel);
       expect(await seriousViolations(page, {include: 'dialog[open]'}), panel).toEqual([]);
       await page.keyboard.press('Escape');
@@ -123,7 +123,7 @@ test('Q-02b brand green meets WCAG AA contrast', async ({authedPage: page}) => {
 
 test('Q-03 dialogs take focus and are labelled', async ({authedPage: page}) => {
   await page.goto('/dashboard');
-  for (const panel of ['food', 'exercise', 'weight'] as const) {
+  for (const panel of ['food', 'exercise', 'body'] as const) {
     const panelDialog = await openQuickLog(page, panel);
     await expect(panelDialog).toBeFocused();
     await expect(panelDialog).toHaveAttribute('aria-label', `Log ${panel}`);

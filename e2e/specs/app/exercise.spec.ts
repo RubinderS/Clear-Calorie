@@ -7,7 +7,13 @@ import {
   trackRequests,
 } from '../../fixtures/test';
 import {seedExerciseGoal, seedSavedExercise} from '../../fixtures/db';
-import {calorieSummary, fillSets, openQuickLog, repeat} from '../../fixtures/ui';
+import {
+  calorieSummary,
+  fillSets,
+  openQuickLog,
+  repeat,
+  setMode,
+} from '../../fixtures/ui';
 
 function form(scope: Locator) {
   return {
@@ -15,7 +21,7 @@ function form(scope: Locator) {
     activity: scope.getByLabel('Activity'),
     fillSets: (sets: Parameters<typeof fillSets>[1], weight?: number) =>
       fillSets(scope, sets, weight),
-    setType: (n: number) => scope.getByLabel(`Set ${n} type`),
+    setMode: (n: number, mode: 'reps' | 'time') => setMode(scope, n, mode),
     setReps: (n: number) => scope.getByLabel(`Set ${n} reps`),
     setTime: (n: number) => scope.getByLabel(`Set ${n} time`),
     setWeight: (n: number) => scope.getByLabel(`Set ${n} weight`),
@@ -42,14 +48,14 @@ test('EX-01/02 no plan: custom form with reps or time per set', async ({authedPa
   await expect(panel.getByRole('button', {name: 'Log custom exercise'})).toHaveCount(0);
 
   await expect(panel.getByRole('button', {name: 'Time based'})).toHaveCount(0);
-  await expect(f.setType(1)).toHaveValue('reps');
+  await expect(f.setMode(1, 'reps')).toBeChecked();
   await expect(f.setReps(1)).toHaveAttribute('max', '100');
   await expect(f.setWeight(1)).toHaveAttribute('placeholder', 'Optional');
   await expect(panel.getByRole('button', {name: 'Weight per set'})).toHaveCount(0);
   await expect(f.setTime(1)).toHaveCount(0);
 
-  await f.setType(1).selectOption('time');
-  await expect(f.setTime(1)).toHaveAttribute('placeholder', 'm:ss');
+  await f.setMode(1, 'time').check();
+  await expect(f.setTime(1)).toHaveAttribute('placeholder', '0:30');
   await expect(f.setReps(1)).toHaveCount(0);
 
   // Sets can mix reps and time.
@@ -92,6 +98,8 @@ test('EX-04/05 log a time exercise; blank weight is null', async ({
     calories: 250,
     exerciseSets: [{durationSec: 1500, weight: null}],
   });
+  // Reopening before the first save closes the dialog would be undone by that close.
+  await expect(page.getByRole('dialog', {name: 'Log exercise'})).toBeHidden();
 
   f = form(await openQuickLog(page, 'exercise'));
   await f.activity.fill('Push-ups');
@@ -176,7 +184,7 @@ test.describe('Saved exercises', () => {
     await f.suggestions.filter({hasText: 'Strength training'}).click();
     await expect(f.activity).toHaveValue('Strength training');
     for (const n of [1, 2, 3]) await expect(f.setReps(n)).toHaveValue('10');
-    await expect(f.setType(4)).toHaveCount(0);
+    await expect(f.setMode(4, 'reps')).toHaveCount(0);
     for (const n of [1, 2, 3]) await expect(f.setWeight(n)).toHaveValue('50');
     await expect(f.calories).toHaveValue('210');
     await expect(f.save).toBeChecked();
@@ -184,9 +192,9 @@ test.describe('Saved exercises', () => {
 
     await f.activity.fill('hik');
     await f.suggestions.filter({hasText: 'Hiking'}).click();
-    await expect(f.setType(1)).toHaveValue('time');
+    await expect(f.setMode(1, 'time')).toBeChecked();
     await expect(f.setTime(1)).toHaveValue('120:00');
-    await expect(f.setType(2)).toHaveCount(0);
+    await expect(f.setMode(2, 'time')).toHaveCount(0);
     await expect(f.calories).toHaveValue('610');
     await expect(f.pin).not.toBeChecked();
   });

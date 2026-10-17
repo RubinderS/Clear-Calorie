@@ -271,7 +271,8 @@ test('EP-10/11 days are ordered Monday first and collapse', async ({
   await page.goto('/exercise-plan');
 
   const toggles = page.locator('section h3 button');
-  await expect(toggles).toHaveText(WEEKDAYS.map(({name}) => name));
+  const counts: Record<string, string> = {Monday: '2 exercises', Wednesday: '1 exercise'};
+  await expect(toggles).toHaveText(WEEKDAYS.map(({name}) => name + (counts[name] ?? '')));
 
   const monday = dayToggle(page, 'Monday');
   await expect(monday).toHaveAttribute('aria-expanded', 'true');

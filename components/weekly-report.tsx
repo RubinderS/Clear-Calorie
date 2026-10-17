@@ -16,9 +16,16 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {cn} from '@/lib/utils';
+import {
+  changeTone,
+  formatMetricChange,
+  formatMetricValue,
+  roundMetricValue,
+} from '@/lib/body-metrics';
 import type {FocusProgress, WeeklyReportView} from '@/lib/weekly-report';
 import {
   planAdherence,
+  type BodyMetricSummary,
   type FocusMetric,
   type FocusStatus,
 } from '@/lib/weekly-report-metrics';
@@ -125,6 +132,43 @@ function Stat({
         {value}
       </p>
       <p className="text-xs text-muted-foreground">{detail}</p>
+    </div>
+  );
+}
+
+/** Week averages of the extra measurements the user tracks. */
+function BodyMeasurements({metrics}: {metrics: BodyMetricSummary[]}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium text-muted-foreground">
+        Body measurements
+      </p>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {metrics.map((metric) => {
+          const change =
+            metric.avg !== null && metric.prevAvg !== null
+              ? roundMetricValue(metric.avg - metric.prevAvg, metric.decimals)
+              : null;
+          const tone = change === null ? 'neutral' : changeTone(change, metric.direction);
+          return (
+            <Stat
+              key={`${metric.key ?? 'custom'}-${metric.label}`}
+              label={`${metric.label} (avg)`}
+              value={metric.avg === null ? '—' : formatMetricValue(metric.avg, metric)}
+              detail={
+                metric.avg === null
+                  ? 'not measured this week'
+                  : change === null
+                    ? 'no earlier entries'
+                    : change === 0
+                      ? 'same as last week'
+                      : `${formatMetricChange(change, metric)} vs last week`
+              }
+              tone={tone === 'good' ? 'good' : tone === 'bad' ? 'warn' : 'neutral'}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -252,7 +296,8 @@ export function WeeklyReport({
   /** Progress this week on the report's focus; null for older reports and on Mondays. */
   focusProgress: FocusProgress | null;
 }) {
-  const {report, sections, lastWeekFocusResults, nextWeekFocus} = view;
+  const {report, sections, lastWeekFocusResults, nextWeekFocus, bodyMetrics} =
+    view;
   const results = lastWeekFocusResults ?? [];
 
   return (
@@ -266,8 +311,9 @@ export function WeeklyReport({
             {report.headline}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Scorecard report={report} />
+          {bodyMetrics.length > 0 && <BodyMeasurements metrics={bodyMetrics} />}
         </CardContent>
       </Card>
 

@@ -10,10 +10,15 @@ const lanAddresses = Object.values(networkInterfaces())
 const nextConfig: NextConfig = {
   output: 'standalone',
   allowedDevOrigins: lanAddresses,
-  // The separate log pages were merged into tabs on /logs.
+  // The separate log pages were merged into tabs on /logs; weight now lives
+  // on the Body tab.
   async redirects() {
-    return ['food', 'exercise', 'weight'].map((tab) => ({
-      source: `/${tab}`,
+    return [
+      ['food', 'food'],
+      ['exercise', 'exercise'],
+      ['weight', 'body'],
+    ].map(([page, tab]) => ({
+      source: `/${page}`,
       destination: `/logs?tab=${tab}`,
       permanent: false,
     }));

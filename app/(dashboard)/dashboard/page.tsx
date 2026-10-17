@@ -36,6 +36,7 @@ import {
   getPlannedExerciseGoals,
 } from '@/lib/exercise-plan';
 import {isAiEnabled} from '@/lib/ai';
+import {METRIC_ORDER, TRACKED_METRIC_SELECT} from '@/lib/body-metrics';
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -60,6 +61,7 @@ export default async function DashboardPage() {
     lastWeekSets,
     weekPlannedCounts,
     unseenReport,
+    bodyMetrics,
   ] = await Promise.all([
     prisma.goal.findUnique({where: {userId}}),
     prisma.foodLog.findMany({
@@ -96,6 +98,11 @@ export default async function DashboardPage() {
       where: {userId, seenAt: null},
       orderBy: {weekStart: 'desc'},
       select: {weekStart: true, weekEnd: true},
+    }),
+    prisma.bodyMetric.findMany({
+      where: {userId, archivedAt: null},
+      orderBy: [...METRIC_ORDER],
+      select: TRACKED_METRIC_SELECT,
     }),
   ]);
 
@@ -266,6 +273,7 @@ export default async function DashboardPage() {
 
       <QuickLog
         aiEnabled={isAiEnabled()}
+        bodyMetrics={bodyMetrics}
         plannedExercises={todaysExerciseGoals.map((goal) => ({
           id: goal.id,
           name: goal.name,

@@ -57,6 +57,7 @@ model User {
   exerciseGoals    ExerciseGoal[]
   exercisePlanDays ExercisePlanDay[]
   weights          WeightLog[]
+  bodyMetrics      BodyMetric[]
   goals            Goal?
   weeklyReports    WeeklyReport[]
 }
@@ -227,6 +228,43 @@ model WeightLog {
   @@index([userId, loggedAt])
 }
 
+// Optional body measurement the user chose to track: a preset (key set) or
+// their own label and unit
+model BodyMetric {
+  id         String    @id @default(cuid())
+  userId     String
+  // Preset key from lib/body-metrics.ts; null for custom metrics
+  key        String?
+  label      String
+  unit       String
+  // Which way is good: "down", "up" or "neutral"
+  direction  String    @default("neutral")
+  decimals   Int       @default(1)
+  sortOrder  Int       @default(0)
+  // Archived metrics are hidden but keep their history; null = active
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs BodyMetricLog[]
+
+  @@unique([userId, key])
+  @@index([userId])
+}
+
+model BodyMetricLog {
+  id        String   @id @default(cuid())
+  metricId  String
+  value     Float
+  loggedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  metric BodyMetric @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+  @@index([metricId, loggedAt])
+}
+
 model Goal {
   id               String  @id @default(cuid())
   userId           String  @unique
@@ -286,6 +324,9 @@ model WeeklyReport {
   weighInCount     Int
   weightAvg        Float?
   prevWeightAvg    Float?
+  // JSON: averages of the body metrics tracked at generation time; null on
+  // reports from before body metrics existed
+  bodyMetrics      String?
 
   // JSON detail, shown and sent to the AI but never queried
   dailyBreakdown       String

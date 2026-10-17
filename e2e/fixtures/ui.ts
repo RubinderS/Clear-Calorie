@@ -12,6 +12,13 @@ export function card(scope: Page | Locator, title: string | RegExp) {
 /** A set for an exercise form: a number of reps, or a time like '0:45'. */
 export type SetInput = number | string;
 
+/** The Reps or Time option of a set row's type toggle. */
+export function setMode(scope: Locator, set: number, mode: 'reps' | 'time') {
+  return scope
+    .getByRole('radiogroup', {name: `Set ${set} type`})
+    .getByRole('radio', {name: mode === 'reps' ? 'Reps' : 'Time'});
+}
+
 /**
  * Fills an exercise form's set rows, adding or removing rows to match.
  * A weight, when given, goes on every set.
@@ -28,7 +35,7 @@ export async function fillSets(
     }
     const label = `Set ${index + 1}`;
     const mode = typeof set === 'number' ? 'reps' : 'time';
-    await scope.getByLabel(`${label} type`).selectOption(mode);
+    await setMode(scope, index + 1, mode).check();
     await scope.getByLabel(`${label} ${mode}`).fill(String(set));
     if (weight !== undefined) {
       await scope.getByLabel(`${label} weight`).fill(String(weight));
@@ -48,7 +55,7 @@ export function dialog(page: Page, label: string) {
   return page.getByRole('dialog', {name: label});
 }
 
-export type QuickLogPanel = 'food' | 'exercise' | 'weight';
+export type QuickLogPanel = 'food' | 'exercise' | 'body';
 
 /** Opens a dashboard quick-log dialog. The page must be on /dashboard. */
 export async function openQuickLog(page: Page, panel: QuickLogPanel) {

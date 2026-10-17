@@ -8,9 +8,15 @@ import {Button} from '@/components/ui/button';
 type WeightDeleteButtonProps = {
   entryId: string;
   label: string;
+  /** API route that deletes the entry by `?id=`. */
+  endpoint?: string;
 };
 
-export function WeightDeleteButton({entryId, label}: WeightDeleteButtonProps) {
+export function WeightDeleteButton({
+  entryId,
+  label,
+  endpoint = '/api/weight',
+}: WeightDeleteButtonProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -21,7 +27,7 @@ export function WeightDeleteButton({entryId, label}: WeightDeleteButtonProps) {
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/weight?id=${entryId}`, {
+      const response = await fetch(`${endpoint}?id=${entryId}`, {
         method: 'DELETE',
       });
       if (response.ok) {

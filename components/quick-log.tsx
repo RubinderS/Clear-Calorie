@@ -2,12 +2,13 @@
 
 import {useEffect, useRef, useState} from 'react';
 import Link from 'next/link';
-import {Dumbbell, List, Plus, Scale, Utensils} from 'lucide-react';
+import {Dumbbell, List, PersonStanding, Plus, Utensils} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
 import {FoodForm} from '@/components/food-form';
 import {ExerciseForm} from '@/components/exercise-form';
 import {WeightForm} from '@/components/weight-form';
+import type {TrackedMetric} from '@/lib/body-metrics';
 import {
   TodaysExercisePlan,
   usePlannedExerciseToggle,
@@ -19,10 +20,16 @@ type PlannedExerciseStatus = PlannedExercise & {completed: boolean};
 type QuickLogProps = {
   plannedExercises: PlannedExerciseStatus[];
   aiEnabled?: boolean;
+  /** Active body metrics, logged in the body panel. */
+  bodyMetrics?: TrackedMetric[];
 };
 
-export function QuickLog({plannedExercises, aiEnabled}: QuickLogProps) {
-  const [panel, setPanel] = useState<'food' | 'exercise' | 'weight' | null>(
+export function QuickLog({
+  plannedExercises,
+  aiEnabled,
+  bodyMetrics,
+}: QuickLogProps) {
+  const [panel, setPanel] = useState<'food' | 'exercise' | 'body' | null>(
     null,
   );
   const close = () => setPanel(null);
@@ -50,11 +57,11 @@ export function QuickLog({plannedExercises, aiEnabled}: QuickLogProps) {
         <Button
           variant="outline"
           className="h-11 px-2"
-          aria-label="Log weight"
-          onClick={() => setPanel('weight')}
+          aria-label="Log body"
+          onClick={() => setPanel('body')}
         >
-          <Scale />
-          Weight
+          <PersonStanding />
+          Body
         </Button>
       </div>
 
@@ -78,10 +85,11 @@ export function QuickLog({plannedExercises, aiEnabled}: QuickLogProps) {
           headerAction={<LogsLink tab="exercise" onNavigate={close} />}
         />
       </Dialog>
-      <Dialog open={panel === 'weight'} onClose={close} label="Log weight">
+      <Dialog open={panel === 'body'} onClose={close} label="Log body">
         <WeightForm
+          metrics={bodyMetrics}
           onLogCreated={close}
-          headerAction={<LogsLink tab="weight" onNavigate={close} />}
+          headerAction={<LogsLink tab="body" onNavigate={close} />}
         />
       </Dialog>
     </>
@@ -93,7 +101,7 @@ function LogsLink({
   tab,
   onNavigate,
 }: {
-  tab: 'food' | 'exercise' | 'weight';
+  tab: 'food' | 'exercise' | 'body';
   onNavigate: () => void;
 }) {
   return (

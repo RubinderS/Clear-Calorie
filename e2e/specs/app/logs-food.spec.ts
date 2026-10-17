@@ -14,9 +14,14 @@ test('FL-01 tabs switch the URL and default to food', async ({authedPage: page})
   await expect(tabs.getByRole('link', {name: 'Exercise'})).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('heading', {name: "Today's workouts"})).toBeVisible();
 
-  await tabs.getByRole('link', {name: 'Weight'}).click();
-  await expect(page).toHaveURL('/logs?tab=weight');
-  await expect(page.getByRole('heading', {name: 'Recent entries'})).toBeVisible();
+  await tabs.getByRole('link', {name: 'Body'}).click();
+  await expect(page).toHaveURL('/logs?tab=body');
+  await expect(page.getByRole('heading', {name: 'Weight', exact: true})).toBeVisible();
+
+  // The tab's old name still works for bookmarks.
+  await page.goto('/logs?tab=weight');
+  await expect(page).toHaveURL('/logs?tab=body');
+  await expect(tabs.getByRole('link', {name: 'Body'})).toHaveAttribute('aria-current', 'page');
 
   await page.goto('/logs?tab=bogus');
   await expect(tabs.getByRole('link', {name: 'Food'})).toHaveAttribute('aria-current', 'page');
