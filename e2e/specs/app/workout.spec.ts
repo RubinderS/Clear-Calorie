@@ -25,8 +25,9 @@ function controls(workout: Locator) {
     timer: workout.getByRole('timer'),
     step: workout.locator('[aria-live="polite"] p').first(),
     detail: workout.locator('[aria-live="polite"] p').nth(1),
-    tones: workout.getByRole('button', {name: 'Tones'}),
-    count: workout.getByRole('button', {name: 'Count'}),
+    voice: workout.getByRole('radio', {name: 'Voice'}),
+    tones: workout.getByRole('radio', {name: 'Tones'}),
+    cuesOff: workout.getByRole('radio', {name: 'Off'}),
     music: workout.getByRole('button', {name: /^Music (on|off)$/}),
     tempo: workout.getByText(/ s \/ rep$/),
     reps: workout.getByText(/^\d+ reps$/),
@@ -44,9 +45,10 @@ test('WO-01 strength setup screen', async ({authedPage: page, db, user}) => {
   const {panel, workout} = await startGoal(page, 'Squats');
   const c = controls(workout);
 
-  await expect(workout.getByRole('group', {name: 'Sound'})).toBeVisible();
-  await expect(c.tones).toHaveAttribute('aria-pressed', 'true');
-  await expect(c.count).toHaveAttribute('aria-pressed', 'false');
+  await expect(workout.getByRole('radiogroup', {name: 'Cues'})).toBeVisible();
+  await expect(c.voice).toBeChecked();
+  await expect(c.tones).not.toBeChecked();
+  await expect(c.cuesOff).not.toBeChecked();
   await expect(c.music).toHaveText('Music off');
   await expect(c.tempo).toHaveText('2 s / rep');
   await expect(c.reps).toHaveText('12 reps');
@@ -137,9 +139,10 @@ test('WO-03 start saves sound preferences and tempo', async ({
   const goal = await seedExerciseGoal(db, user.id, {name: 'Press', sets: 2, reps: 8});
   const {panel, workout} = await startGoal(page, 'Press');
   const c = controls(workout);
-  await c.count.click();
+  await c.cuesOff.click();
   await c.music.click();
   await c.slower.click();
+  await expect(c.cuesOff).toBeChecked();
   await expect(c.music).toHaveText('Music on');
 
   const tempoSaved = nextApiRequest(page, '/api/exercise-goals', 'PATCH');
@@ -147,9 +150,9 @@ test('WO-03 start saves sound preferences and tempo', async ({
   expect((await tempoSaved).postDataJSON()).toEqual({id: goal.id, tempoMs: 3500});
   expect(
     await page.evaluate(() => localStorage.getItem('clearcalorie:workout-prefs')),
-  ).toBe(JSON.stringify({mode: 'count', music: true}));
+  ).toBe(JSON.stringify({cues: 'off', music: true}));
 
-  // Count mode waits for the voice, then the set begins.
+  // With cues off the set begins without loading the voice.
   await expect(c.step).toHaveText('Set 1 of 2');
   await workout.getByRole('button', {name: 'Cancel without logging'}).click();
   await expect.poll(async () =>
@@ -159,7 +162,7 @@ test('WO-03 start saves sound preferences and tempo', async ({
   // The next workout starts from the saved choices.
   await panel.getByRole('button', {name: 'Start Press'}).click();
   const again = controls(card(panel, 'Press'));
-  await expect(again.count).toHaveAttribute('aria-pressed', 'true');
+  await expect(again.cuesOff).toBeChecked();
   await expect(again.music).toHaveText('Music on');
   await expect(again.tempo).toHaveText('3.5 s / rep');
 
@@ -291,7 +294,14 @@ test('WO-08 cancelling a workout logs nothing', async ({authedPage: page, db, us
   const logs = trackRequests(page, '/api/exercise-goals/log');
   const {panel, workout} = await startGoal(page, 'Dips');
   await workout.getByRole('button', {name: 'Start 2 sets'}).click();
-  await expect(controls(workout).step).toHaveText('Set 1 of 2');
+  const c = controls(workout);
+  await expect(c.step).toHaveText('Set 1 of 2');
+  // Cues can be changed mid-workout, and that choice is remembered.
+  await c.tones.click();
+  await expect(c.tones).toBeChecked();
+  expect(
+    await page.evaluate(() => localStorage.getItem('clearcalorie:workout-prefs')),
+  ).toBe(JSON.stringify({cues: 'tones', music: false}));
   await workout.getByRole('button', {name: 'Cancel without logging'}).click();
 
   const plan = card(panel, "Today's plan");

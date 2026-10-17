@@ -11,6 +11,8 @@ type Tone = typeof ToneModule;
 export type MusicIntensity = "set" | "rest";
 
 export type WorkoutMusic = {
+  /** The track playing, e.g. "Dance". */
+  name: string;
   setPlaying: (playing: boolean) => void;
   /** Rests drop the drums and muffle the rest; sets bring the drums back. */
   setIntensity: (intensity: MusicIntensity) => void;
@@ -35,7 +37,8 @@ type Oscillator = "sine" | "triangle" | "square" | "sawtooth";
 
 /**
  * One loop. Drum and bass patterns are a char per 16th of the bar:
- * "x" hits, "o" is a ghost hat (only with the full beat), "." is silent.
+ * "x" hits, "o" is a ghost hat (only with the full beat), "r" is a hat roll
+ * of two 32nds (only with the full beat), "." is silent.
  */
 type Track = {
   name: string;
@@ -56,6 +59,8 @@ type Track = {
   bassOscillator: Oscillator;
   padOscillator: "fatsawtooth" | "fattriangle" | "fatsquare";
   arpOscillator: Oscillator;
+  /** A long, tuned 808 kick that plays each chord's root in place of the bass. */
+  kick808?: boolean;
 };
 
 // Bass sits an octave higher than a club mix would so phone speakers can
@@ -107,44 +112,72 @@ const TRACKS: Track[] = [
     arpOscillator: "sawtooth",
   },
   {
-    name: "Boom bap",
-    bpm: 94,
-    swing: 0.3,
-    // Dm7 – Gm7 – B♭maj7 – A7
+    name: "Disco",
+    bpm: 122,
+    swing: 0,
+    // D – A – Bm – G: a bright, major-key lift.
     chords: [
-      { bass: "D2", pad: ["F3", "A3", "C4", "D4"], arp: ["D4", "F4", "A4", "C5"] },
-      { bass: "G2", pad: ["F3", "Bb3", "D4", "G4"], arp: ["G4", "Bb4", "D5", "F5"] },
-      { bass: "Bb2", pad: ["F3", "A3", "D4"], arp: ["Bb4", "D5", "F5", "A5"] },
-      { bass: "A2", pad: ["E3", "G3", "C#4"], arp: ["A4", "C#5", "E5", "G5"] },
+      { bass: "D3", pad: ["F#3", "A3", "D4"], arp: ["D5", "F#5", "A5", "D6"] },
+      { bass: "A2", pad: ["E3", "A3", "C#4"], arp: ["C#5", "E5", "A5", "C#6"] },
+      { bass: "B2", pad: ["F#3", "B3", "D4"], arp: ["B4", "D5", "F#5", "B5"] },
+      { bass: "G2", pad: ["G3", "B3", "D4"], arp: ["B4", "D5", "G5", "B5"] },
     ],
-    kick: "x......x..x.....",
-    introKick: "x.........x.....",
+    kick: "x...x...x...x...",
+    introKick: "x...x...x...x...",
     clap: "....x.......x...",
-    hat: "x.x.x.xox.x.x.xo",
-    bass: "x......x..x.....",
-    arp: [0, -1, -1, 2, -1, -1, 1, -1, 3, -1, -1, 2, -1, 1, -1, -1],
-    arpFromBar: 8,
-    bassOscillator: "triangle",
-    padOscillator: "fattriangle",
-    arpOscillator: "sine",
+    // Open offbeat hats with ghost 16ths in between.
+    hat: "o.x.o.x.o.x.o.x.",
+    // A bouncing, syncopated disco bass line.
+    bass: "x.xx..x.x.xx..x.",
+    arp: [0, -1, 2, -1, 1, -1, 3, -1, 0, -1, 2, -1, 3, 2, 1, -1],
+    arpFromBar: 4,
+    bassOscillator: "square",
+    padOscillator: "fatsawtooth",
+    arpOscillator: "square",
   },
   {
-    name: "Synthwave",
-    bpm: 108,
+    name: "Hip hop",
+    bpm: 140,
     swing: 0,
-    // Fm – D♭ – A♭ – E♭
+    // C – G – Am – F: a triumphant, half-time anthem.
     chords: [
-      { bass: "F2", pad: ["F3", "Ab3", "C4"], arp: ["F4", "Ab4", "C5", "F5"] },
-      { bass: "Db2", pad: ["F3", "Ab3", "Db4"], arp: ["Db4", "F4", "Ab4", "Db5"] },
-      { bass: "Ab2", pad: ["Eb3", "Ab3", "C4"], arp: ["Eb4", "Ab4", "C5", "Eb5"] },
-      { bass: "Eb2", pad: ["Eb3", "G3", "Bb3"], arp: ["Eb4", "G4", "Bb4", "Eb5"] },
+      { bass: "C2", pad: ["E3", "G3", "C4"], arp: ["C5", "E5", "G5", "C6"] },
+      { bass: "G2", pad: ["D3", "G3", "B3"], arp: ["B4", "D5", "G5", "B5"] },
+      { bass: "A2", pad: ["E3", "A3", "C4"], arp: ["A4", "C5", "E5", "A5"] },
+      { bass: "F2", pad: ["F3", "A3", "C4"], arp: ["A4", "C5", "F5", "A5"] },
     ],
-    kick: "x.......x.......",
+    // The 808 kick carries the bass, sliding to each chord's root.
+    kick: "x......x..x.....",
     introKick: "x.......x.......",
+    clap: "........x.......",
+    hat: "x.x.x.rrx.x.x.rr",
+    bass: "................",
+    arp: [0, -1, -1, 1, -1, -1, 2, -1, 3, -1, -1, 2, -1, -1, 1, -1],
+    arpFromBar: 4,
+    bassOscillator: "sine",
+    padOscillator: "fatsawtooth",
+    arpOscillator: "triangle",
+    kick808: true,
+  },
+  {
+    name: "Dance",
+    bpm: 128,
+    swing: 0,
+    // E – B – C♯m – A: a euphoric, hands-up anthem.
+    chords: [
+      { bass: "E2", pad: ["G#3", "B3", "E4"], arp: ["E5", "G#5", "B5", "E6"] },
+      { bass: "B2", pad: ["F#3", "B3", "D#4"], arp: ["D#5", "F#5", "B5", "D#6"] },
+      { bass: "C#3", pad: ["G#3", "C#4", "E4"], arp: ["C#5", "E5", "G#5", "C#6"] },
+      { bass: "A2", pad: ["A3", "C#4", "E4"], arp: ["C#5", "E5", "A5", "C#6"] },
+    ],
+    kick: "x...x...x...x...",
+    introKick: "x...x...x...x...",
     clap: "....x.......x...",
-    hat: "..x.o.x...x.o.x.",
-    bass: "x.x.x.x.x.x.x.x.",
-    arp: [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3],
+    hat: "oox.oox.oox.oox.",
+    // A pumping offbeat bass between the kicks.
+    bass: "..x...x...x...x.",
+    // A driving 16th-note supersaw riff.
+    arp: [0, 1, 2, 1, 3, 2, 1, 2, 0, 1, 2, 3, 2, 1, 3, 2],
     arpFromBar: 4,
     bassOscillator: "sawtooth",
     padOscillator: "fatsawtooth",
@@ -214,12 +247,21 @@ export async function createWorkoutMusic(
   ).connect(compressor);
 
   const kick = track(
-    new Tone.MembraneSynth({
-      pitchDecay: 0.05,
-      octaves: 6,
-      envelope: { attack: 0.001, decay: 0.35, sustain: 0, release: 0.1 },
-      volume: -2,
-    }),
+    new Tone.MembraneSynth(
+      song.kick808
+        ? {
+            pitchDecay: 0.04,
+            octaves: 3,
+            envelope: { attack: 0.001, decay: 0.9, sustain: 0.2, release: 0.4 },
+            volume: 0,
+          }
+        : {
+            pitchDecay: 0.05,
+            octaves: 6,
+            envelope: { attack: 0.001, decay: 0.35, sustain: 0, release: 0.1 },
+            volume: -2,
+          },
+    ),
   ).connect(bus);
 
   const clapReverb = track(new Tone.Reverb({ decay: 1.2, wet: 0.25 })).connect(
@@ -322,13 +364,20 @@ export async function createWorkoutMusic(
     if (pos === 0) pad.triggerAttackRelease(chord.pad, "1m", time, 0.8);
 
     if (full ? song.kick[pos] === "x" : drums && song.introKick[pos] === "x") {
-      kick.triggerAttackRelease("C1", "8n", time, full ? 1 : 0.6);
+      if (song.kick808) {
+        kick.triggerAttackRelease(chord.bass, "4n", time, full ? 1 : 0.6);
+      } else {
+        kick.triggerAttackRelease("C1", "8n", time, full ? 1 : 0.6);
+      }
     }
     if (full && song.clap[pos] === "x") clap.triggerAttackRelease("16n", time);
     if (song.hat[pos] === "x") {
       hat.triggerAttackRelease("32n", time, drums ? 0.9 : 0.4);
     } else if (full && song.hat[pos] === "o") {
       hat.triggerAttackRelease("32n", time, 0.2 + Math.random() * 0.15);
+    } else if (full && song.hat[pos] === "r") {
+      hat.triggerAttackRelease("64n", time, 0.6);
+      hat.triggerAttackRelease("64n", time + transport.toSeconds("32n"), 0.45);
     }
     if (full && song.bass[pos] === "x") {
       bass.triggerAttackRelease(chord.bass, "16n", time);
@@ -358,6 +407,7 @@ export async function createWorkoutMusic(
   let disposed = false;
   let started = false;
   return {
+    name: song.name,
     setPlaying(playing) {
       if (disposed) return;
       if (playing) {

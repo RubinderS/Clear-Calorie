@@ -1,6 +1,6 @@
 'use client';
 
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useId, useRef, useState} from 'react';
 import {
   Check,
   Loader2,
@@ -15,6 +15,7 @@ import {
 import {GoalNotes} from '@/components/goal-notes';
 import {Button} from '@/components/ui/button';
 import {ProgressRing} from '@/components/ui/progress-ring';
+import {Toggler, type TogglerOption} from '@/components/ui/toggler';
 import type {PlannedExercise} from '@/components/todays-exercise-plan';
 import {
   formatDuration,
@@ -52,6 +53,7 @@ import {
   tickWorkout,
   togglePause,
   type CompletedSet,
+  type WorkoutCue,
   type WorkoutState,
   type WorkoutStep,
 } from '@/lib/workout';
@@ -78,22 +80,37 @@ const TICK_MS = 250;
 const MAX_CUE_LATE_MS = 400;
 const PREFS_KEY = 'clearcalorie:workout-prefs';
 
-const SOUND_OPTIONS: {mode: SoundMode; label: string}[] = [
-  {mode: 'tones', label: 'Tones'},
-  {mode: 'count', label: 'Count'},
+/** How set cues sound; with them off, only the music plays. */
+type Cues = SoundMode | 'off';
+
+const CUE_OPTIONS: TogglerOption<Cues>[] = [
+  {value: 'voice', label: 'Voice'},
+  {value: 'tones', label: 'Tones'},
+  {value: 'off', label: 'Off'},
 ];
 
-type WorkoutPrefs = {mode: SoundMode; music: boolean};
+type WorkoutPrefs = {cues: Cues; music: boolean};
+
+/**
+ * How a cue sounds, or null for silence. With cues off but music on, tones
+ * still mark the count-in and each set's start and end, just not every rep.
+ */
+function cueSound(cue: WorkoutCue, cues: Cues, music: boolean): SoundMode | null {
+  if (cues !== 'off') return cues;
+  return music && cue.type !== 'rep' ? 'tones' : null;
+}
 
 function loadPrefs(): WorkoutPrefs {
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null');
+    const cues = CUE_OPTIONS.find((option) => option.value === saved?.cues);
     return {
-      mode: saved?.mode === 'count' ? 'count' : 'tones',
+      // Older prefs saved a mode of "tones" or "count".
+      cues: cues?.value ?? (saved?.mode === 'tones' ? 'tones' : 'voice'),
       music: saved?.music === true,
     };
   } catch {
-    return {mode: 'tones', music: false};
+    return {cues: 'voice', music: false};
   }
 }
 
@@ -129,7 +146,10 @@ function formatTempo(tempoMs: number) {
   return `${tempoMs / 1000} s / rep`;
 }
 
-/** Plays background music while enabled, following the workout's state. */
+/**
+ * Plays background music while enabled, following the workout's state.
+ * Returns the playing track's name.
+ */
 function useWorkoutMusic(enabled: boolean, playing: boolean, resting: boolean) {
   const [music, setMusic] = useState<WorkoutMusic | null>(null);
 
@@ -158,6 +178,8 @@ function useWorkoutMusic(enabled: boolean, playing: boolean, resting: boolean) {
   useEffect(() => {
     music?.setIntensity(resting ? 'rest' : 'set');
   }, [music, resting]);
+
+  return playing ? music?.name : undefined;
 }
 
 /** Keeps the screen awake while enabled, re-acquiring after the tab is shown again. */
@@ -275,15 +297,16 @@ function RepsStepper({
   );
 }
 
-type Session = {
+type Session = WorkoutPrefs & {
   initial: WorkoutState;
-  mode: SoundMode;
   sound: WorkoutSound | null;
-  music: boolean;
 };
 
 /** Builds a session whose timer starts at startedAt. */
 type MakeSession = (startedAt: number) => Session;
+
+/** A session about to start; with voice on it waits for the clips to load. */
+type Pending = {make: MakeSession; voice: boolean};
 
 type WorkoutSessionProps = {
   goal: PlannedExercise;
@@ -302,24 +325,25 @@ export function WorkoutSession({
   const [session, setSession] = useState<Session | null>(null);
   // A spoken workout waits here until every voice clip has loaded, so the
   // timer never runs ahead of a count that can't be said yet.
-  const [waiting, setWaiting] = useState<{make: MakeSession} | null>(() =>
-    goal.type === 'STRENGTH'
-      ? null
-      : {
-          make: (startedAt) => ({
-            initial: startWorkout(buildWorkoutSteps(setsOf(goal)), startedAt),
-            // Timed work only has the lead-in, so speak "5, 4, 3, 2, 1, Go".
-            mode: 'count',
-            sound,
-            music: loadPrefs().music,
-          }),
-        },
-  );
+  const [waiting, setWaiting] = useState<Pending | null>(() => {
+    if (goal.type === 'STRENGTH') return null;
+    // Timed work has no setup screen, so it starts with the saved choices.
+    const prefs = loadPrefs();
+    return {
+      voice: prefs.cues === 'voice',
+      make: (startedAt) => ({
+        ...prefs,
+        initial: startWorkout(buildWorkoutSteps(setsOf(goal)), startedAt),
+        sound,
+      }),
+    };
+  });
 
   useEffect(() => {
     if (!waiting) return;
     let cancelled = false;
-    void loadWorkoutVoice().then(() => {
+    const ready = waiting.voice ? loadWorkoutVoice() : Promise.resolve();
+    void ready.then(() => {
       if (cancelled) return;
       setWaiting(null);
       setSession(waiting.make(Date.now()));
@@ -329,16 +353,11 @@ export function WorkoutSession({
     };
   }, [waiting]);
 
-  function start(mode: SoundMode, make: MakeSession) {
-    if (mode === 'count') setWaiting({make});
-    else setSession(make(Date.now()));
-  }
-
   // One notes box across every phase, so setup edits carry into the sets.
   return (
     <div className="space-y-6">
       {waiting ? (
-        <LoadingVoice onCancel={onCancel} />
+        waiting.voice && <LoadingVoice onCancel={onCancel} />
       ) : session ? (
         <ActiveWorkout
           goal={goal}
@@ -347,7 +366,7 @@ export function WorkoutSession({
           onCancel={onCancel}
         />
       ) : (
-        <StrengthSetup goal={goal} onStart={start} onCancel={onCancel} />
+        <StrengthSetup goal={goal} onStart={setWaiting} onCancel={onCancel} />
       )}
       <GoalNotes goalId={goal.id} initialNotes={goal.notes} />
     </div>
@@ -375,7 +394,7 @@ function StrengthSetup({
   onCancel,
 }: {
   goal: PlannedExercise;
-  onStart: (mode: SoundMode, make: MakeSession) => void;
+  onStart: (pending: Pending) => void;
   onCancel: () => void;
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
@@ -392,15 +411,17 @@ function StrengthSetup({
     saveTempo(goal.id, tempoMs);
     // Made in the tap, not once the voice loads: iOS only unlocks audio here.
     const sound = createWorkoutSound();
-    onStart(prefs.mode, (startedAt) => ({
-      initial: startWorkout(buildWorkoutSteps(planned), startedAt, {
-        reps: sameSets ? reps : undefined,
-        tempoMs,
+    onStart({
+      voice: prefs.cues === 'voice',
+      make: (startedAt) => ({
+        ...prefs,
+        initial: startWorkout(buildWorkoutSteps(planned), startedAt, {
+          reps: sameSets ? reps : undefined,
+          tempoMs,
+        }),
+        sound,
       }),
-      mode: prefs.mode,
-      sound,
-      music: prefs.music,
-    }));
+    });
   }
 
   useEffect(() => {
@@ -409,29 +430,12 @@ function StrengthSetup({
 
   return (
     <div className="space-y-4">
-      <div role="group" aria-label="Sound" className="grid grid-cols-2 gap-2">
-        {SOUND_OPTIONS.map((option) => (
-          <Button
-            key={option.mode}
-            type="button"
-            variant={prefs.mode === option.mode ? 'default' : 'outline'}
-            aria-pressed={prefs.mode === option.mode}
-            onClick={() => setPrefs({...prefs, mode: option.mode})}
-          >
-            {option.label}
-          </Button>
-        ))}
-      </div>
-      <Button
-        type="button"
-        variant={prefs.music ? 'default' : 'outline'}
-        className="w-full"
-        aria-pressed={prefs.music}
-        onClick={() => setPrefs({...prefs, music: !prefs.music})}
-      >
-        <Music />
-        Music {prefs.music ? 'on' : 'off'}
-      </Button>
+      <SoundControls
+        cues={prefs.cues}
+        onCuesChange={(cues) => setPrefs({...prefs, cues})}
+        music={prefs.music}
+        onMusicToggle={() => setPrefs({...prefs, music: !prefs.music})}
+      />
       <TempoStepper
         tempoMs={tempoMs}
         onChange={(value) => setTempoMs(clampTempo(value))}
@@ -463,6 +467,43 @@ function StrengthSetup({
       <Button variant="ghost" size="sm" className="w-full" onClick={onCancel}>
         <X />
         Cancel
+      </Button>
+    </div>
+  );
+}
+
+/** Cues and music: side by side on wider screens, stacked on phones. */
+function SoundControls({
+  cues,
+  onCuesChange,
+  music,
+  onMusicToggle,
+  trackName,
+}: {
+  cues: Cues;
+  onCuesChange: (cues: Cues) => void;
+  music: boolean;
+  onMusicToggle: () => void;
+  /** The track playing, shown in place of "Music on". */
+  trackName?: string;
+}) {
+  return (
+    <div className="grid w-full gap-2 sm:grid-cols-2">
+      <Toggler
+        name={useId()}
+        label="Cues"
+        options={CUE_OPTIONS}
+        value={cues}
+        onChange={onCuesChange}
+      />
+      <Button
+        type="button"
+        variant={music ? 'default' : 'outline'}
+        aria-pressed={music}
+        onClick={onMusicToggle}
+      >
+        <Music />
+        {trackName ? `Music: ${trackName}` : `Music ${music ? 'on' : 'off'}`}
       </Button>
     </div>
   );
@@ -522,8 +563,9 @@ function ActiveWorkout({
   onComplete: (result?: WorkoutResult) => void;
   onCancel: () => void;
 }) {
-  const {initial, mode, sound} = session;
+  const {initial, sound} = session;
   const [state, setState] = useState(initial);
+  const [cues, setCues] = useState(session.cues);
   const [musicOn, setMusicOn] = useState(session.music);
   const [now, setNow] = useState(() => initial.timer.startedAt ?? 0);
   const stateRef = useRef(initial);
@@ -539,7 +581,11 @@ function ActiveWorkout({
   useWakeLock(!state.done);
   // Music loads during the first countdown and kicks in once it's done.
   const firstCountdown = state.index === 0 && leadingIn;
-  useWorkoutMusic(musicOn, running && !firstCountdown, step.kind === 'rest');
+  const trackName = useWorkoutMusic(
+    musicOn,
+    running && !firstCountdown,
+    step.kind === 'rest',
+  );
 
   function toggleMusic() {
     unlockAudio();
@@ -547,16 +593,26 @@ function ActiveWorkout({
     savePrefs({...loadPrefs(), music: !musicOn});
   }
 
+  function changeCues(next: Cues) {
+    unlockAudio();
+    // Cues whose clips are still loading chime until they're ready.
+    if (next === 'voice') void loadWorkoutVoice();
+    else sound?.stop();
+    setCues(next);
+    savePrefs({...loadPrefs(), cues: next});
+  }
+
   const playCue = useCallback(
     (current: WorkoutState, time: number) => {
       const cue = currentCue(current, time);
       if (!cue || cue.key === lastCueKey.current) return;
       lastCueKey.current = cue.key;
-      if (cue.lateMs <= MAX_CUE_LATE_MS) {
+      const mode = cueSound(cue.cue, cues, musicOn);
+      if (mode && cue.lateMs <= MAX_CUE_LATE_MS) {
         sound?.play(cue.cue, mode, current.tempoMs, leadInBeats(current));
       }
     },
-    [sound, mode],
+    [sound, cues, musicOn],
   );
 
   /** Applies a change, advances finished steps and sounds any cue reached. */
@@ -571,12 +627,15 @@ function ActiveWorkout({
       );
       if (next !== previous && isRunning(next.timer)) playCue(next, time);
       const endCue = setEndCue(previous, next);
-      if (endCue) sound?.play(endCue, mode, next.tempoMs, leadInBeats(next));
+      const endMode = endCue && cueSound(endCue, cues, musicOn);
+      if (endCue && endMode) {
+        sound?.play(endCue, endMode, next.tempoMs, leadInBeats(next));
+      }
       stateRef.current = next;
       setState(next);
       setNow(time);
     },
-    [playCue, sound, mode],
+    [playCue, sound, cues, musicOn],
   );
 
   useEffect(() => {
@@ -724,22 +783,18 @@ function ActiveWorkout({
         </Button>
       </div>
 
-      <div className="flex gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-pressed={musicOn}
-          className={musicOn ? undefined : 'text-muted-foreground'}
-          onClick={toggleMusic}
-        >
-          <Music />
-          Music {musicOn ? 'on' : 'off'}
-        </Button>
-        <Button variant="ghost" size="sm" onClick={cancel}>
-          <X />
-          Cancel without logging
-        </Button>
-      </div>
+      <SoundControls
+        cues={cues}
+        onCuesChange={changeCues}
+        music={musicOn}
+        onMusicToggle={toggleMusic}
+        trackName={trackName}
+      />
+
+      <Button variant="ghost" size="sm" onClick={cancel}>
+        <X />
+        Cancel without logging
+      </Button>
     </div>
   );
 }

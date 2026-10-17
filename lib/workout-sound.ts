@@ -1,5 +1,6 @@
 // Workout cues: chimes synthesized in the browser, or a voice recorded into
-// mp3 clips by scripts/voice/generate_voice.py. The clips play through Web
+// mp3 clips by scripts/voice/generate_voice.py. A clip that hasn't loaded
+// plays its chime instead. The clips play through Web
 // Audio rather than the device's speech engine, whose start-up lag varies by
 // device and drifts off the on-screen count.
 
@@ -11,7 +12,7 @@ import {
   type WorkoutCue,
 } from '@/lib/workout';
 
-export type SoundMode = 'tones' | 'count';
+export type SoundMode = 'voice' | 'tones';
 
 export type WorkoutSound = {
   /**
@@ -299,16 +300,13 @@ export function createWorkoutSound(): WorkoutSound {
     play(cue, mode, tempoMs, leadInBeats) {
       // The final count lands as the set ends; the set-end phrase follows it
       // rather than cutting it off.
-      if (
-        mode === 'count' &&
+      const spoken =
+        mode === 'voice' &&
         say(
           voiceClip(cue, tempoMs, leadInBeats, clipLengthMs),
           cue.type === 'setEnd',
-        )
-      ) {
-        return;
-      }
-      cueTones(cue).forEach(chime);
+        );
+      if (!spoken) cueTones(cue).forEach(chime);
     },
     stop,
     endCountdown() {
