@@ -92,7 +92,17 @@ export function MeasurementCard({
                     >
                       <p className="font-semibold">{formatValue(entry.value)}</p>
                       <div className="flex items-center gap-2">
-                        <p className="text-sm text-muted-foreground">{date}</p>
+                        <time
+                          dateTime={entry.loggedAt.toISOString()}
+                          className="text-right leading-tight"
+                        >
+                          <span className="block text-sm text-muted-foreground">
+                            {date}
+                          </span>
+                          <span className="block text-xs text-muted-foreground/70">
+                            {day(entry.loggedAt, 'h:mm a')}
+                          </span>
+                        </time>
                         <WeightDeleteButton
                           entryId={entry.id}
                           endpoint={deleteEndpoint}
