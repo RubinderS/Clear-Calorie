@@ -3,6 +3,10 @@
 import {useState} from 'react';
 import {Dumbbell} from 'lucide-react';
 import {DailyLogCard, useDailyLog} from '@/components/daily-log';
+import {
+  AddLogButton,
+  type PlannedExerciseStatus,
+} from '@/components/quick-log';
 import {GoalNotes} from '@/components/goal-notes';
 import {
   ExerciseLogFields,
@@ -34,9 +38,16 @@ type ExerciseLogProps = {
   entries: ExerciseEntry[];
   timeZone: string;
   today: string;
+  /** Today's plan, ticked off from the add dialog. */
+  plannedExercises?: PlannedExerciseStatus[];
 };
 
-export function ExerciseLog({entries, timeZone, today}: ExerciseLogProps) {
+export function ExerciseLog({
+  entries,
+  timeZone,
+  today,
+  plannedExercises,
+}: ExerciseLogProps) {
   const log = useDailyLog({
     endpoint: '/api/exercise',
     initialEntries: entries,
@@ -62,6 +73,14 @@ export function ExerciseLog({entries, timeZone, today}: ExerciseLogProps) {
           `${formatExerciseDetail(entry)}${entry.exerciseGoalId ? ' · Planned' : ''}`
         }
         onEdit={setEditingEntry}
+        action={
+          <AddLogButton
+            panel="exercise"
+            label="Add exercise"
+            plannedExercises={plannedExercises}
+            onLogged={log.showTodayAndRefresh}
+          />
+        }
       />
       <Dialog
         open={editingEntry !== null}

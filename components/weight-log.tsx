@@ -1,11 +1,14 @@
 import {MeasurementCard} from '@/components/measurement-card';
+import type {TrackedMetric} from '@/lib/body-metrics';
 
 interface WeightLogProps {
   entries: {id: string; weight: number; loggedAt: Date}[];
   timeZone: string;
+  /** Active body metrics; the add dialog's manage link depends on them. */
+  bodyMetrics: TrackedMetric[];
 }
 
-export function WeightLog({entries, timeZone}: WeightLogProps) {
+export function WeightLog({entries, timeZone, bodyMetrics}: WeightLogProps) {
   return (
     <MeasurementCard
       title="Weight"
@@ -20,6 +23,8 @@ export function WeightLog({entries, timeZone}: WeightLogProps) {
       deleteEndpoint="/api/weight"
       entryName="weight entry"
       emptyText="No weight entries yet."
+      bodyMetrics={bodyMetrics}
+      field="weight"
     />
   );
 }

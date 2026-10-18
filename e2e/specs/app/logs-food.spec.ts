@@ -214,3 +214,20 @@ test('FL-07 health alert badges open the alert', async ({authedPage: page, db, u
   await expect(alert).toContainText('Eat with caution');
   await expect(alert).toContainText('High in sodium.');
 });
+
+test('FL-08 the plus button logs food from the Logs page', async ({authedPage: page}) => {
+  await page.goto('/logs');
+  await expect(page.getByText('No food logged today.')).toBeVisible();
+
+  await card(page, "Today's entries").getByRole('button', {name: 'Add food'}).click();
+  const panel = dialog(page, 'Log food');
+  // Already on the Logs page, so no link back to it.
+  await expect(panel.getByRole('link', {name: 'View logs'})).toHaveCount(0);
+  await panel.getByLabel('Food name').fill('Banana');
+  await panel.getByLabel('Calories', {exact: true}).fill('105');
+  await panel.getByRole('button', {name: 'Log food'}).click();
+
+  await expect(panel).toBeHidden();
+  await expect(logRow(page, 'Banana')).toContainText('105 kcal');
+  await expect(page.getByText('105 calories')).toBeVisible();
+});

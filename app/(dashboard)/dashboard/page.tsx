@@ -30,11 +30,7 @@ import {QuickLog} from '@/components/quick-log';
 import {Button} from '@/components/ui/button';
 import {formatWeekRange} from '@/components/weekly-report';
 import {Decimal, sumNumbers} from '@/lib/decimal';
-import {
-  getLastWeekSets,
-  getPlannedCounts,
-  getPlannedExerciseGoals,
-} from '@/lib/exercise-plan';
+import {getPlannedCounts, getTodaysPlanStatus} from '@/lib/exercise-plan';
 import {isAiEnabled} from '@/lib/ai';
 import {METRIC_ORDER, TRACKED_METRIC_SELECT} from '@/lib/body-metrics';
 
@@ -57,8 +53,6 @@ export default async function DashboardPage() {
     recentWeights,
     weekFood,
     weekExercise,
-    plannedGoals,
-    lastWeekSets,
     weekPlannedCounts,
     unseenReport,
     bodyMetrics,
@@ -91,8 +85,6 @@ export default async function DashboardPage() {
       },
       orderBy: {loggedAt: 'asc'},
     }),
-    getPlannedExerciseGoals(userId, timeZone),
-    getLastWeekSets(userId, timeZone),
     getPlannedCounts(userId, weekDates, timeZone),
     prisma.weeklyReport.findFirst({
       where: {userId, seenAt: null},
@@ -106,10 +98,11 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  const todaysExerciseGoals = plannedGoals.map((goal) => ({
-    ...goal,
-    completed: todaysExercise.some((entry) => entry.exerciseGoalId === goal.id),
-  }));
+  const todaysExerciseGoals = await getTodaysPlanStatus(
+    userId,
+    timeZone,
+    todaysExercise,
+  );
 
   const caloriesIn = sumNumbers(todaysFood.map((item) => item.calories));
   const protein = sumNumbers(todaysFood.map((item) => item.protein));
@@ -274,21 +267,7 @@ export default async function DashboardPage() {
       <QuickLog
         aiEnabled={isAiEnabled()}
         bodyMetrics={bodyMetrics}
-        plannedExercises={todaysExerciseGoals.map((goal) => ({
-          id: goal.id,
-          name: goal.name,
-          type: goal.type,
-          calories: goal.calories,
-          durationMin: goal.durationMin,
-          sets: goal.sets,
-          reps: goal.reps,
-          weight: goal.weight,
-          setPlan: goal.setPlan,
-          tempoMs: goal.tempoMs,
-          notes: goal.notes,
-          lastWeekSets: lastWeekSets.get(goal.id) ?? null,
-          completed: goal.completed,
-        }))}
+        plannedExercises={todaysExerciseGoals}
       />
 
       <div className="grid gap-6 lg:grid-cols-2">

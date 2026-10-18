@@ -1,7 +1,7 @@
 import {test, expect, nextApiRequest, onNextDialog} from '../../fixtures/test';
 import {seedExercise, seedExerciseGoal} from '../../fixtures/db';
 import {daysAgoIn, longDate, noonDaysAgo, todayIn} from '../../fixtures/dates';
-import {card, dialog, exerciseProgress, logRow, setMode} from '../../fixtures/ui';
+import {card, dialog, exerciseProgress, fillSets, logRow, setMode} from '../../fixtures/ui';
 
 const STRENGTH = {
   name: 'Bench press',
@@ -223,4 +223,36 @@ test('EL-05 deleting a planned entry unticks it', async ({authedPage: page, db, 
   await page.goto('/dashboard');
   await expect(exerciseProgress(page)).toHaveAttribute('aria-valuenow', '0');
   await expect(exerciseProgress(page)).toHaveAttribute('aria-valuemax', '1');
+});
+
+test('EL-07 the plus button ticks the plan and logs custom exercise', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  await seedExerciseGoal(db, user.id, {
+    name: 'Plank',
+    type: 'TIME',
+    durationMin: 5,
+    sets: null,
+    reps: null,
+  });
+  await page.goto('/logs?tab=exercise');
+
+  await card(page, "Today's workouts").getByRole('button', {name: 'Add exercise'}).click();
+  const panel = dialog(page, 'Log exercise');
+  await expect(panel.getByRole('link', {name: 'View logs'})).toHaveCount(0);
+  await panel.getByRole('checkbox', {name: 'Mark Plank as done'}).click();
+  await card(panel, 'Plank').getByRole('button', {name: 'Set done'}).click();
+  await expect(panel.getByText('All planned exercises done.')).toBeVisible();
+  // The list behind the dialog picks up the ticked goal straight away.
+  await expect(logRow(page, 'Plank')).toContainText('Planned');
+
+  await panel.getByRole('button', {name: 'Log custom exercise'}).click();
+  await panel.getByLabel('Activity').fill('Run');
+  await fillSets(panel, ['30']);
+  await panel.getByLabel('Calories burned').fill('300');
+  await panel.getByRole('button', {name: 'Log exercise'}).click();
+  await expect(panel).toBeHidden();
+  await expect(logRow(page, 'Run')).toContainText('300 kcal');
 });

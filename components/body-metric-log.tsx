@@ -1,6 +1,7 @@
 import {
   chartMinSpan,
   formatMetricValue,
+  toTrackedMetric,
   type TrackedMetric,
 } from '@/lib/body-metrics';
 import {MeasurementCard} from '@/components/measurement-card';
@@ -17,6 +18,7 @@ interface BodyMetricLogProps {
 
 /** A card per tracked body metric, laid out like weight. */
 export function BodyMetricLog({metrics, timeZone}: BodyMetricLogProps) {
+  const bodyMetrics = metrics.map(toTrackedMetric);
   return metrics.map((metric) => (
     <MeasurementCard
       key={metric.id}
@@ -28,7 +30,9 @@ export function BodyMetricLog({metrics, timeZone}: BodyMetricLogProps) {
       minSpan={chartMinSpan(metric.unit)}
       deleteEndpoint="/api/body-metrics/log"
       entryName={`${metric.label.toLowerCase()} entry`}
-      emptyText="No entries yet. Log one with your weight from the Dashboard."
+      emptyText="No entries yet."
+      bodyMetrics={bodyMetrics}
+      field={metric.id}
     />
   ));
 }

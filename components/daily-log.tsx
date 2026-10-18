@@ -130,6 +130,8 @@ type DailyLogCardProps<T extends DailyLogEntry> = {
   renderDetail: (entry: T) => ReactNode;
   renderBadge?: (entry: T) => ReactNode;
   onEdit?: (entry: T) => void;
+  /** Shown beside the title, e.g. a button to log a new entry. */
+  action?: ReactNode;
 };
 
 export function DailyLogCard<T extends DailyLogEntry>({
@@ -145,6 +147,7 @@ export function DailyLogCard<T extends DailyLogEntry>({
   renderDetail,
   renderBadge,
   onEdit,
+  action,
 }: DailyLogCardProps<T>) {
   const {
     today,
@@ -160,11 +163,14 @@ export function DailyLogCard<T extends DailyLogEntry>({
   return (
     <Card>
       <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle>
-          {isToday
-            ? todayTitle
-            : format(parseISO(selectedDate), 'MMMM d, yyyy')}
-        </CardTitle>
+        <div className="flex items-center justify-between gap-3 sm:justify-start">
+          <CardTitle>
+            {isToday
+              ? todayTitle
+              : format(parseISO(selectedDate), 'MMMM d, yyyy')}
+          </CardTitle>
+          {action}
+        </div>
         <div className="flex w-full items-center justify-between gap-1 sm:w-auto">
           <Button
             type="button"

@@ -1,9 +1,10 @@
-import Link from 'next/link';
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
 import {format} from 'date-fns';
 import {authOptions} from '@/lib/auth-options';
+import {isAiEnabled} from '@/lib/ai';
 import {EXERCISE_LOG_INCLUDE} from '@/lib/exercise';
+import {getTodaysPlanStatus} from '@/lib/exercise-plan';
 import {prisma} from '@/lib/prisma';
 import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {TogglerNav} from '@/components/ui/toggler';
@@ -15,14 +16,8 @@ import {BodyMetricsManager} from '@/components/body-metrics-manager';
 import {
   METRIC_ORDER,
   TRACKED_METRIC_SELECT,
-  type TrackedMetric,
+  toTrackedMetric,
 } from '@/lib/body-metrics';
-
-/** Just the fields the client component needs, without logs. */
-function toTrackedMetric(metric: TrackedMetric): TrackedMetric {
-  const {id, key, label, unit, direction, decimals} = metric;
-  return {id, key, label, unit, direction, decimals};
-}
 
 const TABS = [
   {id: 'food', label: 'Food'},
@@ -61,11 +56,7 @@ export default async function LogsPage({
       <div>
         <h1 className="hidden text-3xl font-bold md:block">Logs</h1>
         <p className="text-muted-foreground">
-          Your logged meals, workouts, weight and body measurements. Add new
-          entries from the{' '}
-          <Link href="/dashboard" className="underline underline-offset-4">
-            Dashboard
-          </Link>
+          Your logged meals, workouts, weight and body measurements.
         </p>
       </div>
 
@@ -120,7 +111,10 @@ async function renderTab(
     return (
       <div className="space-y-4">
         <div className="flex justify-end">
+          {/* Keyed so the body log dialog's manage link, which lands on
+              this same page, still opens it. */}
           <BodyMetricsManager
+            key={manage ? 'manage' : 'closed'}
             active={active.map(toTrackedMetric)}
             archived={archived.map((metric) => ({
               ...toTrackedMetric(metric),
@@ -130,7 +124,11 @@ async function renderTab(
           />
         </div>
         <div className="grid gap-6 lg:grid-cols-2">
-          <WeightLog entries={entries} timeZone={timeZone} />
+          <WeightLog
+            entries={entries}
+            timeZone={timeZone}
+            bodyMetrics={active.map(toTrackedMetric)}
+          />
           <BodyMetricLog metrics={active} timeZone={timeZone} />
         </div>
       </div>
@@ -148,9 +146,28 @@ async function renderTab(
       orderBy,
       include: EXERCISE_LOG_INCLUDE,
     });
-    return <ExerciseLog entries={entries} timeZone={timeZone} today={today} />;
+    const plannedExercises = await getTodaysPlanStatus(
+      userId,
+      timeZone,
+      entries,
+    );
+    return (
+      <ExerciseLog
+        entries={entries}
+        timeZone={timeZone}
+        today={today}
+        plannedExercises={plannedExercises}
+      />
+    );
   }
 
   const entries = await prisma.foodLog.findMany({where, orderBy});
-  return <FoodLog entries={entries} timeZone={timeZone} today={today} />;
+  return (
+    <FoodLog
+      entries={entries}
+      timeZone={timeZone}
+      today={today}
+      aiEnabled={isAiEnabled()}
+    />
+  );
 }

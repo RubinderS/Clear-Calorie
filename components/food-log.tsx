@@ -3,6 +3,7 @@
 import {useState} from 'react';
 import {AlertTriangle, Utensils} from 'lucide-react';
 import {DailyLogCard, useDailyLog} from '@/components/daily-log';
+import {AddLogButton} from '@/components/quick-log';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
 import {Input} from '@/components/ui/input';
@@ -27,6 +28,7 @@ type FoodLogProps = {
   entries: FoodEntry[];
   timeZone: string;
   today: string;
+  aiEnabled?: boolean;
 };
 
 const alertColor = (level?: string | null) =>
@@ -34,7 +36,7 @@ const alertColor = (level?: string | null) =>
     ? 'text-red-600 dark:text-red-400'
     : 'text-amber-600 dark:text-amber-400';
 
-export function FoodLog({entries, timeZone, today}: FoodLogProps) {
+export function FoodLog({entries, timeZone, today, aiEnabled}: FoodLogProps) {
   const log = useDailyLog({
     endpoint: '/api/food',
     initialEntries: entries,
@@ -79,6 +81,14 @@ export function FoodLog({entries, timeZone, today}: FoodLogProps) {
           )
         }
         onEdit={setEditingEntry}
+        action={
+          <AddLogButton
+            panel="food"
+            label="Add food"
+            aiEnabled={aiEnabled}
+            onLogged={log.showTodayAndRefresh}
+          />
+        }
       />
       <Dialog
         open={editingEntry !== null}

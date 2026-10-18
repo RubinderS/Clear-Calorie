@@ -16,6 +16,8 @@ type WeightFormProps = {
   headerAction?: React.ReactNode;
   /** Body metrics the user tracks, each logged alongside weight. */
   metrics?: TrackedMetric[];
+  /** Show just one field: 'weight' or a metric id. */
+  only?: string;
 };
 
 async function errorMessage(response: Response, fallback: string) {
@@ -27,11 +29,22 @@ export function WeightForm({
   onLogCreated,
   headerAction,
   metrics = [],
+  only,
 }: WeightFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasMetrics = metrics.length > 0;
+  const showWeight = only === undefined || only === 'weight';
+  const shownMetrics =
+    only === undefined ? metrics : metrics.filter((metric) => metric.id === only);
+  const single = !hasMetrics || only !== undefined;
+  const title =
+    only === undefined
+      ? hasMetrics
+        ? 'Log measurements'
+        : 'Log weight'
+      : `Log ${shownMetrics[0]?.label.toLowerCase() ?? 'weight'}`;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,7 +56,7 @@ export function WeightForm({
     };
 
     const weight = value('weight');
-    const entries = metrics.flatMap((metric) => {
+    const entries = shownMetrics.flatMap((metric) => {
       const metricValue = value(`metric-${metric.id}`);
       return metricValue === null ? [] : [{metricId: metric.id, value: metricValue}];
     });
@@ -90,23 +103,25 @@ export function WeightForm({
   return (
     <Card>
       <CardHeader className="pr-14">
-        <CardTitle>{hasMetrics ? 'Log measurements' : 'Log weight'}</CardTitle>
+        <CardTitle>{title}</CardTitle>
         {headerAction}
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col space-y-2">
-            <Label htmlFor="weight">Weight</Label>
-            <Input
-              id="weight"
-              name="weight"
-              type="number"
-              step="0.1"
-              min={0}
-              required={!hasMetrics}
-            />
-          </div>
-          {metrics.map((metric) => {
+          {showWeight && (
+            <div className="flex flex-col space-y-2">
+              <Label htmlFor="weight">Weight</Label>
+              <Input
+                id="weight"
+                name="weight"
+                type="number"
+                step="0.1"
+                min={0}
+                required={single}
+              />
+            </div>
+          )}
+          {shownMetrics.map((metric) => {
             const {min, max} = metricRange(metric);
             return (
               <div key={metric.id} className="flex flex-col space-y-2">
@@ -123,11 +138,12 @@ export function WeightForm({
                   step={metricStep(metric.decimals)}
                   min={min}
                   max={max}
+                  required={single}
                 />
               </div>
             );
           })}
-          {hasMetrics && (
+          {!single && (
             <p className="text-xs text-muted-foreground">
               Fill in only what you measured.
             </p>
@@ -138,7 +154,7 @@ export function WeightForm({
             </p>
           )}
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Saving...' : hasMetrics ? 'Save' : 'Log weight'}
+            {loading ? 'Saving...' : single ? title : 'Save'}
           </Button>
           <Button
             asChild

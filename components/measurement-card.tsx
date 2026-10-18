@@ -3,6 +3,8 @@ import {toZoned} from '@/lib/timezone';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {TrendChart} from '@/components/trend-chart';
 import {WeightDeleteButton} from '@/components/weight-delete-button';
+import {AddLogButton} from '@/components/quick-log';
+import type {TrackedMetric} from '@/lib/body-metrics';
 
 /** Entries visible before the list scrolls. */
 const VISIBLE_ENTRIES = 5;
@@ -22,6 +24,10 @@ type MeasurementCardProps = {
   /** What an entry is called in delete prompts, e.g. "weight entry". */
   entryName: string;
   emptyText: string;
+  /** Every active metric; the dialog picks out `field`. */
+  bodyMetrics: TrackedMetric[];
+  /** The field the add dialog shows: 'weight' or this metric's id. */
+  field: string;
 };
 
 /**
@@ -38,6 +44,8 @@ export function MeasurementCard({
   deleteEndpoint,
   entryName,
   emptyText,
+  bodyMetrics,
+  field,
 }: MeasurementCardProps) {
   const day = (date: Date, pattern: string) =>
     format(toZoned(date, timeZone), pattern);
@@ -49,7 +57,7 @@ export function MeasurementCard({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle>
           {title}
           {unit && (
@@ -61,6 +69,12 @@ export function MeasurementCard({
             </>
           )}
         </CardTitle>
+        <AddLogButton
+          panel="body"
+          label={`Add ${title.toLowerCase()}`}
+          bodyMetrics={bodyMetrics}
+          bodyField={field}
+        />
       </CardHeader>
       <CardContent className="space-y-4">
         {entries.length === 0 ? (

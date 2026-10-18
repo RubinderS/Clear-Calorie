@@ -47,6 +47,36 @@ export async function getLastWeekSets(
   );
 }
 
+/**
+ * Today's planned exercises as the log dialog takes them, each marked
+ * completed when one of today's logs ticked it off.
+ */
+export async function getTodaysPlanStatus(
+  userId: string,
+  timeZone: string,
+  todaysLogs: {exerciseGoalId: string | null}[],
+) {
+  const [goals, lastWeekSets] = await Promise.all([
+    getPlannedExerciseGoals(userId, timeZone),
+    getLastWeekSets(userId, timeZone),
+  ]);
+  return goals.map((goal) => ({
+    id: goal.id,
+    name: goal.name,
+    type: goal.type,
+    calories: goal.calories,
+    durationMin: goal.durationMin,
+    sets: goal.sets,
+    reps: goal.reps,
+    weight: goal.weight,
+    setPlan: goal.setPlan,
+    tempoMs: goal.tempoMs,
+    notes: goal.notes,
+    lastWeekSets: lastWeekSets.get(goal.id) ?? null,
+    completed: todaysLogs.some((log) => log.exerciseGoalId === goal.id),
+  }));
+}
+
 function nextDate(date: string): string {
   return format(addDays(parseISO(date), 1), 'yyyy-MM-dd');
 }

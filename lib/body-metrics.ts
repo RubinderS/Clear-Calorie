@@ -80,6 +80,12 @@ export type TrackedMetric = {
   decimals: number;
 };
 
+/** Just the TrackedMetric fields, e.g. without logs, for client components. */
+export function toTrackedMetric(metric: TrackedMetric): TrackedMetric {
+  const {id, key, label, unit, direction, decimals} = metric;
+  return {id, key, label, unit, direction, decimals};
+}
+
 /** Prisma `select` for a TrackedMetric. */
 export const TRACKED_METRIC_SELECT = {
   id: true,
