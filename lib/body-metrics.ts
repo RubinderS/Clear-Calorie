@@ -217,8 +217,8 @@ export function chartMinSpan(unit: string) {
     case 'kg':
     case 'lb':
     case 'bpm':
-      return 10;
     case '%':
+      return 10;
     case 'cm':
       return 5;
     case 'in':

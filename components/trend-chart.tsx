@@ -33,9 +33,16 @@ function getYDomain(data: TrendPoint[], minSpan: number): [number, number] {
 
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const padding = (max - min) * 0.1;
-  const span = Math.max(max - min + padding * 2, minSpan);
   const mid = (min + max) / 2;
+  // Keep the data within the middle two-thirds, never zoom tighter than
+  // minSpan, and scale the floor with magnitude so metrics with large values
+  // (or custom units falling back to a tiny minSpan) don't exaggerate noise.
+  const padding = (max - min) * 0.25;
+  const span = Math.max(
+    max - min + padding * 2,
+    minSpan,
+    Math.abs(mid) * 0.1,
+  );
 
   const lower = Math.max(0, Math.floor(mid - span / 2));
   const upper = Math.ceil(lower + span);
