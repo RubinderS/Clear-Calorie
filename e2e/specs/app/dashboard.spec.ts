@@ -61,7 +61,7 @@ test('DSH-01 empty state for a new user', async ({authedPage: page}) => {
   await expect(card(page, 'Exercise this week')).toContainText(
     'No exercise planned or logged this week',
   );
-  for (const title of ['Calories this week', 'Protein this week', 'Weight trend']) {
+  for (const title of ['Calories this week', 'Protein this week', 'Weight trend (kg)']) {
     await expect(card(page, title).locator('svg.recharts-surface').first()).toBeVisible();
   }
 });
@@ -246,7 +246,7 @@ test('DSH-10 weight chart shows the latest seven entries', async ({
     await seedWeight(db, user.id, {weight: 80 - days / 2, loggedAt: noonDaysAgo(days)});
   }
   await page.goto('/dashboard');
-  const chart = card(page, 'Weight trend');
+  const chart = card(page, 'Weight trend (kg)');
   await expect(chart.locator('.recharts-area-dots circle')).toHaveCount(7);
   await expect(chart.locator('.recharts-xAxis .recharts-cartesian-axis-tick-value').last()).toHaveText(
     chartLabel(todayIn()),

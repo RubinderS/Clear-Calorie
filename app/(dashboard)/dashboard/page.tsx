@@ -318,7 +318,12 @@ export default async function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Weight trend</CardTitle>
+          <CardTitle>
+            Weight trend{' '}
+            <span className="text-base font-normal text-muted-foreground">
+              (kg)
+            </span>
+          </CardTitle>
           <CardDescription>Your recent weight changes</CardDescription>
         </CardHeader>
         <CardContent>

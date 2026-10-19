@@ -11,6 +11,7 @@ export function WeightChart({data}: WeightChartProps) {
     <TrendChart
       data={data.map(({date, weight}) => ({date, value: weight}))}
       minSpan={10}
+      unit="kg"
       name="weight"
     />
   );

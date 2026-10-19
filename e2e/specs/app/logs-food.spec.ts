@@ -16,7 +16,7 @@ test('FL-01 tabs switch the URL and default to food', async ({authedPage: page})
 
   await tabs.getByRole('link', {name: 'Body'}).click();
   await expect(page).toHaveURL('/logs?tab=body');
-  await expect(page.getByRole('heading', {name: 'Weight', exact: true})).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'Weight (kg)', exact: true})).toBeVisible();
 
   // The tab's old name still works for bookmarks.
   await page.goto('/logs?tab=weight');

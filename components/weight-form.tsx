@@ -110,7 +110,10 @@ export function WeightForm({
         <form onSubmit={handleSubmit} className="space-y-4">
           {showWeight && (
             <div className="flex flex-col space-y-2">
-              <Label htmlFor="weight">Weight</Label>
+              <Label htmlFor="weight">
+                Weight{' '}
+                <span className="font-normal text-muted-foreground">(kg)</span>
+              </Label>
               <Input
                 id="weight"
                 name="weight"

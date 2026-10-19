@@ -21,7 +21,7 @@ test.describe('Weight', () => {
     expect((await db.weightLog.findFirst({where: {userId: user.id}}))?.weight).toBe(72.5);
 
     await page.goto('/logs?tab=body');
-    await expect(card(page, 'Weight').getByRole('listitem')).toHaveText([/72\.5/]);
+    await expect(card(page, 'Weight (kg)').getByRole('listitem')).toHaveText([/72\.5/]);
   });
 
   test('WT-02 browser validation', async ({authedPage: page}) => {
@@ -47,7 +47,7 @@ test.describe('Weight', () => {
       await seedWeight(db, user.id, {weight: 70 + days, loggedAt: noonDaysAgo(days)});
     }
     await page.goto('/logs?tab=body');
-    const weight = card(page, 'Weight');
+    const weight = card(page, 'Weight (kg)');
     // The chart and list cover everything loaded (up to 30), newest first.
     await expect(weight.locator('.recharts-area-dots circle')).toHaveCount(12);
     const items = weight.getByRole('listitem');
@@ -70,7 +70,7 @@ test.describe('Weight', () => {
       await seedWeight(db, user.id, {loggedAt: noonDaysAgo(days)});
     }
     await page.goto('/logs?tab=body');
-    await expect(card(page, 'Weight').getByRole('listitem')).toHaveCount(5);
+    await expect(card(page, 'Weight (kg)').getByRole('listitem')).toHaveCount(5);
     await expect(page.getByRole('region', {name: 'Weight entries'})).toHaveCount(0);
   });
 
@@ -95,7 +95,7 @@ test.describe('Weight', () => {
     await page.getByRole('button', {name: label}).click();
     expect((await (await request).response())?.status()).toBe(204);
     await expect(page.getByRole('button', {name: label})).toHaveCount(0);
-    await expect(card(page, 'Weight').getByRole('listitem')).toHaveCount(1);
+    await expect(card(page, 'Weight (kg)').getByRole('listitem')).toHaveCount(1);
   });
 });
 

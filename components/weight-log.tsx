@@ -12,13 +12,14 @@ export function WeightLog({entries, timeZone, bodyMetrics}: WeightLogProps) {
   return (
     <MeasurementCard
       title="Weight"
+      unit="kg"
       entries={entries.map(({id, weight, loggedAt}) => ({
         id,
         value: weight,
         loggedAt,
       }))}
       timeZone={timeZone}
-      formatValue={String}
+      formatValue={(value) => `${value} kg`}
       minSpan={10}
       deleteEndpoint="/api/weight"
       entryName="weight entry"

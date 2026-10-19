@@ -178,16 +178,16 @@ test.describe('Body logs plus button', () => {
     await expect(card(page, 'Waist (cm)').getByRole('listitem')).toHaveText([/80 cm/]);
     expect(await db.weightLog.count({where: {userId: user.id}})).toBe(0);
 
-    await card(page, 'Weight').getByRole('button', {name: 'Add weight'}).click();
+    await card(page, 'Weight (kg)').getByRole('button', {name: 'Add weight'}).click();
     panel = dialog(page, 'Log body');
     await expect(panel.getByLabel('Waist (cm)')).toHaveCount(0);
     await panel.getByLabel('Weight').fill('72.5');
     await panel.getByRole('button', {name: 'Log weight'}).click();
     await expect(panel).toBeHidden();
-    await expect(card(page, 'Weight').getByRole('listitem')).toHaveText([/72\.5/]);
+    await expect(card(page, 'Weight (kg)').getByRole('listitem')).toHaveText([/72\.5/]);
 
     // The manage link lands on this page and still opens the manager.
-    await card(page, 'Weight').getByRole('button', {name: 'Add weight'}).click();
+    await card(page, 'Weight (kg)').getByRole('button', {name: 'Add weight'}).click();
     panel = dialog(page, 'Log body');
     await panel.getByRole('link', {name: 'Manage measurements'}).click();
     await expect(panel).toBeHidden();
