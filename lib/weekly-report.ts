@@ -10,6 +10,8 @@ import {prisma} from '@/lib/prisma';
 import {getDateRange, getTodayDate, toZoned} from '@/lib/timezone';
 import {getPlannedCounts} from '@/lib/exercise-plan';
 import {METRIC_ORDER} from '@/lib/body-metrics';
+import {loadProfileSummary, type ProfileSummary} from '@/lib/profile';
+import {ACTIVITY_LEVELS, BMR_FORMULA_LABELS, FITNESS_GOALS} from '@/lib/tdee';
 import {
   WEEKLY_REPORT_PROMPT_VERSION,
   getAiModel,
@@ -264,6 +266,51 @@ function reportMetrics(report: WeeklyReport): WeekMetrics {
 
 export type GenerateResult = 'created' | 'exists' | 'no-data';
 
+/** The user's profile as the AI sees it, with labels instead of keys. */
+export type ReportProfile = {
+  goal: string;
+  goalDetail: string;
+  sex: string;
+  age: number;
+  heightCm: number;
+  weightKg: number;
+  bodyFatPct: number | null;
+  lifestyle: string;
+  bmr: number;
+  bmrFormula: string;
+  /** Adaptive TDEE when there's enough data, otherwise the formula one. */
+  maintenanceCalories: number;
+  maintenanceSource: 'adaptive from logs' | 'formula estimate';
+  formulaTdee: number;
+  adaptiveTdee: number | null;
+  suggestedCalories: number;
+  suggestedProtein: number;
+};
+
+function toReportProfile(summary: ProfileSummary): ReportProfile {
+  const {maintenance} = summary;
+  return {
+    goal: summary.goalLabel,
+    goalDetail: FITNESS_GOALS[summary.goal].detail,
+    sex: summary.sex,
+    age: summary.age,
+    heightCm: summary.heightCm,
+    weightKg: summary.weightKg,
+    bodyFatPct: summary.bodyFatPct,
+    lifestyle: `${ACTIVITY_LEVELS[summary.activityLevel].label} (${ACTIVITY_LEVELS[summary.activityLevel].detail})`,
+    bmr: maintenance.bmr,
+    bmrFormula: BMR_FORMULA_LABELS[maintenance.bmrFormula],
+    maintenanceCalories: maintenance.maintenance,
+    maintenanceSource: maintenance.isEstimate
+      ? 'formula estimate'
+      : 'adaptive from logs',
+    formulaTdee: maintenance.formulaTdee,
+    adaptiveTdee: maintenance.adaptive?.tdee ?? null,
+    suggestedCalories: summary.targets.calories,
+    suggestedProtein: summary.targets.protein,
+  };
+}
+
 /** Everything the AI sees when writing a report. */
 export type WeeklyReportPrompt = {
   week: {start: string; end: string};
@@ -275,6 +322,8 @@ export type WeeklyReportPrompt = {
   strengthProgress: StrengthProgress[];
   /** The user's own body measurements beyond weight. */
   bodyMetrics: BodyMetricSummary[];
+  /** Profile, goal and maintenance calories; null without a profile. */
+  profile: ReportProfile | null;
   previousWeek: {weekStart: string; weeksAgo: number; metrics: WeekMetrics} | null;
   previousFocusResults: FocusResult[] | null;
   focusMetrics: Record<string, {description: string; direction: string | null}>;
@@ -316,7 +365,10 @@ export async function generateWeeklyReport(
     timeZone,
     goals,
   );
-  const bodyMetrics = await loadBodyMetrics(userId, previousStart, start, end);
+  const [bodyMetrics, profile] = await Promise.all([
+    loadBodyMetrics(userId, previousStart, start, end),
+    loadProfileSummary(userId, timeZone, elapsed.at(-1)!),
+  ]);
   // Nothing logged at all means the user wasn't active that week.
   if (
     input.food.length === 0 &&
@@ -360,6 +412,7 @@ export async function generateWeeklyReport(
     topIssues,
     strengthProgress,
     bodyMetrics,
+    profile: profile && toReportProfile(profile),
     previousWeek: previous
       ? {
           weekStart: previous.weekStart,
@@ -404,6 +457,11 @@ export async function generateWeeklyReport(
         topIssues: JSON.stringify(topIssues),
         strengthProgress: JSON.stringify(strengthProgress),
         bodyMetrics: bodyMetrics.length ? JSON.stringify(bodyMetrics) : null,
+        profile: profile ? JSON.stringify(profile) : null,
+        goalSuggestions:
+          profile && text.goalSuggestions?.length
+            ? JSON.stringify(text.goalSuggestions)
+            : null,
         lastWeekFocusResults: focusResults
           ? JSON.stringify(focusResults)
           : null,
@@ -473,6 +531,9 @@ export type WeeklyReportView = {
   topIssues: TopIssue[];
   strengthProgress: StrengthProgress[];
   bodyMetrics: BodyMetricSummary[];
+  /** Profile at generation time; null on reports without one. */
+  profile: ProfileSummary | null;
+  goalSuggestions: string[];
   lastWeekFocusResults: FocusResult[] | null;
   nextWeekFocus: FocusItem[];
   sections: WeeklyReportSection[];
@@ -486,6 +547,8 @@ export function toReportView(report: WeeklyReport): WeeklyReportView {
     strengthProgress:
       parseJson<StrengthProgress[]>(report.strengthProgress) ?? [],
     bodyMetrics: parseJson<BodyMetricSummary[]>(report.bodyMetrics) ?? [],
+    profile: parseJson<ProfileSummary>(report.profile),
+    goalSuggestions: parseJson<string[]>(report.goalSuggestions) ?? [],
     lastWeekFocusResults: parseJson<FocusResult[]>(report.lastWeekFocusResults),
     nextWeekFocus: parseJson<FocusItem[]>(report.nextWeekFocus) ?? [],
     sections: parseJson<WeeklyReportSection[]>(report.narrative) ?? [],

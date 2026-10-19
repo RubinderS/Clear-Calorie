@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {Decimal, getGoalProgress, sumNumbers} from './decimal';
+import {
+  Decimal,
+  averageNumbers,
+  getGoalProgress,
+  roundNumber,
+  subtractNumbers,
+  sumNumbers,
+} from './decimal';
 
 test('totals retain fractional values without binary floating-point artifacts', () => {
   assert.equal(sumNumbers([0.1, 0.2]), 0.3);
@@ -59,4 +66,22 @@ test('exercise rounding retains integer-field behavior', () => {
     new Decimal('-0.5').toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL).toNumber(),
     -0,
   );
+});
+
+test('averages and differences avoid binary floating-point artifacts', () => {
+  // Plain floats give 0.15000000000000002
+  assert.equal(averageNumbers([0.1, 0.2]), 0.15);
+  assert.equal(averageNumbers([84.1, 84.2, 84.3]), 84.2);
+  assert.equal(averageNumbers([]), null);
+  // Plain floats give 0.09999999999999432
+  assert.equal(subtractNumbers(84.3, 84.2), 0.1);
+});
+
+test('rounding is half away from zero on the decimal value', () => {
+  // 1.15 * 10 is 11.499999999999998 as a float, so Math.round gives 1.1
+  assert.equal(roundNumber(1.15, 1), 1.2);
+  // (1.005).toFixed(2) gives "1.00"
+  assert.equal(roundNumber(1.005, 2), 1.01);
+  assert.equal(roundNumber(-0.25, 1), -0.3);
+  assert.equal(roundNumber(2.5), 3);
 });

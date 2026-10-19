@@ -4,6 +4,7 @@ import {
   buildExerciseDescription,
   parseEstimate,
   parseExerciseEstimate,
+  parseWeeklyReportText,
 } from './ai';
 
 const base = {
@@ -109,4 +110,24 @@ test('describes strength exercise without body weight', () => {
     buildExerciseDescription({name: 'Push ups', type: 'STRENGTH'}, null),
     'Exercise: Push ups\nBody weight: not known; assume an average adult.',
   );
+});
+
+const REPORT = {
+  headline: 'A solid week',
+  sections: [{title: 'Nutrition', points: ['Protein was on target.']}],
+};
+
+test('keeps up to four goal suggestions', () => {
+  const report = parseWeeklyReportText({
+    ...REPORT,
+    goalSuggestions: [' Add a third strength day ', 'b', 'c', 'd', 'e'],
+  });
+  assert.deepEqual(report?.goalSuggestions, ['Add a third strength day', 'b', 'c', 'd']);
+});
+
+test('missing or malformed goal suggestions do not fail the report', () => {
+  assert.deepEqual(parseWeeklyReportText(REPORT)?.goalSuggestions, []);
+  const report = parseWeeklyReportText({...REPORT, goalSuggestions: 'eat more'});
+  assert.equal(report?.headline, 'A solid week');
+  assert.deepEqual(report?.goalSuggestions, []);
 });

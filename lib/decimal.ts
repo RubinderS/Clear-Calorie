@@ -11,6 +11,22 @@ export function sumNumbers(values: Iterable<DecimalJs.Value>): number {
   return total.toNumber();
 }
 
+/** Mean of the values; null when there are none. */
+export function averageNumbers(values: readonly DecimalJs.Value[]): number | null {
+  return values.length === 0
+    ? null
+    : new Decimal(sumNumbers(values)).div(values.length).toNumber();
+}
+
+export function subtractNumbers(a: DecimalJs.Value, b: DecimalJs.Value): number {
+  return new Decimal(a).minus(b).toNumber();
+}
+
+/** Rounds half away from zero to `decimals` places, without float drift. */
+export function roundNumber(value: DecimalJs.Value, decimals = 0): number {
+  return new Decimal(value).toDecimalPlaces(decimals).toNumber();
+}
+
 export function getGoalProgress(value: number, goal: number) {
   const amount = new Decimal(value);
   const target = new Decimal(goal);

@@ -9,6 +9,7 @@ const PAGES = [
   {href: '/logs', label: 'Logs'},
   {href: '/food-goal', label: 'Food Goal'},
   {href: '/exercise-plan', label: 'Exercise Plan'},
+  {href: '/profile', label: 'Profile'},
 ];
 
 test('NAV-01 desktop header navigation', async ({authedPage: page}) => {

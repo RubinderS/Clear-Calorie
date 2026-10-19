@@ -1,5 +1,6 @@
 import {subDays} from 'date-fns';
 import {z} from 'zod';
+import {averageNumbers, roundNumber, subtractNumbers} from './decimal';
 
 // Optional body measurements beyond weight. Presets give common ones a stable
 // key so reports and the AI know what they mean; users can also add their own
@@ -179,7 +180,18 @@ export function isValidMetricValue(metric: {key: string | null}, value: number) 
 
 /** Rounds to the metric's decimals, dropping trailing zeros. */
 export function roundMetricValue(value: number, decimals: number) {
-  return Number(value.toFixed(decimals));
+  return roundNumber(value, decimals);
+}
+
+/** avg - prevAvg, rounded to the metric's decimals; null without a baseline. */
+export function metricChange(
+  avg: number | null,
+  prevAvg: number | null,
+  decimals: number,
+): number | null {
+  return avg === null || prevAvg === null
+    ? null
+    : roundNumber(subtractNumbers(avg, prevAvg), decimals);
 }
 
 export function formatMetricValue(
@@ -202,12 +214,6 @@ export function formatMetricChange(
 /** Days in the rolling average, today included. */
 export const ROLLING_AVERAGE_DAYS = 7;
 
-function averageOf(values: number[]) {
-  return values.length === 0
-    ? null
-    : values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
 /**
  * Average of the entries from the last seven days, today included, beside the
  * seven days before for the change. Null for a window with no entries.
@@ -225,7 +231,7 @@ export function rollingAverages(
     if (loggedAt >= start) current.push(value);
     else if (loggedAt >= prevStart) previous.push(value);
   }
-  return {avg: averageOf(current), prevAvg: averageOf(previous)};
+  return {avg: averageNumbers(current), prevAvg: averageNumbers(previous)};
 }
 
 /** Whether a change is good, bad or neither, given the metric's direction. */

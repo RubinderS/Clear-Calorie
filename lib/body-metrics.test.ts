@@ -5,6 +5,7 @@ import {
   formatMetricChange,
   formatMetricValue,
   isValidMetricValue,
+  metricChange,
   metricLogSchema,
   parseMetricDefinition,
   rollingAverages,
@@ -109,4 +110,26 @@ test('rolling averages cover the last seven days and the seven before', () => {
     prevAvg: 85,
   });
   assert.deepEqual(rollingAverages([], todayStart), {avg: null, prevAvg: null});
+});
+
+test('rolling averages and their change use decimal arithmetic', () => {
+  const todayStart = new Date('2026-10-19T00:00:00Z');
+  const day = (daysAgo: number) =>
+    new Date(todayStart.getTime() - daysAgo * 86_400_000 + 3_600_000);
+  const {avg, prevAvg} = rollingAverages(
+    [
+      {value: 0.1, loggedAt: day(0)},
+      {value: 0.2, loggedAt: day(1)},
+      {value: 84.1, loggedAt: day(8)},
+      {value: 84.2, loggedAt: day(9)},
+      {value: 84.3, loggedAt: day(10)},
+    ],
+    todayStart,
+  );
+  assert.equal(avg, 0.15);
+  assert.equal(prevAvg, 84.2);
+  assert.equal(metricChange(84.3, 84.2, 1), 0.1);
+  assert.equal(metricChange(70.15, 70, 1), 0.2);
+  assert.equal(metricChange(84.3, null, 1), null);
+  assert.equal(metricChange(null, 84.2, 1), null);
 });

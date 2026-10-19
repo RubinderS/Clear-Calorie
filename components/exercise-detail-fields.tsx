@@ -5,7 +5,7 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Toggler, type TogglerOption} from '@/components/ui/toggler';
-import {Decimal} from '@/lib/decimal';
+import {Decimal, averageNumbers, roundNumber} from '@/lib/decimal';
 import {
   MAX_SETS,
   setsOf,
@@ -94,14 +94,10 @@ export function toEstimateDetails(values: ExerciseDetailValues) {
       ? toExerciseFields(sets)
       : {type: 'STRENGTH' as const, reps: null, durationMin: null};
   const count = values.sets.length;
-  const weights = sets.flatMap((set) => (set.weight ? [set.weight] : []));
-  const weight =
-    weights.length > 0
-      ? new Decimal(weights.reduce((sum, value) => sum + value, 0))
-          .dividedBy(weights.length)
-          .toDecimalPlaces(1)
-          .toNumber()
-      : null;
+  const average = averageNumbers(
+    sets.flatMap((set) => (set.weight ? [set.weight] : [])),
+  );
+  const weight = average === null ? null : roundNumber(average, 1);
   return {type, sets: count, reps, durationMin, weight};
 }
 

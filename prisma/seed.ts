@@ -431,6 +431,13 @@ function writeMockReport(prompt: WeeklyReportPrompt) {
   return {
     headline: `${days(metrics.daysLogged)} logged and ${metrics.exercisesDone} of ${metrics.exercisesPlanned} planned exercises done; saturated fat was over on ${days(metrics.satFatDaysOver)}.`,
     sections,
+    goalSuggestions: prompt.profile
+      ? [
+          `For "${prompt.profile.goal}", your food goal of ${goals.calorieGoal} kcal compares with a suggested ${prompt.profile.suggestedCalories} kcal against maintenance of ${prompt.profile.maintenanceCalories} kcal.`,
+          `Aim for ${prompt.profile.suggestedProtein} g protein a day to hold on to muscle.`,
+          "Keep at least 3 strength sessions in your exercise plan and add 20 minutes of walking on rest days.",
+        ]
+      : [],
     nextWeekFocus: [
       {
         text: `Average at least ${proteinTarget} g protein a day`,
@@ -484,6 +491,15 @@ async function main() {
           saturatedFatGoal: 20,
           healthNotes:
             "Watching cholesterol; trying to keep saturated fat low.",
+        },
+      },
+      profile: {
+        create: {
+          sex: "male",
+          birthYear: new Date().getFullYear() - 38,
+          heightCm: 183,
+          activityLevel: "moderate",
+          goal: "lose_fat",
         },
       },
     },

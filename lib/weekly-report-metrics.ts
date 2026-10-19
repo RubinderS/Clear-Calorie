@@ -3,7 +3,7 @@
 import {addDays, format, parseISO, startOfWeek, subWeeks} from 'date-fns';
 import {TZDate} from '@date-fns/tz';
 import {z} from 'zod';
-import {sumNumbers} from '@/lib/decimal';
+import {averageNumbers, roundNumber, sumNumbers} from '@/lib/decimal';
 
 // ---------------------------------------------------------------------------
 // Weeks
@@ -119,7 +119,7 @@ export type DayBreakdown = {
 /** A day counts as over on calories when it is more than this far above goal. */
 const CALORIE_OVER_TOLERANCE = 1.05;
 
-export const round1 = (value: number) => Math.round(value * 10) / 10;
+export const round1 = (value: number) => roundNumber(value, 1);
 
 export function computeDailyBreakdown(input: WeekInput): DayBreakdown[] {
   return input.dates.map((date) => {
@@ -142,7 +142,7 @@ export function computeDailyBreakdown(input: WeekInput): DayBreakdown[] {
 }
 
 function average(values: number[]): number {
-  return values.length === 0 ? 0 : round1(sumNumbers(values) / values.length);
+  return round1(averageNumbers(values) ?? 0);
 }
 
 function averageWeight(weights: ReportWeight[]): number | null {

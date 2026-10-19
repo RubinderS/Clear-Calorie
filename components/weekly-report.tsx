@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleDashed,
+  Target,
   TrendingUp,
   XCircle,
   type LucideIcon,
@@ -20,9 +21,10 @@ import {
   changeTone,
   formatMetricChange,
   formatMetricValue,
-  roundMetricValue,
+  metricChange,
 } from '@/lib/body-metrics';
 import type {FocusProgress, WeeklyReportView} from '@/lib/weekly-report';
+import type {ProfileSummary} from '@/lib/profile';
 import {
   planAdherence,
   type BodyMetricSummary,
@@ -145,10 +147,7 @@ function BodyMeasurements({metrics}: {metrics: BodyMetricSummary[]}) {
       </p>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {metrics.map((metric) => {
-          const change =
-            metric.avg !== null && metric.prevAvg !== null
-              ? roundMetricValue(metric.avg - metric.prevAvg, metric.decimals)
-              : null;
+          const change = metricChange(metric.avg, metric.prevAvg, metric.decimals);
           const tone = change === null ? 'neutral' : changeTone(change, metric.direction);
           return (
             <Stat
@@ -175,10 +174,7 @@ function BodyMeasurements({metrics}: {metrics: BodyMetricSummary[]}) {
 
 function Scorecard({report}: {report: WeeklyReportView['report']}) {
   const adherence = planAdherence(report);
-  const weightChange =
-    report.weightAvg !== null && report.prevWeightAvg !== null
-      ? Math.round((report.weightAvg - report.prevWeightAvg) * 10) / 10
-      : null;
+  const weightChange = metricChange(report.weightAvg, report.prevWeightAvg, 1);
   // Secondary numbers share one muted line so the four tiles carry the story.
   const extras = [
     {
@@ -243,6 +239,50 @@ function Scorecard({report}: {report: WeeklyReportView['report']}) {
   );
 }
 
+const kcal = (value: number) => `${value.toLocaleString('en-AU')} kcal`;
+
+/** The profile goal at generation time and the AI's suggestions for it. */
+function GoalCard({
+  profile,
+  suggestions,
+}: {
+  profile: ProfileSummary;
+  suggestions: string[];
+}) {
+  const {maintenance, targets} = profile;
+  return (
+    <Card>
+      <CardHeader>
+        <CardDescription className="flex items-center gap-1.5">
+          <Target className="h-4 w-4" aria-hidden />
+          Your goal
+        </CardDescription>
+        <CardTitle className="text-lg">{profile.goalLabel}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          {kcal(maintenance.maintenance)}/day maintains your weight (
+          {maintenance.isEstimate ? 'estimate from your details' : 'from your logs'}
+          ) · suggested{' '}
+          {kcal(targets.calories)} and {targets.protein} g protein a day
+        </p>
+        {suggestions.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Suggested changes
+            </h3>
+            <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed">
+              {suggestions.map((suggestion, i) => (
+                <li key={i}>{suggestion}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // Focus text already states the target ("Average 140 g protein"), so a row
 // only adds the outcome.
 function FocusRow({
@@ -296,8 +336,15 @@ export function WeeklyReport({
   /** Progress this week on the report's focus; null for older reports and on Mondays. */
   focusProgress: FocusProgress | null;
 }) {
-  const {report, sections, lastWeekFocusResults, nextWeekFocus, bodyMetrics} =
-    view;
+  const {
+    report,
+    sections,
+    lastWeekFocusResults,
+    nextWeekFocus,
+    bodyMetrics,
+    profile,
+    goalSuggestions,
+  } = view;
   const results = lastWeekFocusResults ?? [];
 
   return (
@@ -359,6 +406,10 @@ export function WeeklyReport({
             )}
           </CardContent>
         </Card>
+      )}
+
+      {profile && (
+        <GoalCard profile={profile} suggestions={goalSuggestions} />
       )}
 
       {sections.length > 0 && (

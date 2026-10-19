@@ -40,6 +40,7 @@ export default async function DashboardLayout({
     {href: '/food-goal', label: 'Food Goal'},
     {href: '/exercise-plan', label: 'Exercise Plan'},
     ...(isAiEnabled() ? [{href: '/reports', label: 'Reports'}] : []),
+    {href: '/profile', label: 'Profile'},
   ];
 
   return (

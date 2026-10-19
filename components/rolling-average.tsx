@@ -3,7 +3,7 @@ import {
   changeTone,
   formatMetricChange,
   formatMetricValue,
-  roundMetricValue,
+  metricChange,
 } from '@/lib/body-metrics';
 
 type RollingAverageProps = {
@@ -25,8 +25,7 @@ export function RollingAverage({
   direction = 'neutral',
 }: RollingAverageProps) {
   const metric = {unit, decimals};
-  const change =
-    prevAvg === null ? null : roundMetricValue(avg - prevAvg, decimals);
+  const change = metricChange(avg, prevAvg, decimals);
   const tone = change === null ? 'neutral' : changeTone(change, direction);
 
   return (
