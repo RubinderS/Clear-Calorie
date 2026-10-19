@@ -55,6 +55,28 @@ test.describe('desktop drawer', () => {
     ).toBeVisible();
   });
 
+  test('CHAT-UI-07 a reply streaming in the drawer carries on in the full page', async ({
+    authedPage: page,
+  }) => {
+    await page.goto('/dashboard');
+    await page.getByRole('button', {name: 'Ask coach'}).click();
+    const c = coach(page);
+    await ask(page, '[ai:chat-slow] Tell me something');
+    await expect(c.reply).toHaveText(/^This reply/);
+
+    await c.panel.getByRole('link', {name: 'Open full page'}).click();
+    await expect(page).toHaveURL(/\/chat/);
+    const reply = page.getByTestId('chat-message-assistant');
+    // Still streaming when the page opened, then finishes without a reload.
+    await expect(reply).toHaveText(/^This reply/);
+    expect(await reply.textContent()).not.toMatch(/midway\.$/);
+    await expect(reply).toHaveText(/can be expanded midway\.$/);
+    await expect(page.getByTestId('chat-message-user')).toHaveCount(1);
+    await expect(
+      page.getByRole('list', {name: 'Chats'}).getByRole('button', {name: /Tell me something/}).first(),
+    ).toBeVisible();
+  });
+
   test('CHAT-UI-02 a confirmed proposal shows on the dashboard', async ({
     authedPage: page,
     db,

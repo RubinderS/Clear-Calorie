@@ -64,10 +64,16 @@ type ChatMessage = {
   tool_calls?: {id: string; function: {name: string; arguments: string}}[];
 };
 
-/** Streams chunks as server-sent events, the way providers stream replies. */
-function respondStream(res: ServerResponse, chunks: unknown[]) {
+/**
+ * Streams chunks as server-sent events, the way providers stream replies,
+ * optionally pausing between them so a test can act mid-reply.
+ */
+async function respondStream(res: ServerResponse, chunks: unknown[], delayMs = 0) {
   res.writeHead(200, {'Content-Type': 'text/event-stream'});
-  for (const chunk of chunks) res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+  for (const chunk of chunks) {
+    res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
   res.end('data: [DONE]\n\n');
 }
 
@@ -121,7 +127,14 @@ function handleChat(res: ServerResponse, messages: ChatMessage[]) {
       toolCallChunks('call_food', 'propose_food_log', {description: 'mock toast'}),
     );
   }
-  respondStream(res, textChunks('Hello from the mock coach.'));
+  if (scenario === 'chat-slow') {
+    return respondStream(
+      res,
+      textChunks('This reply streams in slowly, one word at a time, so it can be expanded midway.'),
+      400,
+    );
+  }
+  return respondStream(res, textChunks('Hello from the mock coach.'));
 }
 
 async function handleCompletion(req: IncomingMessage, res: ServerResponse) {

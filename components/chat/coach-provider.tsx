@@ -8,7 +8,7 @@ import {ArrowLeft, Maximize2, Sparkles, SquarePen, X} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Select} from '@/components/ui/select';
 import {ChatPanel} from './chat-panel';
-import {useChat, useThreads} from './use-chat';
+import {useChat, useThreads, type ChatState} from './use-chat';
 
 const OPEN_KEY = 'clearcalorie-coach-open';
 const THREAD_KEY = 'clearcalorie-coach-thread';
@@ -87,6 +87,18 @@ type CoachContextValue = {openCoach: () => void; hidden: boolean};
 const CoachContext = React.createContext<CoachContextValue | null>(null);
 
 /**
+ * The coach's conversation, which the /chat page shows too, so a reply
+ * streaming in the drawer carries on when it is expanded to the full page.
+ */
+const CoachChatContext = React.createContext<ChatState | null>(null);
+
+export function useCoachChat() {
+  const chat = React.useContext(CoachChatContext);
+  if (!chat) throw new Error('useCoachChat must be used inside CoachProvider');
+  return chat;
+}
+
+/**
  * The AI coach, available on every dashboard page: a right-side drawer on
  * desktop (opened from a floating button) and a full-screen sheet on mobile
  * (opened from the header). Hidden on /chat, which shows the full page.
@@ -112,6 +124,7 @@ export function CoachProvider({
   const {threads, refresh} = useThreads();
   const chat = useChat({onThreadsChanged: refresh});
   const {loadThread, threadId} = chat;
+  const hasConversation = threadId !== null || chat.items.length > 0;
 
   const openCoach = React.useCallback(() => {
     triggerRef.current = document.activeElement as HTMLElement | null;
@@ -169,14 +182,15 @@ export function CoachProvider({
     if (mounted && !mobile) writeStorage(OPEN_KEY, open ? '1' : null);
   }, [mobile, mounted, open]);
 
-  // Load the last conversation the first time the coach opens.
+  // Load the last conversation the first time the coach opens, unless one
+  // was already started on the /chat page.
   React.useEffect(() => {
     if (!open || restoredRef.current) return;
     restoredRef.current = true;
     void refresh();
     const saved = readStorage(THREAD_KEY);
-    if (saved) void loadThread(saved);
-  }, [loadThread, open, refresh]);
+    if (saved && !hasConversation) void loadThread(saved);
+  }, [hasConversation, loadThread, open, refresh]);
 
   React.useEffect(() => {
     if (restoredRef.current) writeStorage(THREAD_KEY, threadId);
@@ -200,98 +214,100 @@ export function CoachProvider({
 
   return (
     <CoachContext.Provider value={value}>
-      {/* The page is inert behind the full-screen sheet, which traps focus. */}
-      <div className={className} inert={sheetOpen}>
-        {children}
-      </div>
+      <CoachChatContext.Provider value={chat}>
+        {/* The page is inert behind the full-screen sheet, which traps focus. */}
+        <div className={className} inert={sheetOpen}>
+          {children}
+        </div>
 
-      {mounted && !hidden && !open && (
-        <Button
-          type="button"
-          onClick={openCoach}
-          className="fixed bottom-6 right-6 z-40 hidden h-12 rounded-full px-5 shadow-xl md:inline-flex"
-        >
-          <Sparkles aria-hidden /> Ask coach
-        </Button>
-      )}
-
-      {mounted &&
-        open &&
-        !hidden &&
-        createPortal(
-          <div
-            role="dialog"
-            aria-modal={mobile}
-            aria-label="Coach"
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.stopPropagation();
-                closeCoach();
-              }
-            }}
-            style={mobile && viewport ? {height: viewport.height, top: viewport.top} : undefined}
-            className="fixed inset-x-0 top-0 z-[60] flex h-dvh flex-col bg-background md:bottom-0 md:left-auto md:h-auto md:w-[420px] md:border-l md:border-border/60 md:shadow-2xl"
+        {mounted && !hidden && !open && (
+          <Button
+            type="button"
+            onClick={openCoach}
+            className="fixed bottom-6 right-6 z-40 hidden h-12 rounded-full px-5 shadow-xl md:inline-flex"
           >
-            {/* On phones the chat picker gets a second row under the buttons;
-                inline it would be squeezed unreadably narrow. */}
-            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1 border-b border-border/50 px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] md:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto]">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-11 shrink-0"
-                aria-label="Close coach"
-                onClick={closeCoach}
-              >
-                {mobile ? <ArrowLeft aria-hidden /> : <X aria-hidden />}
-              </Button>
-              <h2 className="mr-1 font-semibold">Coach</h2>
-              <Select
-                aria-label="Chat"
-                value={threadId ?? ''}
-                onChange={(event) => {
-                  if (event.target.value) void loadThread(event.target.value);
-                  else chat.newChat();
-                }}
-                wrapperClassName="col-span-full row-start-2 min-w-0 px-1 md:col-span-1 md:col-start-3 md:row-start-1 md:px-0"
-                className="h-10"
-              >
-                <option value="">New chat</option>
-                {showCurrent && <option value={threadId}>Current chat</option>}
-                {threads.map((thread) => (
-                  <option key={thread.id} value={thread.id}>
-                    {thread.title}
-                  </option>
-                ))}
-              </Select>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-11 shrink-0"
-                aria-label="New chat"
-                onClick={chat.newChat}
-              >
-                <SquarePen aria-hidden />
-              </Button>
-              <Button
-                asChild
-                variant="ghost"
-                size="icon"
-                className="size-11 shrink-0"
-              >
-                <Link
-                  href={threadId ? `/chat?thread=${threadId}` : '/chat'}
-                  aria-label="Open full page"
-                >
-                  <Maximize2 aria-hidden />
-                </Link>
-              </Button>
-            </div>
-            <ChatPanel chat={chat} autoFocus={!mobile} className="flex-1" />
-          </div>,
-          document.body,
+            <Sparkles aria-hidden /> Ask coach
+          </Button>
         )}
+
+        {mounted &&
+          open &&
+          !hidden &&
+          createPortal(
+            <div
+              role="dialog"
+              aria-modal={mobile}
+              aria-label="Coach"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.stopPropagation();
+                  closeCoach();
+                }
+              }}
+              style={mobile && viewport ? {height: viewport.height, top: viewport.top} : undefined}
+              className="fixed inset-x-0 top-0 z-[60] flex h-dvh flex-col bg-background md:bottom-0 md:left-auto md:h-auto md:w-[420px] md:border-l md:border-border/60 md:shadow-2xl"
+            >
+              {/* On phones the chat picker gets a second row under the buttons;
+                  inline it would be squeezed unreadably narrow. */}
+              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1 border-b border-border/50 px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] md:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto]">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-11 shrink-0"
+                  aria-label="Close coach"
+                  onClick={closeCoach}
+                >
+                  {mobile ? <ArrowLeft aria-hidden /> : <X aria-hidden />}
+                </Button>
+                <h2 className="mr-1 font-semibold">Coach</h2>
+                <Select
+                  aria-label="Chat"
+                  value={threadId ?? ''}
+                  onChange={(event) => {
+                    if (event.target.value) void loadThread(event.target.value);
+                    else chat.newChat();
+                  }}
+                  wrapperClassName="col-span-full row-start-2 min-w-0 px-1 md:col-span-1 md:col-start-3 md:row-start-1 md:px-0"
+                  className="h-10"
+                >
+                  <option value="">New chat</option>
+                  {showCurrent && <option value={threadId}>Current chat</option>}
+                  {threads.map((thread) => (
+                    <option key={thread.id} value={thread.id}>
+                      {thread.title}
+                    </option>
+                  ))}
+                </Select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-11 shrink-0"
+                  aria-label="New chat"
+                  onClick={chat.newChat}
+                >
+                  <SquarePen aria-hidden />
+                </Button>
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  className="size-11 shrink-0"
+                >
+                  <Link
+                    href={threadId ? `/chat?thread=${threadId}` : '/chat'}
+                    aria-label="Open full page"
+                  >
+                    <Maximize2 aria-hidden />
+                  </Link>
+                </Button>
+              </div>
+              <ChatPanel chat={chat} autoFocus={!mobile} className="flex-1" />
+            </div>,
+            document.body,
+          )}
+      </CoachChatContext.Provider>
     </CoachContext.Provider>
   );
 }

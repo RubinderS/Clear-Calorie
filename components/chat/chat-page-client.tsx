@@ -7,7 +7,8 @@ import type {ChatThreadSummary} from '@/lib/chat/view';
 import {cn} from '@/lib/utils';
 import {ChatPanel} from './chat-panel';
 import {ThreadList} from './thread-list';
-import {useChat, useThreads} from './use-chat';
+import {useCoachChat} from './coach-provider';
+import {useThreads} from './use-chat';
 
 /** Keeps ?thread= in the URL in step with the open chat, without navigating. */
 function syncThreadParam(threadId: string | null) {
@@ -29,15 +30,32 @@ export function ChatPageClient({
   initialThreadId: string | null;
 }) {
   const {threads, refresh, remove} = useThreads(initialThreads);
-  const chat = useChat({onThreadsChanged: refresh});
-  const {loadThread, newChat, threadId} = chat;
+  // The coach drawer's conversation, so a reply it was streaming keeps going.
+  const chat = useCoachChat();
+  const {loadThread, newChat, threadId, streaming} = chat;
   const [mobileView, setMobileView] = React.useState<'list' | 'chat'>(
     initialThreadId || initialThreads.length === 0 ? 'chat' : 'list',
   );
 
+  // Skip reloading the chat the drawer already shows: the saved copy lacks
+  // a reply still streaming.
+  const shownThreadRef = React.useRef(threadId);
   React.useEffect(() => {
-    if (initialThreadId) void loadThread(initialThreadId);
+    shownThreadRef.current = threadId;
+  }, [threadId]);
+  React.useEffect(() => {
+    if (initialThreadId && initialThreadId !== shownThreadRef.current) {
+      void loadThread(initialThreadId);
+    }
   }, [initialThreadId, loadThread]);
+
+  // The drawer's chat refreshes its own list, so refresh this one when a
+  // reply finishes.
+  const [wasStreaming, setWasStreaming] = React.useState(streaming);
+  if (streaming !== wasStreaming) {
+    setWasStreaming(streaming);
+    if (!streaming) void refresh();
+  }
 
   React.useEffect(() => {
     syncThreadParam(threadId);
