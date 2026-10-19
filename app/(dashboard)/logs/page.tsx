@@ -123,7 +123,10 @@ async function renderTab(
             defaultOpen={manage}
           />
         </div>
-        <div className="grid gap-6 lg:grid-cols-2">
+        {/* Weight on its own takes the full width. */}
+        <div
+          className={`grid gap-6 ${active.length > 0 ? 'lg:grid-cols-2' : ''}`}
+        >
           <WeightLog
             entries={entries}
             timeZone={timeZone}
