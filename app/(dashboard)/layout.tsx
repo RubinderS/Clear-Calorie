@@ -39,8 +39,8 @@ export default async function DashboardLayout({
     {href: '/logs', label: 'Logs'},
     {href: '/food-goal', label: 'Food Goal'},
     {href: '/exercise-plan', label: 'Exercise Plan'},
-    ...(isAiEnabled() ? [{href: '/reports', label: 'Reports'}] : []),
     {href: '/profile', label: 'Profile'},
+    ...(isAiEnabled() ? [{href: '/reports', label: 'Reports'}] : []),
   ];
 
   return (
