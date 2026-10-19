@@ -108,7 +108,8 @@ export function useChat({
   React.useEffect(() => {
     const handleVisible = () => {
       const id = interruptedRef.current;
-      if (document.visibilityState === 'visible' && id) {
+      // A reply still being read survived the tab switch; let it finish.
+      if (document.visibilityState === 'visible' && id && !readerRef.current) {
         interruptedRef.current = null;
         void loadThread(id);
       }
