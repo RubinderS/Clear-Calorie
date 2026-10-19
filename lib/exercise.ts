@@ -238,6 +238,20 @@ export function formatExerciseDetail(item: ExerciseWithSets): string {
 
 export const EXERCISE_NOTES_MAX = 500;
 
+/** A planned exercise as the plan API and chat proposals take it. */
+export const exerciseGoalInputSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100),
+    calories: z.number().int().min(0).default(0),
+    notes: z.string().max(EXERCISE_NOTES_MAX).nullish(),
+    days: z
+      .array(z.number().int().min(0).max(6))
+      .min(1)
+      .refine((days) => new Set(days).size === days.length),
+  })
+  .and(exerciseInputSchema);
+export type ExerciseGoalInput = z.infer<typeof exerciseGoalInputSchema>;
+
 /** Loads an exercise log entry's sets and its planned goal's notes. */
 export const EXERCISE_LOG_INCLUDE = {
   exerciseGoal: {select: {notes: true}},

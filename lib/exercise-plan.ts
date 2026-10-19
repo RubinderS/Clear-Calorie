@@ -3,8 +3,13 @@ import {Prisma} from '@prisma/client';
 import {
   EXERCISE_LOG_INCLUDE,
   countPlannedOn,
+  daysToMask,
+  inputSets,
   isActiveOn,
+  normalizeNotes,
   setsOf,
+  toPlanFields,
+  type ExerciseGoalInput,
   type ExerciseSet,
 } from '@/lib/exercise';
 import {prisma} from '@/lib/prisma';
@@ -16,6 +21,54 @@ import {
 } from '@/lib/timezone';
 
 type PlanGoal = {daysMask: number; createdAt: Date};
+
+/** The goal is missing, or changed since the given `updatedAt`. */
+export class ExerciseGoalNotFoundError extends Error {}
+
+/**
+ * Adds a planned exercise, or updates the one with `target.id`. With
+ * `target.updatedAt`, only a goal unchanged since then is updated.
+ */
+export async function saveExerciseGoal(
+  userId: string,
+  timeZone: string,
+  input: ExerciseGoalInput,
+  target?: {id: string; updatedAt?: Date},
+) {
+  const data = {
+    name: input.name,
+    calories: input.calories,
+    notes: normalizeNotes(input.notes),
+    daysMask: daysToMask(input.days),
+    ...toPlanFields(inputSets(input)),
+  };
+
+  await freezePastPlanDays(userId, timeZone);
+
+  if (!target) {
+    return prisma.exerciseGoal.create({data: {...data, userId}});
+  }
+  const result = await prisma.exerciseGoal.updateMany({
+    where: {id: target.id, userId, updatedAt: target.updatedAt},
+    data,
+  });
+  if (result.count === 0) throw new ExerciseGoalNotFoundError();
+  return prisma.exerciseGoal.findUniqueOrThrow({where: {id: target.id}});
+}
+
+/** Removes a planned exercise; with `updatedAt`, only if unchanged since then. */
+export async function deleteExerciseGoal(
+  userId: string,
+  timeZone: string,
+  id: string,
+  updatedAt?: Date,
+) {
+  await freezePastPlanDays(userId, timeZone);
+  const result = await prisma.exerciseGoal.deleteMany({
+    where: {id, userId, updatedAt},
+  });
+  if (result.count === 0) throw new ExerciseGoalNotFoundError();
+}
 
 export async function getPlannedExerciseGoals(
   userId: string,

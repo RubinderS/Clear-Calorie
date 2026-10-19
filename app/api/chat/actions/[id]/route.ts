@@ -3,12 +3,18 @@ import {getServerSession} from 'next-auth/next';
 import {format} from 'date-fns';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
+import {planChangeSchema} from '@/lib/chat/plan-change';
 import {parseActionPayload} from '@/lib/chat/view';
 import {
   PlannedExerciseError,
   createExerciseLog,
   exerciseLogSchema,
 } from '@/lib/exercise-log';
+import {
+  ExerciseGoalNotFoundError,
+  deleteExerciseGoal,
+  saveExerciseGoal,
+} from '@/lib/exercise-plan';
 import {createFoodLog, foodSchema} from '@/lib/food';
 import {prisma} from '@/lib/prisma';
 import {getTodayDate, getUserTimeZone, toZoned} from '@/lib/timezone';
@@ -20,7 +26,10 @@ const decisionSchema = z.object({
 
 class InvalidEntryError extends Error {}
 
-/** Creates the entry a confirmed action describes, with the log APIs' validation. */
+/**
+ * Creates the entry, or makes the plan change, a confirmed action describes,
+ * with the same validation as the log and plan APIs.
+ */
 async function createEntry(
   userId: string,
   kind: string,
@@ -41,6 +50,23 @@ async function createEntry(
     const parsed = weightSchema.safeParse(entry);
     if (!parsed.success) throw new InvalidEntryError();
     return (await createWeightLog(userId, parsed.data)).id;
+  }
+  if (kind === 'plan') {
+    const parsed = planChangeSchema.safeParse(entry);
+    if (!parsed.success) throw new InvalidEntryError();
+    const change = parsed.data;
+    const timeZone = await getUserTimeZone();
+    if (change.operation === 'add') {
+      return (await saveExerciseGoal(userId, timeZone, change.goal)).id;
+    }
+    // Only the goal as proposed, so a later edit isn't overwritten.
+    const updatedAt = new Date(change.updatedAt);
+    if (change.operation === 'update') {
+      const target = {id: change.goalId, updatedAt};
+      return (await saveExerciseGoal(userId, timeZone, change.goal, target)).id;
+    }
+    await deleteExerciseGoal(userId, timeZone, change.goalId, updatedAt);
+    return change.goalId;
   }
   throw new InvalidEntryError();
 }
@@ -70,8 +96,9 @@ export async function POST(
   }
 
   // Entries are logged for today, so a card from an earlier day can't be
-  // confirmed; it would count towards the wrong day.
-  if (confirm && action.status === 'pending') {
+  // confirmed; it would count towards the wrong day. Plan changes aren't
+  // tied to a day.
+  if (confirm && action.status === 'pending' && action.kind !== 'plan') {
     const timeZone = await getUserTimeZone();
     const proposedOn = format(toZoned(action.createdAt, timeZone), 'yyyy-MM-dd');
     if (proposedOn !== getTodayDate(timeZone)) {
@@ -111,6 +138,12 @@ export async function POST(
       where: {id},
       data: {status: 'pending', resolvedAt: null},
     });
+    if (error instanceof ExerciseGoalNotFoundError) {
+      return NextResponse.json(
+        {error: 'This exercise was changed or removed since. Ask the coach again.'},
+        {status: 409},
+      );
+    }
     if (error instanceof PlannedExerciseError) {
       return NextResponse.json({error: error.message}, {status: 400});
     }

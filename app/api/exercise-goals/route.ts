@@ -4,29 +4,21 @@ import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {
   EXERCISE_NOTES_MAX,
-  daysToMask,
-  exerciseInputSchema,
-  inputSets,
+  exerciseGoalInputSchema,
   normalizeNotes,
-  toPlanFields,
 } from '@/lib/exercise';
-import {freezePastPlanDays} from '@/lib/exercise-plan';
+import {
+  ExerciseGoalNotFoundError,
+  deleteExerciseGoal,
+  saveExerciseGoal,
+} from '@/lib/exercise-plan';
 import {prisma} from '@/lib/prisma';
 import {getUserTimeZone} from '@/lib/timezone';
 import {MAX_TEMPO_MS, MIN_TEMPO_MS} from '@/lib/workout';
 
 const exerciseGoalSchema = z
-  .object({
-    id: z.string().optional(),
-    name: z.string().trim().min(1).max(100),
-    calories: z.number().int().min(0).default(0),
-    notes: z.string().max(EXERCISE_NOTES_MAX).nullish(),
-    days: z
-      .array(z.number().int().min(0).max(6))
-      .min(1)
-      .refine((days) => new Set(days).size === days.length),
-  })
-  .and(exerciseInputSchema);
+  .object({id: z.string().optional()})
+  .and(exerciseGoalInputSchema);
 
 const workoutSettingsSchema = z
   .object({
@@ -64,35 +56,18 @@ export async function POST(request: Request) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
 
-    const {id, name, calories, notes, days} = parsed.data;
-    const data = {
-      name,
-      calories,
-      notes: normalizeNotes(notes),
-      daysMask: daysToMask(days),
-      ...toPlanFields(inputSets(parsed.data)),
-    };
-
-    await freezePastPlanDays(session.user.id, await getUserTimeZone());
-
-    if (id) {
-      const result = await prisma.exerciseGoal.updateMany({
-        where: {id, userId: session.user.id},
-        data,
-      });
-      if (result.count === 0) {
-        return NextResponse.json({error: 'Goal not found'}, {status: 404});
-      }
-      const goal = await prisma.exerciseGoal.findUnique({where: {id}});
-      return NextResponse.json(goal);
+    const {id} = parsed.data;
+    const goal = await saveExerciseGoal(
+      session.user.id,
+      await getUserTimeZone(),
+      parsed.data,
+      id ? {id} : undefined,
+    );
+    return NextResponse.json(goal, {status: id ? 200 : 201});
+  } catch (error) {
+    if (error instanceof ExerciseGoalNotFoundError) {
+      return NextResponse.json({error: 'Goal not found'}, {status: 404});
     }
-
-    const goal = await prisma.exerciseGoal.create({
-      data: {...data, userId: session.user.id},
-    });
-
-    return NextResponse.json(goal, {status: 201});
-  } catch {
     return NextResponse.json(
       {error: 'Failed to save exercise goal'},
       {status: 500},
@@ -148,14 +123,13 @@ export async function DELETE(request: Request) {
     return NextResponse.json({error: 'Goal ID is required'}, {status: 400});
   }
 
-  await freezePastPlanDays(session.user.id, await getUserTimeZone());
-
-  const result = await prisma.exerciseGoal.deleteMany({
-    where: {id, userId: session.user.id},
-  });
-
-  if (result.count === 0) {
-    return NextResponse.json({error: 'Goal not found'}, {status: 404});
+  try {
+    await deleteExerciseGoal(session.user.id, await getUserTimeZone(), id);
+  } catch (error) {
+    if (error instanceof ExerciseGoalNotFoundError) {
+      return NextResponse.json({error: 'Goal not found'}, {status: 404});
+    }
+    throw error;
   }
 
   return new NextResponse(null, {status: 204});

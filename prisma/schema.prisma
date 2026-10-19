@@ -427,13 +427,13 @@ model ChatAction {
   id         String    @id @default(cuid())
   threadId   String
   userId     String
-  // "food" | "exercise" | "weight"
+  // "food" | "exercise" | "weight" | "plan"
   kind       String
-  // JSON: the entry as the log API takes it
+  // JSON: the entry as the log API takes it, or the plan change
   payload    String
   // "pending" | "confirmed" | "dismissed"
   status     String    @default("pending")
-  // Id of the log entry created on confirm
+  // Id of the log entry created, or the plan goal changed, on confirm
   resultId   String?
   createdAt  DateTime  @default(now())
   resolvedAt DateTime?

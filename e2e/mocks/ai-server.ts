@@ -108,6 +108,24 @@ function handleChat(res: ServerResponse, messages: ChatMessage[]) {
 
   if (last?.role === 'tool') {
     const result = JSON.parse(last.content ?? '{}');
+    // Reads the plan, then adds 2.5 kg to its first exercise.
+    if (scenario === 'chat-plan' && result.plan) {
+      const [first] = result.plan;
+      return respondStream(
+        res,
+        toolCallChunks('call_plan_change', 'propose_exercise_plan_change', {
+          operation: 'update',
+          exerciseId: first?.id,
+          weight: 62.5,
+        }),
+      );
+    }
+    if (scenario === 'chat-plan') {
+      return respondStream(
+        res,
+        textChunks(result.error ?? `I've proposed a change to ${result.proposed?.name} for you to confirm.`),
+      );
+    }
     const text =
       scenario === 'chat-propose'
         ? `I've proposed ${result.proposed?.name ?? 'nothing'} for you to confirm.`
@@ -126,6 +144,9 @@ function handleChat(res: ServerResponse, messages: ChatMessage[]) {
       res,
       toolCallChunks('call_food', 'propose_food_log', {description: 'mock toast'}),
     );
+  }
+  if (scenario === 'chat-plan') {
+    return respondStream(res, toolCallChunks('call_plan', 'get_exercise_plan', {}));
   }
   if (scenario === 'chat-slow') {
     return respondStream(

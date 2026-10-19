@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import type {Page} from '@playwright/test';
 import {test, expect} from '../../fixtures/test';
-import {seedFood} from '../../fixtures/db';
+import {seedExerciseGoal, seedFood} from '../../fixtures/db';
 import {FOOD_ESTIMATE} from '../../mocks/data';
 
 function coach(page: Page) {
@@ -101,6 +101,60 @@ test.describe('desktop drawer', () => {
     expect(await db.foodLog.count({where: {userId: user.id}})).toBe(1);
     // The page behind refreshes with the new entry.
     await expect(page.getByText(String(FOOD_ESTIMATE.calories)).first()).toBeVisible();
+  });
+
+  test('CHAT-UI-08 a confirmed plan change updates the exercise plan', async ({
+    authedPage: page,
+    db,
+    user,
+  }) => {
+    const goal = await seedExerciseGoal(db, user.id, {
+      name: 'Bench press',
+      calories: 0,
+      sets: 3,
+      reps: 8,
+      weight: 60,
+      days: [1, 4],
+    });
+    await page.goto('/dashboard');
+    await page.getByRole('button', {name: 'Ask coach'}).click();
+    await ask(page, '[ai:chat-plan] Bump my bench by 2.5 kg');
+
+    const card = page.getByTestId('chat-action');
+    await expect(card).toContainText('Change plan');
+    await expect(card).toContainText('Bench press');
+    await expect(card).toContainText('3 × 8 @ 60 kg');
+    await expect(card).toContainText('3 × 8 @ 62.5 kg');
+    await expect(coach(page).reply).toHaveText(
+      "I've proposed a change to Bench press for you to confirm.",
+    );
+    expect((await db.exerciseGoal.findUniqueOrThrow({where: {id: goal.id}})).weight).toBe(60);
+
+    await card.getByRole('button', {name: 'Confirm'}).click();
+    await expect(card.getByText('Plan updated')).toBeVisible();
+    const updated = await db.exerciseGoal.findUniqueOrThrow({where: {id: goal.id}});
+    expect(updated).toMatchObject({sets: 3, reps: 8, weight: 62.5, daysMask: goal.daysMask});
+  });
+
+  test('CHAT-UI-09 a plan change is refused once the exercise was edited', async ({
+    authedPage: page,
+    db,
+    user,
+  }) => {
+    const goal = await seedExerciseGoal(db, user.id, {name: 'Bench press', calories: 0, weight: 60});
+    await page.goto('/dashboard');
+    await page.getByRole('button', {name: 'Ask coach'}).click();
+    await ask(page, '[ai:chat-plan] Bump my bench by 2.5 kg');
+    const card = page.getByTestId('chat-action');
+    await expect(card.getByRole('button', {name: 'Confirm'})).toBeVisible();
+
+    await db.exerciseGoal.update({where: {id: goal.id}, data: {weight: 65}});
+    await card.getByRole('button', {name: 'Confirm'}).click();
+    await expect(card.getByRole('alert')).toHaveText(/changed or removed since/);
+    expect((await db.exerciseGoal.findUniqueOrThrow({where: {id: goal.id}})).weight).toBe(65);
+    // Still pending, so it can be dismissed.
+    await card.getByRole('button', {name: 'Dismiss'}).click();
+    await expect(card.getByText('Dismissed')).toBeVisible();
   });
 
   test('CHAT-UI-03 reopens the last chat and closes with Escape', async ({

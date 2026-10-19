@@ -3,9 +3,22 @@
 import * as React from 'react';
 import {useRouter} from 'next/navigation';
 import {format, isToday} from 'date-fns';
-import {AlertTriangle, Check, Dumbbell, Scale, Utensils} from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  CalendarDays,
+  Check,
+  Dumbbell,
+  Scale,
+  Utensils,
+} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {formatExerciseDetail, type ExerciseSet} from '@/lib/exercise';
+import {
+  planChangeRows,
+  planChangeSchema,
+  type StoredPlanChange,
+} from '@/lib/chat/plan-change';
 import type {ChatActionStatus, ChatActionView} from '@/lib/chat/view';
 import {cn} from '@/lib/utils';
 
@@ -13,12 +26,65 @@ const KIND = {
   food: {icon: Utensils, label: 'Log food'},
   exercise: {icon: Dumbbell, label: 'Log exercise'},
   weight: {icon: Scale, label: 'Log weight'},
+  plan: {icon: CalendarDays, label: 'Change plan'},
 } as const;
+
+const PLAN_LABEL = {
+  add: 'Add to plan',
+  update: 'Change plan',
+  remove: 'Remove from plan',
+} as const;
+
+function planChangeOf(action: ChatActionView): StoredPlanChange | null {
+  if (action.kind !== 'plan') return null;
+  const parsed = planChangeSchema.safeParse(action.entry);
+  return parsed.success ? parsed.data : null;
+}
+
+function PlanSummary({change}: {change: StoredPlanChange}) {
+  const name = (change.operation === 'remove' ? change.before : change.goal).name;
+  return (
+    <>
+      <p className="font-medium">{name}</p>
+      <dl className="mt-1 space-y-0.5 text-sm">
+        {planChangeRows(change).map((row) => (
+          <div key={row.label} className="flex flex-wrap items-baseline gap-x-1.5">
+            <dt className="text-muted-foreground">{row.label}:</dt>
+            <dd className="flex flex-wrap items-baseline gap-x-1.5">
+              {row.before !== undefined && (
+                <>
+                  <span className="text-muted-foreground line-through">{row.before}</span>
+                  <ArrowRight aria-label="to" className="size-3.5 self-center" />
+                </>
+              )}
+              <span className={cn(change.operation === 'remove' && 'text-muted-foreground')}>
+                {row.after}
+              </span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {change.operation === 'remove' && (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Removed from your plan from today on. Past days keep it.
+        </p>
+      )}
+    </>
+  );
+}
 
 const num = (value: unknown) => (typeof value === 'number' ? value : 0);
 
 function Summary({action}: {action: ChatActionView}) {
   const entry = action.entry;
+  if (action.kind === 'plan') {
+    const change = planChangeOf(action);
+    return change ? (
+      <PlanSummary change={change} />
+    ) : (
+      <p className="text-sm text-muted-foreground">This plan change can&apos;t be shown.</p>
+    );
+  }
   if (action.kind === 'food') {
     const alert = entry.healthAlert as {level: string; message: string} | null | undefined;
     return (
@@ -64,7 +130,7 @@ function Summary({action}: {action: ChatActionView}) {
   return <p className="font-medium">{num(entry.weight)} kg</p>;
 }
 
-/** A log entry the coach proposed, with Confirm and Dismiss. */
+/** A log entry or plan change the coach proposed, with Confirm and Dismiss. */
 export function ActionCard({
   action,
   onStatusChange,
@@ -75,7 +141,10 @@ export function ActionCard({
   const router = useRouter();
   const [busy, setBusy] = React.useState<'confirm' | 'dismiss' | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  const {icon: Icon, label} = KIND[action.kind] ?? KIND.food;
+  const {icon: Icon, label: kindLabel} = KIND[action.kind] ?? KIND.food;
+  const planChange = planChangeOf(action);
+  const label = planChange ? PLAN_LABEL[planChange.operation] : kindLabel;
+  const isPlan = action.kind === 'plan';
 
   async function decide(decision: 'confirm' | 'dismiss') {
     setBusy(decision);
@@ -134,7 +203,7 @@ export function ActionCard({
               disabled={busy !== null}
               onClick={() => decide('confirm')}
             >
-              {busy === 'confirm' ? 'Logging…' : 'Confirm'}
+              {busy === 'confirm' ? (isPlan ? 'Saving…' : 'Logging…') : 'Confirm'}
             </Button>
             <Button
               type="button"
@@ -148,7 +217,7 @@ export function ActionCard({
           </div>
         ) : action.status === 'confirmed' ? (
           <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-            <Check aria-hidden className="size-4" /> Logged
+            <Check aria-hidden className="size-4" /> {isPlan ? 'Plan updated' : 'Logged'}
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">Dismissed</p>

@@ -13,6 +13,7 @@ import {
   formatExerciseDetail,
   isActiveOn,
   isSameExerciseName,
+  toExerciseFields,
 } from '@/lib/exercise';
 import {exerciseLogSchema} from '@/lib/exercise-log';
 import {getLastWeekSets, getPlannedExerciseGoals} from '@/lib/exercise-plan';
@@ -38,7 +39,13 @@ import {
   computeWeekMetrics,
 } from '@/lib/weekly-report-metrics';
 import {ToolInputError, resolveDates} from './helpers';
-import {toActionView, type ChatActionView} from './view';
+import {
+  buildPlanChange,
+  planChangeArgsSchema,
+  planChangeRows,
+  type PlanGoal,
+} from './plan-change';
+import {toActionView, type ChatActionKind, type ChatActionView} from './view';
 
 export type ToolContext = {userId: string; timeZone: string; threadId: string};
 
@@ -100,7 +107,7 @@ function weekdayNames(mask: number) {
 
 async function createAction(
   ctx: ToolContext,
-  kind: 'food' | 'exercise' | 'weight',
+  kind: ChatActionKind,
   entry: unknown,
   note?: string,
 ) {
@@ -146,6 +153,8 @@ const REPORT_METRIC_FIELDS = [
 
 const PROPOSAL_RESULT =
   'Shown to the user as a card with Confirm and Dismiss buttons. Nothing is logged until they confirm. Briefly tell them what you proposed; do not say it was logged.';
+const PLAN_PROPOSAL_RESULT =
+  'Shown to the user as a card with Confirm and Dismiss buttons. The plan does not change until they confirm. Briefly tell them what you proposed; do not say the plan was changed.';
 
 export const TOOLS = {
   get_profile_and_goals: defineTool({
@@ -276,7 +285,7 @@ export const TOOLS = {
 
   get_exercise_plan: defineTool({
     description:
-      "The user's weekly exercise plan (each exercise, its weekdays, sets/reps/weight or duration and notes) and which of today's planned exercises are done.",
+      "The user's weekly exercise plan (each exercise with its id, weekdays, sets/reps/weight or duration, calories and notes) and which of today's planned exercises are done.",
     status: 'Checking your exercise plan',
     schema: z.object({}),
     parameters: {type: 'object', properties: {}},
@@ -296,10 +305,12 @@ export const TOOLS = {
         result: {
           weightUnit: 'kg',
           plan: goals.map((goal) => ({
+            id: goal.id,
             name: goal.name,
             type: goal.type,
             days: weekdayNames(goal.daysMask),
             detail: formatExerciseDetail(goal),
+            calories: goal.calories || undefined,
             notes: goal.notes ?? undefined,
           })),
           today: today.map((goal) => {
@@ -561,6 +572,72 @@ export const TOOLS = {
     },
   }),
 
+  propose_exercise_plan_change: defineTool({
+    description:
+      "Propose adding, changing or removing one exercise in the user's weekly exercise plan. Shows the user a card with the change to confirm. Use only when the user asks to change their plan or agrees to a suggested change. Call get_exercise_plan first for the exercise ids and current values. One call per exercise. For update, pass only the fields that change.",
+    status: 'Preparing the plan change',
+    schema: planChangeArgsSchema,
+    parameters: {
+      type: 'object',
+      properties: {
+        operation: {type: 'string', enum: ['add', 'update', 'remove']},
+        exerciseId: {type: 'string', description: 'The exercise id from get_exercise_plan; required for update and remove'},
+        name: {type: 'string', description: 'Exercise name; required for add'},
+        type: {type: 'string', enum: ['TIME', 'STRENGTH'], description: 'TIME for cardio or timed work, STRENGTH for sets and reps; required for add'},
+        days: {type: 'array', items: {type: 'string', enum: WEEKDAYS.map(({name}) => name)}, description: 'Every weekday it is planned on; required for add'},
+        sets: {type: 'integer', description: 'For STRENGTH'},
+        reps: {type: 'integer', description: 'Reps per set, for STRENGTH'},
+        weight: {type: 'number', description: 'Load in kg for every set, for STRENGTH; 0 for none'},
+        durationMin: {type: 'integer', description: 'Minutes, for TIME'},
+        calories: {type: 'integer', description: 'Only if the user gave it; otherwise the app estimates it'},
+        notes: {type: 'string', description: 'Replaces the notes; empty to clear'},
+      },
+      required: ['operation'],
+    },
+    async run(args, ctx) {
+      const goals = await prisma.exerciseGoal.findMany({
+        where: {userId: ctx.userId},
+        orderBy: {createdAt: 'asc'},
+      });
+      const {change, workChanged} = buildPlanChange(args, goals);
+
+      // Estimate calories for new work, unless the user gave them or the
+      // exercise is planned without any.
+      let note: string | undefined;
+      const goal = change.operation === 'remove' ? null : change.goal;
+      const before = change.operation === 'update' ? change.before : null;
+      if (
+        goal &&
+        workChanged &&
+        args.calories === undefined &&
+        (before === null || before.calories > 0)
+      ) {
+        try {
+          const estimate = await estimatePlanCalories(ctx.userId, goal);
+          goal.calories = estimate.calories;
+          note = estimate.assumptions;
+        } catch (error) {
+          // Calories are optional in a plan, so propose without them.
+          console.error('Plan calorie estimate failed:', error);
+        }
+      }
+
+      const action = await createAction(ctx, 'plan', change, note);
+      return {
+        result: {
+          proposed: {
+            operation: change.operation,
+            name: (change.operation === 'remove' ? change.before : change.goal).name,
+            changes: planChangeRows(change),
+          },
+          assumptions: note,
+          status: PLAN_PROPOSAL_RESULT,
+        },
+        action,
+      };
+    },
+  }),
+
   propose_weight_log: defineTool({
     description:
       "Propose logging the user's body weight for today, in kg. Shows the user a card to confirm. Use only when the user asks to log their weight.",
@@ -578,6 +655,18 @@ export const TOOLS = {
     },
   }),
 };
+
+async function estimatePlanCalories(userId: string, goal: PlanGoal) {
+  const latestWeight = await prisma.weightLog.findFirst({
+    where: {userId},
+    orderBy: {loggedAt: 'desc'},
+    select: {weight: true},
+  });
+  return estimateExercise(
+    {name: goal.name, ...toExerciseFields(goal.exerciseSets)},
+    latestWeight?.weight ?? null,
+  );
+}
 
 export type ToolName = keyof typeof TOOLS;
 

@@ -1,15 +1,15 @@
 import type {ChatAction} from '@prisma/client';
 import {prisma} from '@/lib/prisma';
 
-export type ChatActionKind = 'food' | 'exercise' | 'weight';
+export type ChatActionKind = 'food' | 'exercise' | 'weight' | 'plan';
 export type ChatActionStatus = 'pending' | 'confirmed' | 'dismissed';
 
-/** A proposed log entry as the chat UI shows it. */
+/** A proposed log entry or plan change as the chat UI shows it. */
 export type ChatActionView = {
   id: string;
   kind: ChatActionKind;
   status: ChatActionStatus;
-  /** The entry as the log API takes it. */
+  /** The entry as the log API takes it, or the PlanChange for a plan. */
   entry: Record<string, unknown>;
   /** The AI's assumptions, e.g. portion sizes. */
   note?: string;
