@@ -2,7 +2,12 @@ import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
-import {MAX_ACTIVE_METRICS, parseMetricDefinition} from '@/lib/body-metrics';
+import {
+  canConvertUnit,
+  convertUnitValue,
+  MAX_ACTIVE_METRICS,
+  parseMetricDefinition,
+} from '@/lib/body-metrics';
 import {prisma} from '@/lib/prisma';
 
 const archiveSchema = z.object({archived: z.boolean()});
@@ -37,6 +42,8 @@ export async function POST(request: Request) {
           id: true,
           key: true,
           label: true,
+          unit: true,
+          decimals: true,
           archivedAt: true,
           sortOrder: true,
           _count: {select: {logs: true}},
@@ -72,13 +79,42 @@ export async function POST(request: Request) {
     }
 
     if (existing) {
-      const metric = await prisma.bodyMetric.update({
-        where: {id: existing.id},
-        data: {
-          archivedAt: null,
-          // Logged values were in the old unit, so only an unused metric can switch.
-          ...(existing._count.logs === 0 && {unit: definition.unit}),
-        },
+      // Logged values are in the old unit, so switching converts them.
+      const convert = existing._count.logs > 0 && existing.unit !== definition.unit;
+      if (convert && !canConvertUnit(existing.unit, definition.unit)) {
+        return NextResponse.json(
+          {
+            error: `Your ${existing.label.toLowerCase()} history is in ${existing.unit}, which can't be converted to ${definition.unit}. Add it in ${existing.unit}, or delete the archived one to start fresh.`,
+          },
+          {status: 409},
+        );
+      }
+
+      const metric = await prisma.$transaction(async (tx) => {
+        if (convert) {
+          const logs = await tx.bodyMetricLog.findMany({
+            where: {metricId: existing.id},
+            select: {id: true, value: true},
+          });
+          for (const log of logs) {
+            await tx.bodyMetricLog.update({
+              where: {id: log.id},
+              // One extra decimal so converting back and forth doesn't drift.
+              data: {
+                value: convertUnitValue(
+                  log.value,
+                  existing.unit,
+                  definition.unit,
+                  existing.decimals + 1,
+                ),
+              },
+            });
+          }
+        }
+        return tx.bodyMetric.update({
+          where: {id: existing.id},
+          data: {archivedAt: null, unit: definition.unit},
+        });
       });
       return NextResponse.json(metric);
     }

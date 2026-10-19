@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {
+  canConvertUnit,
   changeTone,
+  convertUnitValue,
   formatMetricChange,
   formatMetricValue,
   isValidMetricValue,
@@ -132,4 +134,19 @@ test('rolling averages and their change use decimal arithmetic', () => {
   assert.equal(metricChange(70.15, 70, 1), 0.2);
   assert.equal(metricChange(84.3, null, 1), null);
   assert.equal(metricChange(null, 84.2, 1), null);
+});
+
+test('canConvertUnit allows only units of the same dimension', () => {
+  assert.equal(canConvertUnit('cm', 'in'), true);
+  assert.equal(canConvertUnit('lb', 'kg'), true);
+  assert.equal(canConvertUnit('%', '%'), true);
+  assert.equal(canConvertUnit('%', 'kg'), false);
+  assert.equal(canConvertUnit('cm', 'kg'), false);
+});
+
+test('convertUnitValue converts exactly and rounds', () => {
+  assert.equal(convertUnitValue(34, 'in', 'cm', 2), 86.36);
+  assert.equal(convertUnitValue(85, 'cm', 'in', 2), 33.46);
+  assert.equal(convertUnitValue(100, 'lb', 'kg', 2), 45.36);
+  assert.equal(convertUnitValue(40, '%', '%', 2), 40);
 });

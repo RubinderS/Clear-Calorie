@@ -1,6 +1,6 @@
 import {subDays} from 'date-fns';
 import {z} from 'zod';
-import {averageNumbers, roundNumber, subtractNumbers} from './decimal';
+import {averageNumbers, Decimal, roundNumber, subtractNumbers} from './decimal';
 
 // Optional body measurements beyond weight. Presets give common ones a stable
 // key so reports and the AI know what they mean; users can also add their own
@@ -151,6 +151,40 @@ export function parseMetricDefinition(body: unknown): MetricDefinition | null {
   const custom = customSchema.safeParse(body);
   if (!custom.success) return null;
   return {key: null, ...custom.data, decimals: 1};
+}
+
+/** Each convertible unit's size in its dimension's base unit (cm or kg). */
+const UNIT_SIZES: Record<string, {dimension: string; size: string}> = {
+  cm: {dimension: 'length', size: '1'},
+  in: {dimension: 'length', size: '2.54'},
+  kg: {dimension: 'mass', size: '1'},
+  lb: {dimension: 'mass', size: '0.45359237'},
+};
+
+/** Whether values in one unit can be converted to another. */
+export function canConvertUnit(from: string, to: string) {
+  return (
+    from === to ||
+    (UNIT_SIZES[from] !== undefined &&
+      UNIT_SIZES[from].dimension === UNIT_SIZES[to]?.dimension)
+  );
+}
+
+/**
+ * A value moved between convertible units, rounded to `decimals`. Check
+ * canConvertUnit first.
+ */
+export function convertUnitValue(
+  value: number,
+  from: string,
+  to: string,
+  decimals: number,
+) {
+  if (from === to) return value;
+  return roundNumber(
+    new Decimal(value).times(UNIT_SIZES[from].size).div(UNIT_SIZES[to].size),
+    decimals,
+  );
 }
 
 export const metricLogSchema = z.object({

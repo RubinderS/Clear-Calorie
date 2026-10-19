@@ -97,22 +97,46 @@ test.describe('Body metrics API', () => {
       archivedAt: new Date(),
     });
 
-    // Logged values stay in their unit, so a used metric keeps it.
+    // Switching a used metric's unit converts its history.
     const restored = await api.post('/api/body-metrics', {
       data: {key: 'waist', unit: 'in'},
     });
     expect(restored.status()).toBe(200);
     expect(await restored.json()).toMatchObject({
       id: used.id,
-      unit: 'cm',
+      unit: 'in',
       archivedAt: null,
     });
+    const [log] = await db.bodyMetricLog.findMany({where: {metricId: used.id}});
+    expect(log.value).toBe(33.46);
 
     const switched = await api.post('/api/body-metrics', {
       data: {key: 'hips', unit: 'in'},
     });
     expect(await switched.json()).toMatchObject({id: unused.id, unit: 'in'});
     expect(await db.bodyMetric.count({where: {userId: user.id}})).toBe(2);
+  });
+
+  test('BM-05b a used metric refuses a unit its history cannot convert to', async ({
+    api,
+    db,
+    user,
+  }) => {
+    const metric = await seedBodyMetric(db, user.id, {
+      key: 'muscle_mass',
+      label: 'Muscle mass',
+      unit: '%',
+      archivedAt: new Date(),
+    });
+    await seedBodyMetricLog(db, metric.id, {value: 40});
+
+    const response = await api.post('/api/body-metrics', {
+      data: {key: 'muscle_mass', unit: 'kg'},
+    });
+    expect(response.status()).toBe(409);
+    const unchanged = await db.bodyMetric.findUniqueOrThrow({where: {id: metric.id}});
+    expect(unchanged).toMatchObject({unit: '%'});
+    expect(unchanged.archivedAt).not.toBeNull();
   });
 
   test('BM-06 only archived metrics can be deleted, with their logs', async ({
