@@ -199,13 +199,28 @@ export function CoachProvider({
   const sheetOpen = open && mobile && !hidden;
   const viewport = useVisualViewport(sheetOpen);
 
+  // Lock the page behind the sheet. iOS ignores overflow: hidden for touch
+  // scrolling, so pin the body in place and restore the scroll on close.
   React.useEffect(() => {
     if (!sheetOpen) return;
-    const root = document.documentElement;
-    const previous = root.style.overflow;
+    const {body, documentElement: root} = document;
+    const scrollY = window.scrollY;
+    const previous = {
+      rootOverflow: root.style.overflow,
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+    };
     root.style.overflow = 'hidden';
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.width = '100%';
     return () => {
-      root.style.overflow = previous;
+      root.style.overflow = previous.rootOverflow;
+      body.style.position = previous.position;
+      body.style.top = previous.top;
+      body.style.width = previous.width;
+      window.scrollTo(0, scrollY);
     };
   }, [sheetOpen]);
 

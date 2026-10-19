@@ -172,7 +172,9 @@ export function ChatPanel({
           event.preventDefault();
           submit(draft);
         }}
-        className="border-t border-border/50 bg-background px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        // Extra room on phones so rounded screen corners and the browser's
+        // bottom toolbar don't clip the message box and send button.
+        className="border-t border-border/50 bg-background px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:px-3 md:pb-3"
       >
         <div className="flex items-end gap-2">
           <label htmlFor={inputId} className="sr-only">
