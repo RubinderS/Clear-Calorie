@@ -113,6 +113,29 @@ npm run reports:generate
 npm run reports:generate -- --email you@example.com --week 2026-10-05 --timezone Australia/Sydney
 ```
 
+## AI Coach (optional)
+
+When AI is configured, users can chat with a coach about their own data. It
+opens from an **Ask coach** button (a drawer on desktop, a full-screen sheet
+from the header icon on mobile) and on the **Coach** page, which keeps past
+chats.
+
+- **The model fetches what it needs.** The server offers the model tools
+  (`lib/chat/tools.ts`): daily totals, food and exercise logs, the exercise
+  plan, weight history, body measurements, goals and profile, and weekly
+  reports. Each tool queries only the signed-in user's rows; the model never
+  supplies a user id. Replies stream as they are written.
+- **Logging needs a tap.** Asked to log food, exercise or weight, the coach
+  proposes an entry (food is estimated as on the food form) and the user
+  confirms or dismisses it. Confirmed entries go through the same validation
+  as the log forms.
+- **Model requirements.** The chat needs a model that supports tool calling
+  and streaming on `/chat/completions` (e.g. OpenAI `gpt-4o-mini`, DeepSeek,
+  or a tool-capable Ollama model such as `llama3.1`).
+
+Chats are saved per user. Each message sends the conversation and the data its
+tools return to the configured AI service.
+
 ## Demo Credentials
 
 - Email: `demo@example.com`

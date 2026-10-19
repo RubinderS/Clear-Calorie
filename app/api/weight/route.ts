@@ -1,12 +1,8 @@
 import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
-import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
-
-const weightSchema = z.object({
-  weight: z.number().positive(),
-});
+import {createWeightLog, weightSchema} from '@/lib/weight';
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
@@ -22,12 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
 
-    const entry = await prisma.weightLog.create({
-      data: {
-        weight: parsed.data.weight,
-        userId: session.user.id,
-      },
-    });
+    const entry = await createWeightLog(session.user.id, parsed.data);
 
     return NextResponse.json(entry, {status: 201});
   } catch {

@@ -2,42 +2,14 @@ import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
+import {
+  createFoodLog,
+  foodSchema,
+  nutritionFields,
+  refineSaturatedFat,
+} from '@/lib/food';
 import {prisma} from '@/lib/prisma';
 import {getDateRange, getTodayRange, getUserTimeZone} from '@/lib/timezone';
-
-const nutritionFields = {
-  name: z.string().trim().min(1),
-  calories: z.number().finite().min(0),
-  protein: z.number().finite().min(0).default(0),
-  carbs: z.number().finite().min(0).default(0),
-  fat: z.number().finite().min(0).default(0),
-  saturatedFat: z.number().finite().min(0).default(0),
-};
-
-function refineSaturatedFat(
-  data: {fat: number; saturatedFat: number},
-  ctx: z.RefinementCtx,
-) {
-  if (data.saturatedFat > data.fat) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Saturated fat cannot exceed total fat',
-      path: ['saturatedFat'],
-    });
-  }
-}
-
-const foodSchema = z
-  .object({
-    ...nutritionFields,
-    healthAlert: z
-      .object({
-        level: z.enum(['caution', 'avoid']),
-        message: z.string().trim().min(1).max(200),
-      })
-      .nullish(),
-  })
-  .superRefine(refineSaturatedFat);
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -78,15 +50,7 @@ export async function POST(request: Request) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
 
-    const {healthAlert, ...food} = parsed.data;
-    const entry = await prisma.foodLog.create({
-      data: {
-        ...food,
-        healthAlertLevel: healthAlert?.level ?? null,
-        healthAlertMessage: healthAlert?.message ?? null,
-        userId: session.user.id,
-      },
-    });
+    const entry = await createFoodLog(session.user.id, parsed.data);
 
     return NextResponse.json(entry, {status: 201});
   } catch {

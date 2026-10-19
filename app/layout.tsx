@@ -27,6 +27,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  // Android shrinks the page for the keyboard, so pinned inputs stay visible.
+  interactiveWidget: 'resizes-content',
 };
 
 // Runs before hydration so the correct theme (and status bar color) applies without a flash.

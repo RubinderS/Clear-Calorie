@@ -58,6 +58,72 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
   return text ? JSON.parse(text) : null;
 }
 
+type ChatMessage = {
+  role: string;
+  content: string | null;
+  tool_calls?: {id: string; function: {name: string; arguments: string}}[];
+};
+
+/** Streams chunks as server-sent events, the way providers stream replies. */
+function respondStream(res: ServerResponse, chunks: unknown[]) {
+  res.writeHead(200, {'Content-Type': 'text/event-stream'});
+  for (const chunk of chunks) res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+  res.end('data: [DONE]\n\n');
+}
+
+const textChunks = (text: string) => [
+  ...text.split(/(?<= )/).map((part) => ({choices: [{delta: {content: part}}]})),
+  {choices: [{delta: {}, finish_reason: 'stop'}]},
+];
+
+const toolCallChunks = (id: string, name: string, args: unknown) => {
+  const json = JSON.stringify(args);
+  const half = Math.floor(json.length / 2);
+  // Split the arguments like real providers do.
+  return [
+    {choices: [{delta: {tool_calls: [{index: 0, id, type: 'function', function: {name, arguments: json.slice(0, half)}}]}}]},
+    {choices: [{delta: {tool_calls: [{index: 0, function: {arguments: json.slice(half)}}]}}]},
+    {choices: [{delta: {}, finish_reason: 'tool_calls'}]},
+  ];
+};
+
+/**
+ * The coach chat. The scenario comes from the latest user message: the first
+ * call asks for a tool, and once its result is in, the reply quotes it.
+ */
+function handleChat(res: ServerResponse, messages: ChatMessage[]) {
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  const scenario = /\[ai:([a-z0-9-]+)\]/.exec(lastUser?.content ?? '')?.[1];
+  const last = messages.at(-1);
+
+  if (scenario === 'chat-error') {
+    return respondJson(res, 500, {error: {message: 'mock failure'}});
+  }
+
+  if (last?.role === 'tool') {
+    const result = JSON.parse(last.content ?? '{}');
+    const text =
+      scenario === 'chat-propose'
+        ? `I've proposed ${result.proposed?.name ?? 'nothing'} for you to confirm.`
+        : `You logged food on ${result.summary?.daysLogged ?? 0} days, averaging **${result.summary?.avgProtein ?? 0} g** protein.`;
+    return respondStream(res, textChunks(text));
+  }
+
+  if (scenario === 'chat-tool') {
+    return respondStream(
+      res,
+      toolCallChunks('call_totals', 'get_daily_totals', {}),
+    );
+  }
+  if (scenario === 'chat-propose') {
+    return respondStream(
+      res,
+      toolCallChunks('call_food', 'propose_food_log', {description: 'mock toast'}),
+    );
+  }
+  respondStream(res, textChunks('Hello from the mock coach.'));
+}
+
 async function handleCompletion(req: IncomingMessage, res: ServerResponse) {
   const body = (await readBody(req)) as RecordedRequest['body'];
   requests.push({
@@ -65,6 +131,10 @@ async function handleCompletion(req: IncomingMessage, res: ServerResponse) {
     authorization: req.headers.authorization ?? null,
     body,
   });
+
+  if (body.stream) {
+    return handleChat(res, body.messages as unknown as ChatMessage[]);
+  }
 
   const system = body.messages.find((m) => m.role === 'system')?.content ?? '';
   const user = body.messages.find((m) => m.role === 'user')?.content ?? '';
@@ -123,7 +193,7 @@ const server = createServer((req, res) => {
       res,
       200,
       requests.filter((r) =>
-        r.body.messages.some((m) => m.role === 'user' && m.content.includes(contains)),
+        r.body.messages.some((m) => m.role === 'user' && m.content?.includes(contains)),
       ),
     );
   } else if (url.pathname === '/__emails') {

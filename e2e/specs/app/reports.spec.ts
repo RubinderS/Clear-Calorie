@@ -12,6 +12,15 @@ test('RPT-01 empty state explains reports need AI', async ({authedPage: page}) =
   await expect(page.getByRole('link', {name: 'Reports'})).toHaveCount(0);
 });
 
+test('CHAT-00 the coach is hidden without AI', async ({authedPage: page, api}) => {
+  await page.goto('/dashboard');
+  await expect(page.getByRole('link', {name: 'Coach'})).toHaveCount(0);
+  await expect(page.getByRole('button', {name: 'Ask coach'})).toHaveCount(0);
+  await expect(page.getByRole('button', {name: 'Open coach'})).toHaveCount(0);
+  expect((await page.goto('/chat'))?.status()).toBe(404);
+  expect((await api.post('/api/chat', {data: {message: 'hi'}})).status()).toBe(404);
+});
+
 test('RPT-02 shows the latest report, its focus follow-up and older weeks', async ({
   authedPage: page,
   user,

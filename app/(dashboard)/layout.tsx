@@ -13,6 +13,7 @@ import {HeaderTitle} from '@/components/header-title';
 import {getDetectedTimeZone} from '@/lib/timezone';
 import {recordUserVisit} from '@/lib/user-activity';
 import {isAiEnabled} from '@/lib/ai';
+import {CoachHeaderButton, CoachProvider} from '@/components/chat/coach-provider';
 
 export default async function DashboardLayout({
   children,
@@ -34,17 +35,23 @@ export default async function DashboardLayout({
     ),
   );
 
+  const aiEnabled = isAiEnabled();
   const navItems = [
     {href: '/dashboard', label: 'Dashboard'},
     {href: '/logs', label: 'Logs'},
     {href: '/food-goal', label: 'Food Goal'},
     {href: '/exercise-plan', label: 'Exercise Plan'},
     {href: '/profile', label: 'Profile'},
-    ...(isAiEnabled() ? [{href: '/reports', label: 'Reports'}] : []),
+    ...(aiEnabled
+      ? [
+          {href: '/reports', label: 'Reports'},
+          {href: '/chat', label: 'Coach'},
+        ]
+      : []),
   ];
 
-  return (
-    <div className="flex min-h-full flex-col">
+  const content = (
+    <>
       <TimezoneSync />
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
@@ -65,6 +72,7 @@ export default async function DashboardLayout({
             <SignOutButton className="ml-2" />
           </nav>
           <div className="flex items-center gap-1">
+            {aiEnabled && <CoachHeaderButton />}
             <ThemeToggle />
             <MobileNav items={navItems} />
           </div>
@@ -73,6 +81,12 @@ export default async function DashboardLayout({
       <main className="flex-1 py-8">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">{children}</div>
       </main>
-    </div>
+    </>
+  );
+
+  return aiEnabled ? (
+    <CoachProvider className="flex min-h-full flex-col">{content}</CoachProvider>
+  ) : (
+    <div className="flex min-h-full flex-col">{content}</div>
   );
 }

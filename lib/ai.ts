@@ -335,3 +335,200 @@ export async function writeWeeklyReport(data: unknown): Promise<WeeklyReportText
   }
   return report;
 }
+
+// ---------------------------------------------------------------------------
+// Chat with tool calling, streamed
+// ---------------------------------------------------------------------------
+
+export type ToolCall = {
+  id: string;
+  type: 'function';
+  function: {name: string; arguments: string};
+};
+
+export type ToolDefinition = {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+};
+
+export type ChatMessageParam =
+  | {role: 'system' | 'user'; content: string}
+  | {role: 'assistant'; content: string | null; tool_calls?: ToolCall[]}
+  | {role: 'tool'; tool_call_id: string; content: string};
+
+export type ChatStreamEvent =
+  | {type: 'text'; delta: string}
+  | {type: 'finish'; toolCalls: ToolCall[]; finishReason: string | null};
+
+type ToolCallDelta = {
+  index?: number;
+  id?: string;
+  function?: {name?: string; arguments?: string};
+};
+
+/**
+ * Collects streamed tool call fragments. Providers send the id and name in the
+ * first fragment for an index and append the arguments in later ones; some
+ * send each call whole and without an index.
+ */
+export class ToolCallCollector {
+  private calls: ToolCall[] = [];
+
+  add(deltas: ToolCallDelta[]) {
+    for (const [position, delta] of deltas.entries()) {
+      const index = delta.index ?? this.calls.length + position;
+      const call = (this.calls[index] ??= {
+        id: '',
+        type: 'function',
+        function: {name: '', arguments: ''},
+      });
+      if (delta.id) call.id = delta.id;
+      if (delta.function?.name) call.function.name += delta.function.name;
+      if (delta.function?.arguments) {
+        call.function.arguments += delta.function.arguments;
+      }
+    }
+  }
+
+  result(): ToolCall[] {
+    return this.calls
+      .filter((call) => call?.function.name)
+      .map((call, index) => ({...call, id: call.id || `call_${index}`}));
+  }
+}
+
+/**
+ * Splits a server-sent events buffer into complete `data:` payloads, returning
+ * the unfinished tail to prepend to the next chunk.
+ */
+export function parseSseData(buffer: string): {data: string[]; rest: string} {
+  const lines = buffer.split(/\r?\n/);
+  const rest = lines.pop() ?? '';
+  const data = lines
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trim())
+    .filter(Boolean);
+  return {data, rest};
+}
+
+/**
+ * Streams one chat completion, yielding text as it arrives and finishing with
+ * the tool calls the model asked for, if any. `timeoutMs` is the longest wait
+ * for the response or between streamed chunks, so long replies aren't cut off.
+ */
+export async function* streamChatCompletion(
+  messages: ChatMessageParam[],
+  {
+    tools,
+    toolChoice = 'auto',
+    signal,
+    timeoutMs = 60_000,
+  }: {
+    tools?: ToolDefinition[];
+    /** 'none' makes the model answer while it still sees the tool definitions. */
+    toolChoice?: 'auto' | 'none';
+    signal?: AbortSignal;
+    timeoutMs?: number;
+  } = {},
+): AsyncGenerator<ChatStreamEvent> {
+  const config = getConfig();
+  if (!config) {
+    throw new AiError('AI is not configured');
+  }
+
+  const headers: Record<string, string> = {'Content-Type': 'application/json'};
+  if (config.apiKey) {
+    headers.Authorization = `Bearer ${config.apiKey}`;
+  }
+
+  // Restarted on every chunk, so it only fires when the stream stalls.
+  const idle = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const restartTimer = () => {
+    clearTimeout(timer);
+    timer = setTimeout(
+      () => idle.abort(new DOMException('AI request timed out', 'TimeoutError')),
+      timeoutMs,
+    );
+  };
+  const isTimeout = (error: unknown) =>
+    error instanceof Error && error.name === 'TimeoutError';
+
+  const collector = new ToolCallCollector();
+  let finishReason: string | null = null;
+
+  function* handleData(lines: string[]): Generator<ChatStreamEvent> {
+    for (const data of lines) {
+      if (data === '[DONE]') continue;
+      let payload;
+      try {
+        payload = JSON.parse(data);
+      } catch {
+        continue;
+      }
+      const choice = payload?.choices?.[0];
+      if (!choice) continue;
+      const delta = choice.delta ?? choice.message ?? {};
+      if (typeof delta.content === 'string' && delta.content) {
+        yield {type: 'text', delta: delta.content};
+      }
+      if (Array.isArray(delta.tool_calls)) {
+        collector.add(delta.tool_calls);
+      }
+      if (choice.finish_reason) finishReason = choice.finish_reason;
+    }
+  }
+
+  restartTimer();
+  try {
+    let response: Response;
+    try {
+      response = await fetch(`${config.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: config.model,
+          temperature: 0.3,
+          stream: true,
+          messages,
+          ...(tools?.length ? {tools, tool_choice: toolChoice} : {}),
+        }),
+        signal: signal ? AbortSignal.any([signal, idle.signal]) : idle.signal,
+      });
+    } catch (error) {
+      throw new AiError(
+        isTimeout(error) ? 'AI request timed out' : 'Could not reach AI service',
+      );
+    }
+
+    if (!response.ok || !response.body) {
+      throw new AiError(`AI service returned ${response.status}`);
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    try {
+      for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
+        restartTimer();
+        const parsed = parseSseData(buffer + decoder.decode(chunk, {stream: true}));
+        buffer = parsed.rest;
+        yield* handleData(parsed.data);
+      }
+    } catch (error) {
+      throw new AiError(
+        isTimeout(error) ? 'AI request timed out' : 'AI stream was interrupted',
+      );
+    }
+    // The last line may end without a newline.
+    yield* handleData(parseSseData(`${buffer}${decoder.decode()}
+`).data);
+  } finally {
+    clearTimeout(timer);
+  }
+
+  yield {type: 'finish', toolCalls: collector.result(), finishReason};
+}

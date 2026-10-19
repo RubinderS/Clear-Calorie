@@ -53,7 +53,7 @@ const STRENGTH_LOOKBACK_WEEKS = 8;
 const localDate = (date: Date, timeZone: string) =>
   format(toZoned(date, timeZone), 'yyyy-MM-dd');
 
-async function getReportGoals(userId: string) {
+export async function getReportGoals(userId: string) {
   const goal = await prisma.goal.findUnique({where: {userId}});
   // Same defaults as the dashboard when a user has no Goal row.
   const goals: ReportGoals = {
@@ -66,8 +66,8 @@ async function getReportGoals(userId: string) {
   return {goals, healthNotes: goal?.healthNotes?.trim() || null};
 }
 
-/** Loads the logs for consecutive user-local dates into report input. */
-async function loadWeekInput(
+/** Loads the logs for consecutive user-local dates into report input; also used by chat tools. */
+export async function loadWeekInput(
   userId: string,
   dates: string[],
   timeZone: string,

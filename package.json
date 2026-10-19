@@ -7,7 +7,7 @@
     "build": "cross-env TZ=UTC next build",
     "start": "cross-env TZ=UTC next start",
     "lint": "eslint",
-    "test": "tsx --test lib/*.test.ts",
+    "test": "tsx --test lib/*.test.ts lib/chat/*.test.ts",
     "test:e2e": "cross-env TZ=UTC next build && playwright test",
     "test:e2e:only": "playwright test",
     "test:e2e:ui": "playwright test --ui",

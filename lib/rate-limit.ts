@@ -44,6 +44,16 @@ export const aiRateLimit = redis
     })
   : noOpRateLimit;
 
+// Each chat message can make several AI calls, so it gets its own budget.
+export const chatRateLimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(30, '10 m'),
+      analytics: true,
+      prefix: '@upstash/ratelimit/chat',
+    })
+  : noOpRateLimit;
+
 export async function rateLimitByIp(
   request: Request,
   limiter: Ratelimit | typeof noOpRateLimit = authRateLimit,

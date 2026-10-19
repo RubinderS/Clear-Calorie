@@ -7,7 +7,11 @@ export type RecordedRequest = {
     model: string;
     temperature: number;
     response_format: unknown;
+    // Chat messages can have null content (tool calls); estimates never do.
     messages: {role: string; content: string}[];
+    /** Set by the coach chat, which streams and offers tools. */
+    stream?: boolean;
+    tools?: {function: {name: string}}[];
   };
 };
 

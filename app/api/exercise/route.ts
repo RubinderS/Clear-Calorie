@@ -6,20 +6,16 @@ import {
   EXERCISE_LOG_INCLUDE,
   exerciseInputSchema,
   inputSets,
-  isSameExerciseName,
   toExerciseFields,
   toSetRows,
 } from '@/lib/exercise';
-import {getPlannedExerciseGoals} from '@/lib/exercise-plan';
+import {
+  PlannedExerciseError,
+  createExerciseLog,
+  exerciseLogSchema,
+} from '@/lib/exercise-log';
 import {prisma} from '@/lib/prisma';
 import {getDateRange, getTodayRange, getUserTimeZone} from '@/lib/timezone';
-
-const exerciseSchema = z
-  .object({
-    name: z.string().trim().min(1),
-    calories: z.number().int().min(0),
-  })
-  .and(exerciseInputSchema);
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -55,43 +51,23 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const parsed = exerciseSchema.safeParse(body);
+    const parsed = exerciseLogSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
 
-    const {name, calories} = parsed.data;
-
-    const planned = await getPlannedExerciseGoals(
+    const entry = await createExerciseLog(
       session.user.id,
       await getUserTimeZone(),
+      parsed.data,
     );
-    if (planned.some((goal) => isSameExerciseName(goal.name, name))) {
-      return NextResponse.json(
-        {
-          error: `"${name}" is in today's plan. Tick it off there instead.`,
-        },
-        {status: 400},
-      );
-    }
-
-    const sets = inputSets(parsed.data);
-    const fields = toExerciseFields(sets);
-    const entry = await prisma.exerciseLog.create({
-      data: {
-        name,
-        calories,
-        ...fields,
-        durationMin: fields.durationMin ?? 0,
-        userId: session.user.id,
-        exerciseSets: {create: toSetRows(sets)},
-      },
-      include: EXERCISE_LOG_INCLUDE,
-    });
 
     return NextResponse.json(entry, {status: 201});
-  } catch {
+  } catch (error) {
+    if (error instanceof PlannedExerciseError) {
+      return NextResponse.json({error: error.message}, {status: 400});
+    }
     return NextResponse.json({error: 'Failed to log exercise'}, {status: 500});
   }
 }

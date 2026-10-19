@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {
+  ToolCallCollector,
   buildExerciseDescription,
   parseEstimate,
   parseExerciseEstimate,
+  parseSseData,
   parseWeeklyReportText,
 } from './ai';
 
@@ -130,4 +132,51 @@ test('missing or malformed goal suggestions do not fail the report', () => {
   const report = parseWeeklyReportText({...REPORT, goalSuggestions: 'eat more'});
   assert.equal(report?.headline, 'A solid week');
   assert.deepEqual(report?.goalSuggestions, []);
+});
+
+test('splits server-sent events and keeps the unfinished line', () => {
+  const {data, rest} = parseSseData(
+    'data: {"a":1}\n\n: keep-alive\ndata: [DONE]\r\ndata: {"b"',
+  );
+  assert.deepEqual(data, ['{"a":1}', '[DONE]']);
+  assert.equal(rest, 'data: {"b"');
+});
+
+test('assembles streamed tool call fragments', () => {
+  const collector = new ToolCallCollector();
+  collector.add([
+    {index: 0, id: 'call_1', function: {name: 'get_food_logs', arguments: ''}},
+  ]);
+  collector.add([{index: 0, function: {arguments: '{"from":'}}]);
+  collector.add([
+    {index: 1, id: 'call_2', function: {name: 'get_weight_history', arguments: '{}'}},
+  ]);
+  collector.add([{index: 0, function: {arguments: '"2026-10-01"}'}}]);
+  assert.deepEqual(collector.result(), [
+    {
+      id: 'call_1',
+      type: 'function',
+      function: {name: 'get_food_logs', arguments: '{"from":"2026-10-01"}'},
+    },
+    {
+      id: 'call_2',
+      type: 'function',
+      function: {name: 'get_weight_history', arguments: '{}'},
+    },
+  ]);
+});
+
+test('accepts whole tool calls without an index or id', () => {
+  const collector = new ToolCallCollector();
+  collector.add([
+    {function: {name: 'get_profile_and_goals', arguments: '{}'}},
+    {function: {name: 'get_exercise_plan', arguments: '{}'}},
+  ]);
+  assert.deepEqual(
+    collector.result().map((call) => [call.id, call.function.name]),
+    [
+      ['call_0', 'get_profile_and_goals'],
+      ['call_1', 'get_exercise_plan'],
+    ],
+  );
 });

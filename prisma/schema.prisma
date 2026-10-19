@@ -61,6 +61,8 @@ model User {
   goals            Goal?
   profile          Profile?
   weeklyReports    WeeklyReport[]
+  chatThreads      ChatThread[]
+  chatActions      ChatAction[]
 }
 
 model VerificationToken {
@@ -384,4 +386,61 @@ model WeeklyReport {
   nextReport     WeeklyReport? @relation("ReportChain")
 
   @@unique([userId, weekStart])
+}
+
+// A conversation with the AI coach.
+model ChatThread {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+  actions  ChatAction[]
+
+  @@index([userId, updatedAt])
+}
+
+// One message in the model's format, tool calls and results included, so
+// later turns can replay the whole context.
+model ChatMessage {
+  id         String   @id @default(cuid())
+  threadId   String
+  // "user" | "assistant" | "tool"
+  role       String
+  content    String?
+  // JSON: [{id, name, arguments}] the assistant asked to run
+  toolCalls  String?
+  // The tool call a "tool" message answers
+  toolCallId String?
+  createdAt  DateTime @default(now())
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+}
+
+// A log entry the coach proposed; nothing is saved until the user confirms.
+model ChatAction {
+  id         String    @id @default(cuid())
+  threadId   String
+  userId     String
+  // "food" | "exercise" | "weight"
+  kind       String
+  // JSON: the entry as the log API takes it
+  payload    String
+  // "pending" | "confirmed" | "dismissed"
+  status     String    @default("pending")
+  // Id of the log entry created on confirm
+  resultId   String?
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@index([userId])
 }
