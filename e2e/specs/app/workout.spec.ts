@@ -88,19 +88,33 @@ test('WO-01 setup shows target weights and last week', async ({
   });
   const {workout} = await startGoal(page, 'Bench');
 
-  const row = (label: string) =>
-    workout.locator('div', {has: page.getByText(label, {exact: true})}).last();
-  await expect(row('Sets')).toContainText('10 - 8 - 6');
-  await expect(row('Target Weight (kg)')).toContainText('12 - 12 - 14');
-  await expect(row('Last week (kg)')).toContainText('10 - 10 - 12');
+  const table = workout.getByRole('table');
+  await expect(table.getByRole('columnheader')).toHaveText([
+    'Set',
+    'Target',
+    'Last week',
+  ]);
+  await expect(table.getByRole('row').nth(1)).toHaveText(
+    /^1\s*10\s*×\s*12 kg\s*10\s*×\s*10 kg$/,
+  );
+  await expect(table.getByRole('row').nth(2)).toHaveText(
+    /^2\s*8\s*×\s*12 kg\s*9\s*×\s*10 kg$/,
+  );
+  await expect(table.getByRole('row').nth(3)).toHaveText(
+    /^3\s*6\s*×\s*14 kg\s*8\s*×\s*12 kg$/,
+  );
 });
 
-test('WO-01 no last week row without a log', async ({authedPage: page, db, user}) => {
+test('WO-01 no last week column without a log', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
   await seedExerciseGoal(db, user.id, {name: 'Rows', sets: 3, reps: 12});
   const {workout} = await startGoal(page, 'Rows');
-  await expect(workout.getByText('Target Weight (kg)')).toBeVisible();
-  await expect(workout.getByText('None', {exact: true})).toBeVisible();
-  await expect(workout.getByText('Last week (kg)')).toHaveCount(0);
+  const table = workout.getByRole('table');
+  await expect(table.getByRole('columnheader')).toHaveText(['Set', 'Target']);
+  await expect(table.getByRole('cell')).toHaveText(['12', '12', '12']);
 });
 
 test('WO-01 single set label', async ({authedPage: page, db, user}) => {

@@ -21,6 +21,13 @@ import {
   type WeeklyReportPrompt,
 } from "@/lib/weekly-report";
 import { currentWeekStart } from "@/lib/weekly-report-metrics";
+import { TZDate } from "@date-fns/tz";
+import { DEFAULT_TIMEZONE } from "@/lib/timezone-constants";
+
+// Calendar days (goal dates, weekdays, report weeks) are counted in this zone,
+// so "today" and "a week ago" match the app's when it is set to the browser's
+// timezone, e.g. SEED_TIMEZONE="Australia/Sydney".
+const SEED_TIMEZONE = process.env.SEED_TIMEZONE || DEFAULT_TIMEZONE;
 
 // Completed weeks to write weekly reports for, plus this week so far.
 const REPORT_WEEKS = 20;
@@ -455,9 +462,11 @@ async function main() {
   const email = "demo@example.com";
   const existing = await prisma.user.findUnique({ where: { email } });
 
+  // Everything is dated relative to now, so a re-run starts the demo user over
+  // (its data cascades) rather than leaving "today" and "last week" stale.
   if (existing) {
-    console.log("Demo user already exists");
-    return;
+    await prisma.user.delete({ where: { id: existing.id } });
+    console.log("Replacing existing demo user");
   }
 
   const user = await prisma.user.create({
@@ -483,11 +492,17 @@ async function main() {
   // Anchored to now (not a fixed clock time) so entries are never in the future
   // in any timezone. Entries within a day are spaced by a few minutes only, so
   // they stay on the same calendar day as `now` for that offset.
-  const now = new Date();
-  const dayAt = (daysAgo: number, minutesAgo = 0) =>
+  const now = TZDate.tz(SEED_TIMEZONE);
+  const zonedDayAt = (daysAgo: number, minutesAgo = 0) =>
     subMinutes(subDays(now, daysAgo), minutesAgo);
-  const dateKey = (daysAgo: number) => format(dayAt(daysAgo), "yyyy-MM-dd");
-  const weekdayOf = (daysAgo: number) => dayAt(daysAgo).getDay();
+  // A plain Date for Prisma; the zoned one is only for reading calendar fields.
+  const dayAt = (daysAgo: number, minutesAgo = 0) =>
+    new Date(zonedDayAt(daysAgo, minutesAgo).getTime());
+  const dateKey = (daysAgo: number) =>
+    format(zonedDayAt(daysAgo), "yyyy-MM-dd");
+  const weekdayOf = (daysAgo: number) => zonedDayAt(daysAgo).getDay();
+  const dayEndAt = (daysAgo: number) =>
+    new Date(endOfDay(zonedDayAt(daysAgo)).getTime());
 
   // Saved items
   await prisma.savedFoodItem.createMany({
@@ -605,7 +620,7 @@ async function main() {
       plannedCount: countPlannedOn(
         planBeforeDeletion,
         weekdayOf(daysAgo),
-        endOfDay(dayAt(daysAgo)),
+        dayEndAt(daysAgo),
       ),
     });
   }
@@ -658,7 +673,7 @@ async function main() {
   for (let daysAgo = HISTORY_DAYS - 1; daysAgo >= 1; daysAgo--) {
     const scenario = SCENARIOS[daysAgo] ?? "mixed";
     const weekday = weekdayOf(daysAgo);
-    const dayEnd = endOfDay(dayAt(daysAgo));
+    const dayEnd = dayEndAt(daysAgo);
     const planned = goals.filter(
       (goal) => isActiveOn(goal.daysMask, weekday) && goal.createdAt <= dayEnd,
     );
@@ -800,7 +815,7 @@ async function main() {
 
   // Weekly reports for the last REPORT_WEEKS weeks and this week so far,
   // oldest first so each one follows up on the one before.
-  const thisWeek = currentWeekStart("UTC", now);
+  const thisWeek = currentWeekStart(SEED_TIMEZONE, now);
   const reportWeeks = Array.from({ length: REPORT_WEEKS + 1 }, (_, i) =>
     format(subDays(parseISO(thisWeek), (REPORT_WEEKS - i) * 7), "yyyy-MM-dd"),
   );
@@ -808,7 +823,7 @@ async function main() {
   for (const weekStart of reportWeeks) {
     const result = await generateWeeklyReport(
       user.id,
-      "UTC",
+      SEED_TIMEZONE,
       weekStart,
       MOCK_REPORT_WRITER,
     );

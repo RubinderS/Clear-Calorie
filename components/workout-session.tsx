@@ -440,26 +440,15 @@ function StrengthSetup({
         tempoMs={tempoMs}
         onChange={(value) => setTempoMs(clampTempo(value))}
       />
+      {/* Sets that differ are shown in the target; each can be changed when logging. */}
       {sameSets ? (
         <RepsStepper
           reps={reps}
           onChange={(value) => setRepsValue(clampReps(value))}
         />
-      ) : (
-        // Sets that differ are shown as planned; each can be changed when logging.
-        <PlanRow
-          label="Sets"
-          value={planned.map(formatSetAmount).join(' - ')}
-        />
-      )}
-      {/* Weight is changed when logging, so here it is only shown. */}
-      <PlanRow label="Target Weight (kg)" value={formatWeights(planned)} />
-      {goal.lastWeekSets?.length ? (
-        <PlanRow
-          label="Last week (kg)"
-          value={formatWeights(goal.lastWeekSets)}
-        />
       ) : null}
+      {/* Weight is changed when logging, so here it is only shown. */}
+      <SetPlanTable target={planned} lastWeek={goal.lastWeekSets} />
       <Button className="h-12 w-full" onClick={start}>
         <Play />
         Start {planned.length} {planned.length === 1 ? 'set' : 'sets'}
@@ -509,21 +498,74 @@ function SoundControls({
   );
 }
 
-/** Each set's weight in order, e.g. "12 - 12 - 14", or "None" if unweighted. */
-function formatWeights(sets: readonly ExerciseSet[]): string {
-  if (!sets.some((set) => set.weight)) return 'None';
-  return sets.map((set) => set.weight || '—').join(' - ');
+/**
+ * The planned sets, one row each, beside last week's when there was a log.
+ * Read-only: sets are changed when logging.
+ */
+function SetPlanTable({
+  target,
+  lastWeek,
+}: {
+  target: readonly ExerciseSet[];
+  lastWeek?: readonly ExerciseSet[] | null;
+}) {
+  const previous = lastWeek?.length ? lastWeek : null;
+  const rows = Math.max(target.length, previous?.length ?? 0);
+  return (
+    <div className="rounded-xl border border-border/50 bg-muted/30 px-4 py-3">
+      <table className="w-full text-sm tabular-nums">
+        <thead>
+          <tr className="text-xs text-muted-foreground">
+            <th scope="col" className="pb-1.5 text-left font-medium">
+              Set
+            </th>
+            <th scope="col" className="pb-1.5 text-right font-medium">
+              Target
+            </th>
+            {previous ? (
+              <th scope="col" className="pb-1.5 text-right font-medium">
+                Last week
+              </th>
+            ) : null}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({length: rows}, (_, index) => (
+            <tr key={index} className="border-t border-border/40">
+              <th
+                scope="row"
+                className="py-1.5 text-left font-medium text-muted-foreground"
+              >
+                {index + 1}
+              </th>
+              <td className="py-1.5 text-right font-semibold">
+                <SetPair set={target[index]} />
+              </td>
+              {previous ? (
+                <td className="py-1.5 text-right text-muted-foreground">
+                  <SetPair set={previous[index]} />
+                </td>
+              ) : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
-/** A planned value shown in the setup, read-only. */
-function PlanRow({label, value}: {label: string; value: string | number}) {
+/** A set's reps (or time) and weight, e.g. "10 × 20 kg"; "—" if missing. */
+function SetPair({set}: {set: ExerciseSet | undefined}) {
+  if (!set) return '—';
+  const amount = formatSetAmount(set);
+  if (!set.weight) return amount;
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 bg-muted/30 px-4 py-3.5">
-      <span className="text-sm font-medium">{label}</span>
-      <span className="text-right text-sm font-semibold tabular-nums">
-        {value}
-      </span>
-    </div>
+    <>
+      {amount}
+      <span className="px-1 font-normal text-muted-foreground">×</span>
+      {set.weight}
+      <span className="font-normal text-muted-foreground"> kg</span>
+    </>
   );
 }
 
