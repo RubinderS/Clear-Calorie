@@ -1,7 +1,15 @@
 import {format} from 'date-fns';
-import {toZoned} from '@/lib/timezone';
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {getTodayRange, toZoned} from '@/lib/timezone';
+import {rollingAverages} from '@/lib/body-metrics';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {TrendChart} from '@/components/trend-chart';
+import {RollingAverage} from '@/components/rolling-average';
 import {WeightDeleteButton} from '@/components/weight-delete-button';
 import {AddLogButton} from '@/components/quick-log';
 import type {TrackedMetric} from '@/lib/body-metrics';
@@ -17,6 +25,10 @@ type MeasurementCardProps = {
   entries: {id: string; value: number; loggedAt: Date}[];
   timeZone: string;
   formatValue: (value: number) => string;
+  /** Decimals shown in the 7-day average. */
+  decimals: number;
+  /** Which way is good, for colouring the average's change. */
+  direction?: string;
   /** Y-axis span for the chart; see TrendChart. */
   minSpan: number;
   /** API route that deletes an entry by `?id=`. */
@@ -40,6 +52,8 @@ export function MeasurementCard({
   entries,
   timeZone,
   formatValue,
+  decimals,
+  direction,
   minSpan,
   deleteEndpoint,
   entryName,
@@ -54,21 +68,38 @@ export function MeasurementCard({
     .reverse()
     .map((entry) => ({date: day(entry.loggedAt, 'MMM dd'), value: entry.value}));
   const scrolls = entries.length > VISIBLE_ENTRIES;
+  const {avg, prevAvg} = rollingAverages(
+    entries,
+    getTodayRange(timeZone).start,
+  );
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-        <CardTitle>
-          {title}
-          {unit && (
-            <>
-              {' '}
-              <span className="text-base font-normal text-muted-foreground">
-                ({unit})
-              </span>
-            </>
+        <div className="space-y-1.5">
+          <CardTitle>
+            {title}
+            {unit && (
+              <>
+                {' '}
+                <span className="text-base font-normal text-muted-foreground">
+                  ({unit})
+                </span>
+              </>
+            )}
+          </CardTitle>
+          {avg !== null && (
+            <CardDescription>
+              <RollingAverage
+                avg={avg}
+                prevAvg={prevAvg}
+                unit={unit ?? ''}
+                decimals={decimals}
+                direction={direction}
+              />
+            </CardDescription>
           )}
-        </CardTitle>
+        </div>
         <AddLogButton
           panel="body"
           label={`Add ${title.toLowerCase()}`}

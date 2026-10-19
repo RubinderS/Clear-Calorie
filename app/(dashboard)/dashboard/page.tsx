@@ -21,6 +21,7 @@ import {
 import {MacrosChart} from '@/components/macros-chart';
 import {macroColors} from '@/lib/chart-colors';
 import {WeightChart} from '@/components/weight-chart';
+import {RollingAverage} from '@/components/rolling-average';
 import {
   ExerciseChart,
   type ExerciseChartDatum,
@@ -32,7 +33,12 @@ import {formatWeekRange} from '@/components/weekly-report';
 import {Decimal, sumNumbers} from '@/lib/decimal';
 import {getPlannedCounts, getTodaysPlanStatus} from '@/lib/exercise-plan';
 import {isAiEnabled} from '@/lib/ai';
-import {METRIC_ORDER, TRACKED_METRIC_SELECT} from '@/lib/body-metrics';
+import {
+  METRIC_ORDER,
+  ROLLING_AVERAGE_DAYS,
+  TRACKED_METRIC_SELECT,
+  rollingAverages,
+} from '@/lib/body-metrics';
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -51,6 +57,7 @@ export default async function DashboardPage() {
     todaysFood,
     todaysExercise,
     recentWeights,
+    averageWeights,
     weekFood,
     weekExercise,
     weekPlannedCounts,
@@ -70,6 +77,14 @@ export default async function DashboardPage() {
       where: {userId},
       orderBy: {loggedAt: 'desc'},
       take: 7,
+    }),
+    // Two weeks for the 7-day average and its change.
+    prisma.weightLog.findMany({
+      where: {
+        userId,
+        loggedAt: {gte: subDays(todayStart, 2 * ROLLING_AVERAGE_DAYS - 1)},
+      },
+      select: {weight: true, loggedAt: true},
     }),
     prisma.foodLog.findMany({
       where: {
@@ -215,6 +230,11 @@ export default async function DashboardPage() {
     };
   });
 
+  const weightAverage = rollingAverages(
+    averageWeights.map(({weight, loggedAt}) => ({value: weight, loggedAt})),
+    todayStart,
+  );
+
   const weightData = recentWeights
     .slice()
     .reverse()
@@ -324,7 +344,18 @@ export default async function DashboardPage() {
               (kg)
             </span>
           </CardTitle>
-          <CardDescription>Your recent weight changes</CardDescription>
+          <CardDescription>
+            {weightAverage.avg === null ? (
+              'Your recent weight changes'
+            ) : (
+              <RollingAverage
+                avg={weightAverage.avg}
+                prevAvg={weightAverage.prevAvg}
+                unit="kg"
+                decimals={1}
+              />
+            )}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <WeightChart data={weightData} />

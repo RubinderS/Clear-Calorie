@@ -20,6 +20,7 @@ export function WeightLog({entries, timeZone, bodyMetrics}: WeightLogProps) {
       }))}
       timeZone={timeZone}
       formatValue={(value) => `${value} kg`}
+      decimals={1}
       minSpan={10}
       deleteEndpoint="/api/weight"
       entryName="weight entry"

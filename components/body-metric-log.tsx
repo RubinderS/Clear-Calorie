@@ -27,6 +27,8 @@ export function BodyMetricLog({metrics, timeZone}: BodyMetricLogProps) {
       entries={metric.logs}
       timeZone={timeZone}
       formatValue={(value) => formatMetricValue(value, metric)}
+      decimals={metric.decimals}
+      direction={metric.direction}
       minSpan={chartMinSpan(metric.unit)}
       deleteEndpoint="/api/body-metrics/log"
       entryName={`${metric.label.toLowerCase()} entry`}

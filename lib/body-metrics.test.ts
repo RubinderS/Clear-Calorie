@@ -7,6 +7,7 @@ import {
   isValidMetricValue,
   metricLogSchema,
   parseMetricDefinition,
+  rollingAverages,
 } from './body-metrics';
 
 test('presets take their definition from the catalog and the chosen unit', () => {
@@ -90,4 +91,22 @@ test('change tone follows the metric direction', () => {
   assert.equal(changeTone(1, 'up'), 'good');
   assert.equal(changeTone(1, 'neutral'), 'neutral');
   assert.equal(changeTone(0, 'down'), 'neutral');
+});
+
+test('rolling averages cover the last seven days and the seven before', () => {
+  const todayStart = new Date('2026-10-19T00:00:00Z');
+  const at = (iso: string, value: number) => ({value, loggedAt: new Date(iso)});
+  const entries = [
+    at('2026-10-19T08:00:00Z', 80),
+    at('2026-10-13T00:00:00Z', 82), // first day of this window
+    at('2026-10-12T23:59:00Z', 84), // last day of the previous window
+    at('2026-10-06T00:00:00Z', 86),
+    at('2026-10-05T23:59:00Z', 100), // older, ignored
+  ];
+  assert.deepEqual(rollingAverages(entries, todayStart), {avg: 81, prevAvg: 85});
+  assert.deepEqual(rollingAverages(entries.slice(2), todayStart), {
+    avg: null,
+    prevAvg: 85,
+  });
+  assert.deepEqual(rollingAverages([], todayStart), {avg: null, prevAvg: null});
 });

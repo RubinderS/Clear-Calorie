@@ -1,3 +1,4 @@
+import {subDays} from 'date-fns';
 import {z} from 'zod';
 
 // Optional body measurements beyond weight. Presets give common ones a stable
@@ -196,6 +197,35 @@ export function formatMetricChange(
 ) {
   const sign = change > 0 ? '+' : '';
   return `${sign}${formatMetricValue(change, metric)}`;
+}
+
+/** Days in the rolling average, today included. */
+export const ROLLING_AVERAGE_DAYS = 7;
+
+function averageOf(values: number[]) {
+  return values.length === 0
+    ? null
+    : values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+/**
+ * Average of the entries from the last seven days, today included, beside the
+ * seven days before for the change. Null for a window with no entries.
+ * `todayStart` is the start of today in the user's timezone.
+ */
+export function rollingAverages(
+  entries: {value: number; loggedAt: Date}[],
+  todayStart: Date,
+): {avg: number | null; prevAvg: number | null} {
+  const start = subDays(todayStart, ROLLING_AVERAGE_DAYS - 1);
+  const prevStart = subDays(start, ROLLING_AVERAGE_DAYS);
+  const current: number[] = [];
+  const previous: number[] = [];
+  for (const {value, loggedAt} of entries) {
+    if (loggedAt >= start) current.push(value);
+    else if (loggedAt >= prevStart) previous.push(value);
+  }
+  return {avg: averageOf(current), prevAvg: averageOf(previous)};
 }
 
 /** Whether a change is good, bad or neither, given the metric's direction. */
