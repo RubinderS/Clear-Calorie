@@ -34,7 +34,7 @@ test('PUB-02 signed-in visitors go straight to the dashboard', async ({
 
 test('PUB-03 document metadata', async ({page}) => {
   await page.goto('/');
-  await expect(page).toHaveTitle('Clear Calorie — Calorie & Health Tracking');
+  await expect(page).toHaveTitle('Clear Calorie - Calorie & Health Tracking');
   await expect(page.locator('meta[name="description"]')).toHaveAttribute(
     'content',
     'Track calories, exercise, weight, and health goals.',

@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Clear Calorie — Calorie & Health Tracking',
+  title: `${process.env.NODE_ENV === 'development' ? '[Dev] ' : ''}Clear Calorie - Calorie & Health Tracking`,
   description: 'Track calories, exercise, weight, and health goals.',
   appleWebApp: {capable: true, title: 'Clear Calorie', statusBarStyle: 'default'},
 };
