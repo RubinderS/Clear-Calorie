@@ -110,8 +110,8 @@ test.describe('Food goal', () => {
   });
 
   test('FG-01 defaults are prefilled', async ({authedPage: page}) => {
-    await page.goto('/food-goal');
-    await expect(page.getByText('Set your daily nutrition targets')).toBeVisible();
+    await page.goto('/profile');
+    await expect(page.getByText('Food goal', {exact: true})).toBeVisible();
     const f = fields(page);
     await expect(f.calories).toHaveValue('2000');
     await expect(f.protein).toHaveValue('150');
@@ -125,7 +125,7 @@ test.describe('Food goal', () => {
     db,
     user,
   }) => {
-    await page.goto('/food-goal');
+    await page.goto('/profile');
     const f = fields(page);
     await f.calories.fill('1800');
     await f.protein.fill('140');
@@ -158,7 +158,7 @@ test.describe('Food goal', () => {
 
   test('FG-03 saturated fat goal cannot exceed fat goal', async ({authedPage: page}) => {
     const calls = trackRequests(page, '/api/goals');
-    await page.goto('/food-goal');
+    await page.goto('/profile');
     const f = fields(page);
     await f.fat.fill('10');
     await f.saturatedFat.fill('11');
@@ -180,7 +180,7 @@ test.describe('Food goal', () => {
     user,
   }) => {
     await db.goal.update({where: {userId: user.id}, data: {healthNotes: 'Low sodium'}});
-    await page.goto('/food-goal');
+    await page.goto('/profile');
     await expect(page.getByLabel('Health notes')).toHaveCount(0);
     await fields(page).calories.fill('1900');
     const response = page.waitForResponse('**/api/goals');
@@ -199,7 +199,7 @@ test.describe('Food goal', () => {
       await held;
       await route.continue();
     });
-    await page.goto('/food-goal');
+    await page.goto('/profile');
     await fields(page).submit.click();
     await expect(page.getByRole('button', {name: 'Saving...'})).toBeDisabled();
     release();

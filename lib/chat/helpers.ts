@@ -122,9 +122,8 @@ export type PageContext = {path: string; weekStart?: string};
 const PAGE_DESCRIPTIONS: Record<string, string> = {
   '/dashboard': "the dashboard, showing today's food, exercise, weight and progress",
   '/logs': 'the logs page, with food, exercise and body measurement history',
-  '/food-goal': 'the food goal page, with daily calorie and macro goals and health notes',
   '/exercise-plan': 'the exercise plan page, with weekly planned exercises',
-  '/profile': 'the profile page, with body stats and maintenance calories',
+  '/profile': 'the profile page, with body stats, maintenance calories, daily calorie and macro goals and health notes',
   '/reports': 'the weekly reports page',
 };
 

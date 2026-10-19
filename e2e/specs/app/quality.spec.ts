@@ -12,8 +12,8 @@ const APP_PAGES = [
   '/logs',
   '/logs?tab=exercise',
   '/logs?tab=body',
-  '/food-goal',
   '/exercise-plan',
+  '/profile',
 ];
 
 /** Some of everything, so pages render their filled-in states. */

@@ -244,8 +244,8 @@ test.describe('AIF-08 estimate API validation', () => {
   });
 });
 
-test('AIF-09 health notes on the food goal page', async ({authedPage: page, db, user}) => {
-  await page.goto('/food-goal');
+test('AIF-09 health notes on the profile page', async ({authedPage: page, db, user}) => {
+  await page.goto('/profile');
   const notes = page.getByLabel('Health notes');
   await expect(notes).toHaveAttribute('maxlength', '500');
   await expect(notes).toHaveAttribute('placeholder', 'e.g. High LDL cholesterol, keep sodium low');

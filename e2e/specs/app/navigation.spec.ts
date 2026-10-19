@@ -7,7 +7,6 @@ const ACTIVE = /(^|\s)bg-accent(\s|$)/;
 const PAGES = [
   {href: '/dashboard', label: 'Dashboard'},
   {href: '/logs', label: 'Logs'},
-  {href: '/food-goal', label: 'Food Goal'},
   {href: '/exercise-plan', label: 'Exercise Plan'},
   {href: '/profile', label: 'Profile'},
 ];
@@ -35,12 +34,12 @@ test('NAV-01 desktop header navigation', async ({authedPage: page}) => {
 
 test.describe('Mobile @mobile', () => {
   test('NAV-02 page title and menu', async ({authedPage: page}) => {
-    await page.goto('/food-goal');
+    await page.goto('/exercise-plan');
     const header = page.locator('header');
     await expect(header.locator('nav')).toBeHidden();
     await expect(page.getByRole('heading', {level: 1})).toBeHidden();
     // The desktop link with the same text is hidden, so look at visible text only.
-    await expect(header.getByText('Food Goal', {exact: true}).filter({visible: true})).toHaveCount(1);
+    await expect(header.getByText('Exercise Plan', {exact: true}).filter({visible: true})).toHaveCount(1);
 
     const toggle = page.getByRole('button', {name: 'Open menu'});
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -50,7 +49,7 @@ test.describe('Mobile @mobile', () => {
     await expect(menu).toBeVisible();
     await expect(menu.getByText('Menu')).toBeVisible();
     await expect(menu.getByRole('link')).toHaveText(PAGES.map((p) => p.label));
-    await expect(menu.getByRole('link', {name: 'Food Goal'})).toHaveClass(ACTIVE);
+    await expect(menu.getByRole('link', {name: 'Exercise Plan'})).toHaveClass(ACTIVE);
     await expect(menu.getByRole('button', {name: 'Sign out'})).toBeVisible();
 
     await menu.getByRole('button', {name: 'Close menu'}).click();
@@ -92,8 +91,8 @@ test.describe('Mobile @mobile', () => {
         '/logs',
         '/logs?tab=exercise',
         '/logs?tab=body',
-        '/food-goal',
         '/exercise-plan',
+        '/profile',
       ]) {
         await page.goto(path);
         await page.waitForLoadState('networkidle');
