@@ -243,7 +243,7 @@ test('EL-07 the plus button ticks the plan and logs custom exercise', async ({
   const panel = dialog(page, 'Log exercise');
   await expect(panel.getByRole('link', {name: 'View logs'})).toHaveCount(0);
   await panel.getByRole('checkbox', {name: 'Mark Plank as done'}).click();
-  await card(panel, 'Plank').getByRole('button', {name: 'Set done'}).click();
+  await card(panel, 'Plank').getByRole('button', {name: 'Done', exact: true}).click();
   await expect(panel.getByText('All planned exercises done.')).toBeVisible();
   // The list behind the dialog picks up the ticked goal straight away.
   await expect(logRow(page, 'Plank')).toContainText('Planned');

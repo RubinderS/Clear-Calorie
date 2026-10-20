@@ -820,7 +820,7 @@ function ActiveWorkout({
           {step.kind === 'rest'
             ? 'Skip rest'
             : !isLastStep
-              ? 'Set done'
+              ? 'Done'
               : 'Finish'}
         </Button>
       </div>

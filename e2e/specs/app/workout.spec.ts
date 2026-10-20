@@ -36,7 +36,7 @@ function controls(workout: Locator) {
     moreReps: workout.getByRole('button', {name: 'Increase reps'}),
     fewerReps: workout.getByRole('button', {name: 'Decrease reps'}),
     pause: workout.getByRole('button', {name: /^(Pause|Resume)$/}),
-    next: workout.getByRole('button', {name: /^(Set done|Skip rest|Finish)$/}),
+    next: workout.getByRole('button', {name: /^(Done|Skip rest|Finish)$/}),
   };
 }
 
@@ -244,7 +244,7 @@ test('WO-04/05/06/07 a full strength workout', async ({authedPage: page, db, use
   // Later sets get a three-beat count-in.
   await expect(c.timer).toHaveText('3');
 
-  await c.next.click(); // Set done, early
+  await c.next.click(); // Done, early
   await expect(c.step).toHaveText('Rest');
   await c.next.click(); // Skip rest
   await expect(c.step).toHaveText('Set 3 of 3');
@@ -267,7 +267,7 @@ test('WO-04/05/06/07 a full strength workout', async ({authedPage: page, db, use
   await workout.getByLabel('Set 3 weight').fill('110');
   await expect(workout.getByLabel('Calories burned')).toHaveValue('96');
   const logged = nextApiRequest(page, '/api/exercise-goals/log');
-  await workout.getByRole('button', {name: 'Set done'}).click();
+  await workout.getByRole('button', {name: 'Done', exact: true}).click();
   expect((await logged).postDataJSON()).toEqual({
     goalId: goal.id,
     exerciseSets: [
@@ -353,7 +353,7 @@ test('WO-09 timed workout counts down and logs', async ({authedPage: page, db, u
   await page.clock.runFor(30_000);
   await expect(workout.getByLabel('Set 1 time')).toHaveValue('1:00');
   const logged = nextApiRequest(page, '/api/exercise-goals/log');
-  await workout.getByRole('button', {name: 'Set done'}).click();
+  await workout.getByRole('button', {name: 'Done', exact: true}).click();
   expect((await logged).postDataJSON()).toEqual({goalId: goal.id});
   await expect(card(panel, "Today's plan").getByText('All planned exercises done.')).toBeVisible();
 });

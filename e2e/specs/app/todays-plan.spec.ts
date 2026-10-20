@@ -67,7 +67,7 @@ test('TP-03/04 ticking logs the goal and updates progress', async ({
   await expect(review.getByLabel('Set 4 reps')).toHaveCount(0);
   await expect(review.getByLabel('Calories burned')).toHaveValue('100');
   const request = nextApiRequest(page, '/api/exercise-goals/log');
-  await review.getByRole('button', {name: 'Set done'}).click();
+  await review.getByRole('button', {name: 'Done', exact: true}).click();
   const sent = await request;
   const goal = await db.exerciseGoal.findFirst({where: {userId: user.id, name: 'Squats'}});
   expect(sent.postDataJSON()).toEqual({goalId: goal!.id});
@@ -85,7 +85,7 @@ test('TP-03/04 ticking logs the goal and updates progress', async ({
   await expect(exerciseProgress(page)).toHaveAttribute('aria-valuenow', '1');
 
   await plan.getByRole('checkbox', {name: 'Mark Jog as done'}).click();
-  await card(panel, 'Jog').getByRole('button', {name: 'Set done'}).click();
+  await card(panel, 'Jog').getByRole('button', {name: 'Done', exact: true}).click();
   await expect(plan.getByText('All planned exercises done.')).toBeVisible();
   await expect(plan.getByText('2 of 2 done')).toBeVisible();
   await panel.getByRole('button', {name: 'Close'}).click();
@@ -123,7 +123,7 @@ test('TP-03 each set can be corrected before it is saved', async ({
   await expect(calories).toHaveValue('87');
 
   const request = nextApiRequest(page, '/api/exercise-goals/log');
-  await review.getByRole('button', {name: 'Set done'}).click();
+  await review.getByRole('button', {name: 'Done', exact: true}).click();
   const goal = await db.exerciseGoal.findFirst({where: {userId: user.id, name: 'Squats'}});
   const sets = [
     {reps: 10, weight: 20},
@@ -170,7 +170,7 @@ test('TP-09 failed ticks show an error and stay unticked', async ({authedPage: p
   const {panel, plan} = await openPlan(page);
   const checkbox = plan.getByRole('checkbox', {name: 'Mark Jog as done'});
   await checkbox.click();
-  await card(panel, 'Jog').getByRole('button', {name: 'Set done'}).click();
+  await card(panel, 'Jog').getByRole('button', {name: 'Done', exact: true}).click();
   await expect(plan.getByRole('alert')).toHaveText('Failed to log planned exercise');
   await expect(checkbox).not.toBeChecked();
   await expect(checkbox).toBeEnabled();
@@ -185,7 +185,7 @@ test('TP-09 controls are disabled while a tick is saving', async ({authedPage: p
   });
   const {panel, plan} = await openPlan(page);
   await plan.getByRole('checkbox', {name: 'Mark Jog as done'}).click();
-  await card(panel, 'Jog').getByRole('button', {name: 'Set done'}).click();
+  await card(panel, 'Jog').getByRole('button', {name: 'Done', exact: true}).click();
   await expect(plan.getByRole('checkbox', {name: 'Mark Jog as done'})).toBeDisabled();
   await expect(plan.getByRole('button', {name: 'Start Jog'})).toBeDisabled();
   // Other goals stay usable.

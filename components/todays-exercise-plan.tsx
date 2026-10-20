@@ -374,7 +374,7 @@ function LogReview({
       />
       <Button type="submit" className="h-12 w-full">
         <Check />
-        Set done
+        Done
       </Button>
       <Button
         type="button"
