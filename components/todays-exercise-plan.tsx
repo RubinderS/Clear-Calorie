@@ -133,6 +133,8 @@ export function TodaysExercisePlan({
   const [workout, setWorkout] = useState<{
     goal: PlannedExercise;
     sound: WorkoutSound | null;
+    /** Notes saved during the workout; the goal still holds the old ones. */
+    notes?: string | null;
   } | null>(null);
   // Logs wait here so the user can correct what they did before saving.
   const [review, setReview] = useState<{
@@ -162,9 +164,16 @@ export function TodaysExercisePlan({
             sound={workout.sound}
             onComplete={(result) => {
               setWorkout(null);
-              setReview({goal: workout.goal, result});
+              const {goal, notes} = workout;
+              setReview({
+                goal: notes === undefined ? goal : {...goal, notes},
+                result,
+              });
             }}
             onCancel={() => setWorkout(null)}
+            onNotesSaved={(notes) =>
+              setWorkout((current) => current && {...current, notes})
+            }
           />
         </CardContent>
       </Card>

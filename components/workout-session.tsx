@@ -314,6 +314,8 @@ type WorkoutSessionProps = {
   sound: WorkoutSound | null;
   onComplete: (result?: WorkoutResult) => void;
   onCancel: () => void;
+  /** Called when notes are saved mid-workout, so the review can show them. */
+  onNotesSaved?: (notes: string | null) => void;
 };
 
 export function WorkoutSession({
@@ -321,6 +323,7 @@ export function WorkoutSession({
   sound,
   onComplete,
   onCancel,
+  onNotesSaved,
 }: WorkoutSessionProps) {
   const [session, setSession] = useState<Session | null>(null);
   // A spoken workout waits here until every voice clip has loaded, so the
@@ -368,7 +371,11 @@ export function WorkoutSession({
       ) : (
         <StrengthSetup goal={goal} onStart={setWaiting} onCancel={onCancel} />
       )}
-      <GoalNotes goalId={goal.id} initialNotes={goal.notes} />
+      <GoalNotes
+        goalId={goal.id}
+        initialNotes={goal.notes}
+        onSaved={onNotesSaved}
+      />
     </div>
   );
 }
