@@ -354,3 +354,44 @@ export function formatClock(ms: number): string {
     ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`
     : `${minutes}:${seconds}`;
 }
+
+/**
+ * What an exercise animation should show during a workout. In a set, each
+ * rep's movement starts on its beat ("go" starts rep 1) and lasts one tempo;
+ * `key` changes when a new rep starts, the tempo changes or the timer pauses
+ * or resumes, so the player resyncs at most once per rep.
+ */
+export type AnimationSync =
+  | {cmd: 'sync'; repMs: number; repElapsedMs: number; playing: boolean}
+  | {cmd: 'free'; playing: boolean}
+  | {cmd: 'pose'};
+
+export function animationSync(
+  state: WorkoutState,
+  now: number,
+): {key: string; message: AnimationSync} {
+  const step = state.steps[state.index];
+  const elapsed = elapsedMs(state.timer, now);
+  const playing = isRunning(state.timer);
+  if (state.done || step.kind === 'rest' || elapsed < leadInMs(state)) {
+    return {key: `pose:${state.index}`, message: {cmd: 'pose'}};
+  }
+  // Timed work has no reps, so the animation keeps its own tempo.
+  if (step.kind === 'work') {
+    return {key: `free:${state.index}:${playing}`, message: {cmd: 'free', playing}};
+  }
+  const intoReps = elapsed - leadInMs(state);
+  const rep = Math.floor(intoReps / state.tempoMs);
+  if (rep >= state.reps) {
+    return {key: `pose:${state.index}:end`, message: {cmd: 'pose'}};
+  }
+  return {
+    key: `sync:${state.index}:${rep}:${state.tempoMs}:${playing}`,
+    message: {
+      cmd: 'sync',
+      repMs: state.tempoMs,
+      repElapsedMs: intoReps - rep * state.tempoMs,
+      playing,
+    },
+  };
+}

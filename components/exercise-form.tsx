@@ -12,6 +12,10 @@ import {
   toDetailValues,
   toDetailsPayload,
 } from '@/components/exercise-detail-fields';
+import {
+  CatalogSuggestion,
+  catalogSuggestions,
+} from '@/components/exercise-name-input';
 import {Decimal} from '@/lib/decimal';
 import {formatExerciseDetail, isSameExerciseName} from '@/lib/exercise';
 
@@ -85,6 +89,15 @@ export function ExerciseForm({
       })
       .slice(0, MAX_SUGGESTIONS);
   }, [name, savedExercises, plannedNames]);
+
+  // Built-in exercises only while typing, after the user's own saved ones.
+  const builtIn = name.trim()
+    ? catalogSuggestions(name).filter(
+        (entry) =>
+          !suggestions.some((item) => isSameExerciseName(item.name, entry.name)) &&
+          !plannedNames.some((planned) => isSameExerciseName(planned, entry.name)),
+      )
+    : [];
 
   function applySuggestion(item: SavedExerciseItem) {
     const form = document.getElementById(
@@ -244,7 +257,7 @@ export function ExerciseForm({
               autoComplete="off"
               required
             />
-            {showSuggestions && suggestions.length > 0 && (
+            {showSuggestions && suggestions.length + builtIn.length > 0 && (
               <ul className="absolute top-full z-10 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-border/50 bg-background shadow-lg">
                 {suggestions.map((item) => (
                   <li
@@ -271,6 +284,17 @@ export function ExerciseForm({
                       ×
                     </button>
                   </li>
+                ))}
+                {builtIn.map((entry) => (
+                  <CatalogSuggestion
+                    key={entry.id}
+                    entry={entry}
+                    onPick={(picked) => {
+                      setName(picked.name);
+                      setSelectedId(null);
+                      setShowSuggestions(false);
+                    }}
+                  />
                 ))}
               </ul>
             )}

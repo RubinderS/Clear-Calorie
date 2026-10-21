@@ -1,0 +1,25 @@
+{
+  "id": "goblet-squat",
+  "name": "Goblet squat",
+  "view": "side",
+  "equipment": ["dumbbell"],
+  "phases": [
+    {"name": "lower", "durationMs": 2000, "from": 0, "to": 1, "cue": "Sit down between your heels"},
+    {"name": "bottom", "durationMs": 300, "from": 1, "to": 1, "cue": "Chest up, elbows inside the knees"},
+    {"name": "stand", "durationMs": 1300, "from": 1, "to": 0, "cue": "Drive through your heels to stand"},
+    {"name": "reset", "durationMs": 500, "from": 0, "to": 0, "cue": "Dumbbell tight to your chest"}
+  ],
+  "formTips": [
+    "Hold one end of a dumbbell upright against your chest with both hands",
+    "Stand with your feet a little wider than your shoulders, toes turned out a little",
+    "Sit straight down between your heels, keeping your chest tall",
+    "Let your elbows track inside your knees at the bottom",
+    "Drive up through your whole foot until you're standing tall"
+  ],
+  "commonMistakes": [
+    "Letting the dumbbell drift away from the chest",
+    "Knees caving inwards",
+    "Heels lifting off the floor",
+    "Rounding the back at the bottom"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "chin-up",
+  "name": "Chin-up",
+  "view": "side",
+  "equipment": ["pull-up bar"],
+  "phases": [
+    {"name": "pull", "durationMs": 1200, "from": 0, "to": 1, "cue": "Pull your elbows down in front of you"},
+    {"name": "hold", "durationMs": 400, "from": 1, "to": 1, "cue": "Chin to the bar"},
+    {"name": "lower", "durationMs": 2000, "from": 1, "to": 0, "cue": "Lower slowly to a dead hang"},
+    {"name": "hang", "durationMs": 500, "from": 0, "to": 0, "cue": "Arms long, shoulders set"}
+  ],
+  "formTips": [
+    "Grip the bar underhand, palms facing you, about shoulder-width apart",
+    "Start from a dead hang with your arms long and shoulders pulled down",
+    "Pull your elbows down in front of your ribs until your chin reaches the bar",
+    "Lower slowly all the way back to straight arms",
+    "For an assisted chin-up, loop a band under your feet or knees, or use the assisted machine, and keep the same form"
+  ],
+  "commonMistakes": [
+    "Kicking or swinging the legs to get up",
+    "Stopping halfway instead of returning to straight arms",
+    "Shrugging the shoulders up to the ears",
+    "Craning the neck to get the chin over the bar"
+  ]
+}

@@ -12,6 +12,7 @@ import {
   type ExerciseGoalInput,
   type ExerciseSet,
 } from '@/lib/exercise';
+import {catalogIdFor} from '@/lib/exercise-catalog';
 import {prisma} from '@/lib/prisma';
 import {
   getDateRange,
@@ -37,6 +38,7 @@ export async function saveExerciseGoal(
 ) {
   const data = {
     name: input.name,
+    catalogId: catalogIdFor(input.name),
     calories: input.calories,
     notes: normalizeNotes(input.notes),
     daysMask: daysToMask(input.days),
@@ -123,6 +125,7 @@ export async function getTodaysPlanStatus(
     reps: goal.reps,
     weight: goal.weight,
     setPlan: goal.setPlan,
+    catalogId: goal.catalogId,
     tempoMs: goal.tempoMs,
     notes: goal.notes,
     lastWeekSets: lastWeekSets.get(goal.id) ?? null,
@@ -225,4 +228,23 @@ export async function getPlannedCounts(
       frozen.get(date) ?? countPlannedForDate(goals, date, timeZone),
     ]),
   );
+}
+
+/**
+ * Renames planned exercises to the built-in ones they're linked to, all or
+ * none: a goal changed since its `updatedAt` cancels every link.
+ */
+export async function linkExerciseGoals(
+  userId: string,
+  links: readonly {goalId: string; updatedAt: Date; name: string}[],
+) {
+  await prisma.$transaction(async (tx) => {
+    for (const {goalId, updatedAt, name} of links) {
+      const result = await tx.exerciseGoal.updateMany({
+        where: {id: goalId, userId, updatedAt},
+        data: {name, catalogId: catalogIdFor(name)},
+      });
+      if (result.count === 0) throw new ExerciseGoalNotFoundError();
+    }
+  });
 }

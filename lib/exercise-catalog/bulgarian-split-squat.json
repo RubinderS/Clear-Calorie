@@ -1,0 +1,25 @@
+{
+  "id": "bulgarian-split-squat",
+  "name": "Bulgarian split squat",
+  "view": "side",
+  "equipment": ["bench"],
+  "phases": [
+    {"name": "lower", "durationMs": 1800, "from": 0, "to": 1, "cue": "Drop your back knee straight down"},
+    {"name": "bottom", "durationMs": 300, "from": 1, "to": 1, "cue": "Front thigh about level"},
+    {"name": "rise", "durationMs": 1200, "from": 1, "to": 0, "cue": "Push through your front foot"},
+    {"name": "reset", "durationMs": 500, "from": 0, "to": 0, "cue": "Tall chest, weight on the front foot"}
+  ],
+  "formTips": [
+    "Rest the top of your back foot on a knee-high bench behind you",
+    "Step the front foot far enough forward that the knee stays over the foot at the bottom",
+    "Keep most of your weight on the front foot",
+    "Lower straight down until the front thigh is about level",
+    "Push up through the whole front foot; do all reps, then switch legs"
+  ],
+  "commonMistakes": [
+    "Standing too close to the bench, so the front heel lifts",
+    "Pushing off the back foot instead of the front",
+    "Front knee caving inwards",
+    "Bouncing out of the bottom"
+  ]
+}

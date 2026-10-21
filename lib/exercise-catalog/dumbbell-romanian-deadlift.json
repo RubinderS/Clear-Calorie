@@ -1,0 +1,25 @@
+{
+  "id": "dumbbell-romanian-deadlift",
+  "name": "Dumbbell Romanian deadlift",
+  "view": "side",
+  "equipment": ["dumbbells"],
+  "phases": [
+    {"name": "hinge", "durationMs": 2000, "from": 0, "to": 1, "cue": "Push your hips back, dumbbells down your legs"},
+    {"name": "stretch", "durationMs": 300, "from": 1, "to": 1, "cue": "Feel the stretch, back flat"},
+    {"name": "stand", "durationMs": 1300, "from": 1, "to": 0, "cue": "Drive your hips forward to stand"},
+    {"name": "reset", "durationMs": 500, "from": 0, "to": 0, "cue": "Stand tall, squeeze your glutes"}
+  ],
+  "formTips": [
+    "Stand with your feet hip-width, a dumbbell in each hand in front of your thighs",
+    "Keep a soft bend in your knees that stays the same the whole rep",
+    "Push your hips back and let the dumbbells slide down the front of your legs",
+    "Keep your back flat; stop when you feel a strong stretch, usually just below the knees",
+    "Drive your hips forward to stand tall and squeeze your glutes"
+  ],
+  "commonMistakes": [
+    "Rounding the back to reach lower",
+    "Bending the knees more and turning it into a squat",
+    "Letting the dumbbells swing away from the legs",
+    "Leaning back at the top"
+  ]
+}

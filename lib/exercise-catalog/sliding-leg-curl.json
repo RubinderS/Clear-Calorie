@@ -1,0 +1,24 @@
+{
+  "id": "sliding-leg-curl",
+  "name": "Sliding leg curl",
+  "view": "side",
+  "equipment": ["sliders"],
+  "phases": [
+    {"name": "curl", "durationMs": 1200, "from": 0, "to": 1, "cue": "Pull your heels in towards your glutes"},
+    {"name": "squeeze", "durationMs": 400, "from": 1, "to": 1, "cue": "Hips high, squeeze"},
+    {"name": "extend", "durationMs": 2000, "from": 1, "to": 0, "cue": "Slide your legs out slowly"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Keep your hips off the floor"}
+  ],
+  "formTips": [
+    "Lie on your back with your heels on sliders (or towels on a smooth floor)",
+    "Lift your hips into a bridge so your body is straight from shoulders to heels",
+    "Keeping your hips up, pull your heels in towards your glutes",
+    "Slide your legs back out slowly without letting your hips touch the floor"
+  ],
+  "commonMistakes": [
+    "Letting the hips drop as the legs slide out",
+    "Arching the lower back instead of squeezing the glutes",
+    "Rushing the slide back out",
+    "Pushing through the arms instead of the legs"
+  ]
+}

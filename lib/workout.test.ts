@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {
   adjustRest,
+  animationSync,
   currentCue,
   repsDone,
   setEndCue,
@@ -310,4 +311,39 @@ test('setEndCue marks a set ending in a rest or the end of the workout', () => {
 test('setEndCue stays quiet when catching up into the next set', () => {
   const state = strength(2, 3);
   assert.equal(setEndCue(state, tickWorkout(state, LEAD_IN_MS + 66_000)), null);
+});
+
+test('animationSync starts each rep on its beat and holds the pose otherwise', () => {
+  const state = strength(2, 3);
+  assert.deepEqual(animationSync(state, LEAD_IN_MS - 1).message, {cmd: 'pose'});
+  assert.deepEqual(animationSync(state, LEAD_IN_MS + 2_500), {
+    key: 'sync:0:1:2000:true',
+    message: {cmd: 'sync', repMs: 2_000, repElapsedMs: 500, playing: true},
+  });
+  // Same rep, same key: no resync mid-rep.
+  assert.equal(
+    animationSync(state, LEAD_IN_MS + 2_100).key,
+    animationSync(state, LEAD_IN_MS + 3_900).key,
+  );
+  const paused = togglePause(state, LEAD_IN_MS + 2_500);
+  assert.deepEqual(animationSync(paused, LEAD_IN_MS + 9_000).message, {
+    cmd: 'sync',
+    repMs: 2_000,
+    repElapsedMs: 500,
+    playing: false,
+  });
+  const resting = tickWorkout(state, LEAD_IN_MS + 6_000);
+  assert.deepEqual(animationSync(resting, LEAD_IN_MS + 6_000).message, {cmd: 'pose'});
+});
+
+test('animationSync follows a tempo change and lets timed work run free', () => {
+  const state = setTempo(strength(1, 5), 4_000, LEAD_IN_MS + 1_000);
+  assert.deepEqual(animationSync(state, LEAD_IN_MS + 1_000).message, {
+    cmd: 'sync',
+    repMs: 4_000,
+    repElapsedMs: 2_000,
+    playing: true,
+  });
+  const timed = startWorkout(buildWorkoutSteps([{durationSec: 60}]), 0);
+  assert.deepEqual(animationSync(timed, LEAD_IN_MS + 1).message, {cmd: 'free', playing: true});
 });

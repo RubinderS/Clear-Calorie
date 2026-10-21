@@ -29,7 +29,10 @@ import {
   toDetailsPayload,
   toEstimateDetails,
 } from '@/components/exercise-detail-fields';
+import {ExerciseAreaTag, ExerciseAreas, ExerciseHowTo} from '@/components/exercise-animation';
+import {ExerciseNameInput} from '@/components/exercise-name-input';
 import {Decimal} from '@/lib/decimal';
+import {catalogIdFor, exerciseCatalog} from '@/lib/exercise-catalog';
 import {cn} from '@/lib/utils';
 import {
   EXERCISE_NOTES_MAX,
@@ -52,6 +55,8 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   const [collapsedDays, setCollapsedDays] = useState<number[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  // The built-in exercise this name links to, if any.
+  const builtIn = exerciseCatalog.get(catalogIdFor(name));
   const [calories, setCalories] = useState('');
   const [notes, setNotes] = useState('');
   const [details, setDetails] = useState(EMPTY_EXERCISE_DETAILS);
@@ -278,8 +283,11 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
                             className="flex items-center justify-between gap-2 rounded-xl border border-border/50 bg-muted/30 p-4"
                           >
                             <div className="min-w-0">
-                              <p className="truncate font-medium">
-                                {goal.name}
+                              <p className="flex min-w-0 items-baseline gap-2">
+                                <span className="truncate font-medium">
+                                  {goal.name}
+                                </span>
+                                <ExerciseAreaTag catalogId={goal.catalogId} />
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatExerciseDetail(goal)}
@@ -293,6 +301,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
                               )}
                             </div>
                             <div className="flex shrink-0 items-center">
+                              <ExerciseHowTo catalogId={goal.catalogId} />
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -342,14 +351,19 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
             </p>
           </div>
           <div className="flex flex-col space-y-2">
-            <Label htmlFor="exerciseGoalName">Exercise</Label>
-            <Input
+            {/* Built-in exercises show how they're done and what they work while choosing one. */}
+            <div className="flex min-h-8 items-center justify-between gap-2">
+              <Label htmlFor="exerciseGoalName">Exercise</Label>
+              <ExerciseHowTo catalogId={catalogIdFor(name)} className="-my-1" />
+            </div>
+            <ExerciseNameInput
               id="exerciseGoalName"
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={setName}
               maxLength={100}
               required
             />
+            {builtIn && <ExerciseAreas entry={builtIn} />}
           </div>
           <ExerciseDetailFields
             idPrefix="exerciseGoal"

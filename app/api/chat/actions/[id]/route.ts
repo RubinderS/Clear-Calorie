@@ -3,7 +3,7 @@ import {getServerSession} from 'next-auth/next';
 import {format} from 'date-fns';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
-import {planChangeSchema} from '@/lib/chat/plan-change';
+import {catalogLinksSchema, planChangeSchema} from '@/lib/chat/plan-change';
 import {parseActionPayload} from '@/lib/chat/view';
 import {
   PlannedExerciseError,
@@ -13,6 +13,7 @@ import {
 import {
   ExerciseGoalNotFoundError,
   deleteExerciseGoal,
+  linkExerciseGoals,
   saveExerciseGoal,
 } from '@/lib/exercise-plan';
 import {createFoodLog, foodSchema} from '@/lib/food';
@@ -68,6 +69,13 @@ async function createEntry(
     await deleteExerciseGoal(userId, timeZone, change.goalId, updatedAt);
     return change.goalId;
   }
+  if (kind === 'links') {
+    const parsed = catalogLinksSchema.safeParse(entry);
+    if (!parsed.success) throw new InvalidEntryError();
+    const links = parsed.data.links.map((link) => ({...link, updatedAt: new Date(link.updatedAt)}));
+    await linkExerciseGoals(userId, links);
+    return links[0].goalId;
+  }
   throw new InvalidEntryError();
 }
 
@@ -98,7 +106,8 @@ export async function POST(
   // Entries are logged for today, so a card from an earlier day can't be
   // confirmed; it would count towards the wrong day. Plan changes aren't
   // tied to a day.
-  if (confirm && action.status === 'pending' && action.kind !== 'plan') {
+  const isPlanAction = action.kind === 'plan' || action.kind === 'links';
+  if (confirm && action.status === 'pending' && !isPlanAction) {
     const timeZone = await getUserTimeZone();
     const proposedOn = format(toZoned(action.createdAt, timeZone), 'yyyy-MM-dd');
     if (proposedOn !== getTodayDate(timeZone)) {

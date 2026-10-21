@@ -1,0 +1,25 @@
+{
+  "id": "barbell-bench-press",
+  "name": "Barbell bench press",
+  "view": "side",
+  "equipment": ["barbell", "bench"],
+  "phases": [
+    {"name": "lower", "durationMs": 2000, "from": 0, "to": 1, "cue": "Lower the bar to your lower chest"},
+    {"name": "pause", "durationMs": 300, "from": 1, "to": 1, "cue": "Touch the chest and stay tight"},
+    {"name": "press", "durationMs": 1200, "from": 1, "to": 0, "cue": "Press up and back over your shoulders"},
+    {"name": "lockout", "durationMs": 400, "from": 0, "to": 0, "cue": "Lock out, shoulder blades pinched"}
+  ],
+  "formTips": [
+    "Lie with your eyes under the bar and your feet flat on the floor",
+    "Grip just wider than your shoulders and pinch your shoulder blades together",
+    "Lower the bar under control to your lower chest, elbows about 45–70° from your body",
+    "Press the bar up and slightly back until it's over your shoulders",
+    "Keep your glutes, shoulders and head on the bench the whole set"
+  ],
+  "commonMistakes": [
+    "Bouncing the bar off the chest",
+    "Flaring the elbows straight out to the sides",
+    "Lifting the hips off the bench",
+    "Stopping the bar well above the chest"
+  ]
+}

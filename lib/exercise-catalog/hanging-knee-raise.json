@@ -1,0 +1,24 @@
+{
+  "id": "hanging-knee-raise",
+  "name": "Hanging knee raise",
+  "view": "side",
+  "equipment": ["pull-up bar"],
+  "phases": [
+    {"name": "raise", "durationMs": 1200, "from": 0, "to": 1, "cue": "Bring your knees up to your chest"},
+    {"name": "hold", "durationMs": 400, "from": 1, "to": 1, "cue": "Knees above your hips, abs tight"},
+    {"name": "lower", "durationMs": 1800, "from": 1, "to": 0, "cue": "Lower your legs slowly"},
+    {"name": "hang", "durationMs": 500, "from": 0, "to": 0, "cue": "Hang still, no swinging"}
+  ],
+  "formTips": [
+    "Hang from the bar with straight arms and your shoulders pulled down",
+    "Brace your abs and raise your knees until they're above your hips",
+    "Curl your pelvis up a little at the top",
+    "Lower your legs slowly and stop the swing before the next rep"
+  ],
+  "commonMistakes": [
+    "Swinging the body to lift the legs",
+    "Dropping the legs quickly",
+    "Only lifting the knees halfway",
+    "Shrugging the shoulders up to the ears"
+  ]
+}

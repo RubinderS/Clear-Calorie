@@ -1,0 +1,24 @@
+{
+  "id": "dumbbell-curl",
+  "name": "Dumbbell curl",
+  "view": "side",
+  "equipment": ["dumbbells"],
+  "phases": [
+    {"name": "curl", "durationMs": 1200, "from": 0, "to": 1, "cue": "Curl the dumbbells to your shoulders"},
+    {"name": "squeeze", "durationMs": 400, "from": 1, "to": 1, "cue": "Squeeze your biceps"},
+    {"name": "lower", "durationMs": 2000, "from": 1, "to": 0, "cue": "Lower slowly until your arms are long"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Elbows pinned by your sides"}
+  ],
+  "formTips": [
+    "Stand tall with a dumbbell in each hand, palms facing forward",
+    "Pin your elbows by your sides; only your forearms move",
+    "Curl the dumbbells up towards your shoulders and squeeze",
+    "Lower slowly until your arms are fully long again"
+  ],
+  "commonMistakes": [
+    "Swinging the body or leaning back to lift the weight",
+    "Letting the elbows drift forward as the dumbbells rise",
+    "Cutting the range short at the bottom",
+    "Dropping the dumbbells instead of lowering them"
+  ]
+}

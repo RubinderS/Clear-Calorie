@@ -1,0 +1,49 @@
+{
+  "id": "push-up",
+  "name": "Push-up",
+  "view": "side",
+  "equipment": [],
+  "phases": [
+    {
+      "name": "lower",
+      "durationMs": 1600,
+      "from": 0,
+      "to": 1,
+      "cue": "Lower — elbows about 45° back"
+    },
+    {
+      "name": "hold",
+      "durationMs": 300,
+      "from": 1,
+      "to": 1,
+      "cue": "Chest just above the floor"
+    },
+    {
+      "name": "push",
+      "durationMs": 1000,
+      "from": 1,
+      "to": 0,
+      "cue": "Push the floor away"
+    },
+    {
+      "name": "rest",
+      "durationMs": 400,
+      "from": 0,
+      "to": 0,
+      "cue": "Straight line, heels to head"
+    }
+  ],
+  "formTips": [
+    "Hands just wider than your shoulders, under your shoulders",
+    "Brace your core and squeeze your glutes so your body stays straight from head to heels",
+    "Keep your elbows back at about 45° to your body",
+    "Lower until your chest is just above the floor",
+    "Push the floor away until your arms are straight, without locking the elbows"
+  ],
+  "commonMistakes": [
+    "Hips sagging or piking up",
+    "Elbows flaring straight out to the sides",
+    "Stopping well above the floor",
+    "Letting the head drop towards the floor"
+  ]
+}

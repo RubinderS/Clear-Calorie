@@ -1,0 +1,25 @@
+{
+  "id": "incline-dumbbell-press",
+  "name": "Incline dumbbell press",
+  "view": "side",
+  "equipment": ["dumbbells", "bench"],
+  "phases": [
+    {"name": "lower", "durationMs": 2000, "from": 0, "to": 1, "cue": "Lower the dumbbells to your upper chest"},
+    {"name": "pause", "durationMs": 300, "from": 1, "to": 1, "cue": "Elbows just below the bench"},
+    {"name": "press", "durationMs": 1200, "from": 1, "to": 0, "cue": "Press straight up over your shoulders"},
+    {"name": "lockout", "durationMs": 400, "from": 0, "to": 0, "cue": "Arms long, back on the pad"}
+  ],
+  "formTips": [
+    "Set the bench to about 30–45° and sit with your back flat on the pad",
+    "Plant your feet and pinch your shoulder blades together",
+    "Lower the dumbbells slowly to the sides of your upper chest, elbows about 45–60° from your body",
+    "Press up until your arms are straight over your shoulders, without clanking the dumbbells",
+    "Keep your head, shoulders and hips on the bench"
+  ],
+  "commonMistakes": [
+    "Setting the bench too steep, which turns it into a shoulder press",
+    "Flaring the elbows straight out to the sides",
+    "Arching off the pad to push the weight",
+    "Cutting the range short at the bottom"
+  ]
+}

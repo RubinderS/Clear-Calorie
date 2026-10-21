@@ -1,0 +1,25 @@
+{
+  "id": "dumbbell-walking-lunge",
+  "name": "Dumbbell walking lunge",
+  "view": "side",
+  "equipment": ["dumbbells"],
+  "phases": [
+    {"name": "lower", "durationMs": 1500, "from": 0, "to": 1, "cue": "Step out and drop your back knee"},
+    {"name": "bottom", "durationMs": 300, "from": 1, "to": 1, "cue": "Back knee just above the floor"},
+    {"name": "rise", "durationMs": 1100, "from": 1, "to": 0, "cue": "Drive up through your front foot"},
+    {"name": "step", "durationMs": 500, "from": 0, "to": 0, "cue": "Step through into the next lunge"}
+  ],
+  "formTips": [
+    "Hold a dumbbell in each hand at your sides and stand tall",
+    "Take a long step forward and lower until the back knee is just above the floor",
+    "Keep the front knee over the front foot and your torso upright",
+    "Drive up through the front foot and bring the back foot through into the next step",
+    "Alternate legs as you walk forward"
+  ],
+  "commonMistakes": [
+    "Taking short steps so the front knee shoots past the toes",
+    "Leaning the torso forward",
+    "Slamming the back knee into the floor",
+    "Front knee caving inwards"
+  ]
+}

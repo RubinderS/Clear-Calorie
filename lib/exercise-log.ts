@@ -7,6 +7,7 @@ import {
   toExerciseFields,
   toSetRows,
 } from '@/lib/exercise';
+import {catalogIdFor} from '@/lib/exercise-catalog';
 import {getPlannedExerciseGoals} from '@/lib/exercise-plan';
 import {prisma} from '@/lib/prisma';
 
@@ -41,6 +42,7 @@ export async function createExerciseLog(
   return prisma.exerciseLog.create({
     data: {
       name,
+      catalogId: catalogIdFor(name),
       calories,
       ...fields,
       durationMin: fields.durationMin ?? 0,

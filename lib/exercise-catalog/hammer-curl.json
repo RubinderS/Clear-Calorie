@@ -1,0 +1,24 @@
+{
+  "id": "hammer-curl",
+  "name": "Hammer curl",
+  "view": "side",
+  "equipment": ["dumbbells"],
+  "phases": [
+    {"name": "curl", "durationMs": 1200, "from": 0, "to": 1, "cue": "Curl up, thumbs to the ceiling"},
+    {"name": "squeeze", "durationMs": 400, "from": 1, "to": 1, "cue": "Squeeze at the top"},
+    {"name": "lower", "durationMs": 2000, "from": 1, "to": 0, "cue": "Lower slowly until your arms are long"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Palms in, elbows by your sides"}
+  ],
+  "formTips": [
+    "Stand tall with a dumbbell in each hand, palms facing your sides",
+    "Keep your thumbs up and wrists straight the whole rep",
+    "Pin your elbows by your sides; only your forearms move",
+    "Curl up towards your shoulders, then lower slowly until your arms are long"
+  ],
+  "commonMistakes": [
+    "Swinging the body to lift the weight",
+    "Turning the palms up, which makes it a regular curl",
+    "Letting the elbows drift forward",
+    "Dropping the dumbbells instead of lowering them"
+  ]
+}

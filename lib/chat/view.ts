@@ -1,7 +1,7 @@
 import type {ChatAction} from '@prisma/client';
 import {prisma} from '@/lib/prisma';
 
-export type ChatActionKind = 'food' | 'exercise' | 'weight' | 'plan';
+export type ChatActionKind = 'food' | 'exercise' | 'weight' | 'plan' | 'links';
 export type ChatActionStatus = 'pending' | 'confirmed' | 'dismissed';
 
 /** A proposed log entry or plan change as the chat UI shows it. */

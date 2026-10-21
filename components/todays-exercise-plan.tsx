@@ -13,6 +13,7 @@ import {
   type ExerciseLogValues,
   type WorkValues,
 } from '@/components/exercise-detail-fields';
+import {ExerciseAreaTag, ExerciseHowTo} from '@/components/exercise-animation';
 import {GoalNotes} from '@/components/goal-notes';
 import {Button} from '@/components/ui/button';
 import {
@@ -43,6 +44,8 @@ export type PlannedExercise = {
   setPlan: string | null;
   tempoMs: number | null;
   notes: string | null;
+  /** The built-in exercise it's linked to, which has an animation. */
+  catalogId?: string | null;
   /** Sets logged for this goal on the same weekday last week, if any. */
   lastWeekSets?: ExerciseSet[] | null;
 };
@@ -153,7 +156,7 @@ export function TodaysExercisePlan({
 
   if (workout) {
     return (
-      <Card>
+      <Card data-workout>
         <CardHeader className="pr-14">
           <CardTitle className="truncate">{workout.goal.name}</CardTitle>
           <CardDescription>Workout in progress</CardDescription>
@@ -256,14 +259,17 @@ export function TodaysExercisePlan({
                       className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-input accent-primary disabled:cursor-wait disabled:opacity-50"
                     />
                     <span className="min-w-0 flex-1">
-                      <span
-                        className={
-                          checked
-                            ? 'block truncate font-medium text-muted-foreground line-through'
-                            : 'block truncate font-medium'
-                        }
-                      >
-                        {goal.name}
+                      <span className="flex min-w-0 items-baseline gap-2">
+                        <span
+                          className={
+                            checked
+                              ? 'truncate font-medium text-muted-foreground line-through'
+                              : 'truncate font-medium'
+                          }
+                        >
+                          {goal.name}
+                        </span>
+                        <ExerciseAreaTag catalogId={goal.catalogId} />
                       </span>
                       <span className="block text-xs text-muted-foreground">
                         {formatExerciseDetail(goal)}
@@ -276,6 +282,7 @@ export function TodaysExercisePlan({
                       )}
                     </span>
                   </div>
+                  <ExerciseHowTo catalogId={goal.catalogId} className="mr-1 shrink-0" />
                   {!checked && (
                     <Button
                       type="button"

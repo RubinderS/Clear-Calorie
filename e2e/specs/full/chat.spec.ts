@@ -136,6 +136,32 @@ test.describe('desktop drawer', () => {
     expect(updated).toMatchObject({sets: 3, reps: 8, weight: 62.5, daysMask: goal.daysMask});
   });
 
+  test('CHAT-UI-10 confirmed links rename exercises to built-in ones', async ({
+    authedPage: page,
+    db,
+    user,
+  }) => {
+    const goal = await seedExerciseGoal(db, user.id, {name: 'Pushups', calories: 0, reps: 15});
+    await page.goto('/dashboard');
+    await page.getByRole('button', {name: 'Ask coach'}).click();
+    await ask(page, '[ai:chat-links] Match my exercises to the built-in ones');
+
+    const card = page.getByTestId('chat-action');
+    await expect(card).toContainText('Match to built-in exercises');
+    await expect(card).toContainText('Pushups');
+    await expect(card).toContainText('Push-up');
+    await expect(coach(page).reply).toHaveText("I've proposed matching Pushups to Push-up.");
+    expect((await db.exerciseGoal.findUniqueOrThrow({where: {id: goal.id}})).catalogId).toBeNull();
+
+    await card.getByRole('button', {name: 'Confirm'}).click();
+    await expect(card.getByText('Plan updated')).toBeVisible();
+    expect(await db.exerciseGoal.findUniqueOrThrow({where: {id: goal.id}})).toMatchObject({
+      name: 'Push-up',
+      catalogId: 'push-up',
+      reps: 15,
+    });
+  });
+
   test('CHAT-UI-09 a plan change is refused once the exercise was edited', async ({
     authedPage: page,
     db,
