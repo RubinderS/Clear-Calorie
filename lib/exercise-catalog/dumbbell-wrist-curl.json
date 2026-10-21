@@ -1,0 +1,24 @@
+{
+  "id": "dumbbell-wrist-curl",
+  "name": "Dumbbell wrist curl",
+  "view": "side",
+  "equipment": ["dumbbells", "bench"],
+  "phases": [
+    {"name": "curl", "durationMs": 1000, "from": 0, "to": 1, "cue": "Curl your wrists up"},
+    {"name": "squeeze", "durationMs": 400, "from": 1, "to": 1, "cue": "Squeeze at the top"},
+    {"name": "lower", "durationMs": 1600, "from": 1, "to": 0, "cue": "Lower the dumbbells slowly"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Forearms flat on your thighs"}
+  ],
+  "formTips": [
+    "Sit on a bench and rest your forearms on your thighs, wrists just past your knees",
+    "Hold a dumbbell in each hand with your palms facing up",
+    "Let the dumbbells lower until your wrists are bent down",
+    "Curl your wrists up as high as they go; only your hands move"
+  ],
+  "commonMistakes": [
+    "Lifting the forearms off the thighs",
+    "Going too heavy and jerking the weight",
+    "Using a short range of motion",
+    "Letting the dumbbells roll out of the fingers"
+  ]
+}

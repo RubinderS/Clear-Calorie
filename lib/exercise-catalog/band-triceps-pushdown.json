@@ -1,0 +1,24 @@
+{
+  "id": "band-triceps-pushdown",
+  "name": "Band triceps pushdown",
+  "view": "side",
+  "equipment": ["resistance band"],
+  "phases": [
+    {"name": "push", "durationMs": 1000, "from": 0, "to": 1, "cue": "Push the band down until your arms are straight"},
+    {"name": "squeeze", "durationMs": 400, "from": 1, "to": 1, "cue": "Squeeze your triceps"},
+    {"name": "return", "durationMs": 1600, "from": 1, "to": 0, "cue": "Let your hands rise slowly"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Elbows pinned by your sides"}
+  ],
+  "formTips": [
+    "Anchor the band high and stand facing it, holding an end in each hand",
+    "Pin your elbows by your sides with your hands about chest height",
+    "Push down until your arms are straight; only your forearms move",
+    "Let your hands rise back slowly without letting the elbows drift forward"
+  ],
+  "commonMistakes": [
+    "Elbows flaring out or drifting forward",
+    "Leaning over the hands to push with body weight",
+    "Letting the band snap the hands back up",
+    "Stopping short of straight arms"
+  ]
+}

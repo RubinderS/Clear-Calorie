@@ -37,10 +37,15 @@ export function Dialog({
       ref={ref}
       tabIndex={-1}
       aria-label={label}
-      onClose={onClose}
+      // React passes a nested dialog's close up the tree; only this one's counts.
+      onClose={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           event.preventDefault();
+          // A dialog opened from inside another closes alone.
+          event.stopPropagation();
           onClose();
         }
       }}

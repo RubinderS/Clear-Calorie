@@ -76,6 +76,7 @@ export async function POST(request: Request) {
           exerciseGoalId: goalId,
           goalDate,
           name: goal.name,
+          catalogId: goal.catalogId,
           calories: calories ?? goal.calories,
           ...fields,
           durationMin: fields.durationMin ?? 0,

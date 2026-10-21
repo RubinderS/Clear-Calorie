@@ -1,0 +1,25 @@
+{
+  "id": "barbell-squat",
+  "name": "Barbell squat",
+  "view": "side",
+  "equipment": ["barbell", "squat rack"],
+  "phases": [
+    {"name": "lower", "durationMs": 2000, "from": 0, "to": 1, "cue": "Sit your hips back and down"},
+    {"name": "bottom", "durationMs": 300, "from": 1, "to": 1, "cue": "Thighs just below level, chest up"},
+    {"name": "stand", "durationMs": 1300, "from": 1, "to": 0, "cue": "Drive through your whole foot to stand"},
+    {"name": "reset", "durationMs": 500, "from": 0, "to": 0, "cue": "Brace, bar over mid-foot"}
+  ],
+  "formTips": [
+    "Rest the bar on your upper back, not your neck, and grip it just outside your shoulders",
+    "Stand with your feet about shoulder-width, toes turned out a little",
+    "Brace your core, then sit your hips back and down",
+    "Let your knees travel forward in line with your toes",
+    "Go until your thighs are at least level, then drive up through your whole foot"
+  ],
+  "commonMistakes": [
+    "Knees caving inwards",
+    "Heels lifting off the floor",
+    "Rounding the lower back at the bottom",
+    "Letting the chest drop so the bar drifts forward"
+  ]
+}

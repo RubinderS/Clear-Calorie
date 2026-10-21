@@ -118,12 +118,12 @@ export function LogDialog({
           headerAction={logsLink('food')}
         />
       </Dialog>
-      {/* Wider on desktop so long exercise names fit. */}
+      {/* Wider on desktop so long exercise names fit, and wider still during a workout. */}
       <Dialog
         open={panel === 'exercise'}
         onClose={onClose}
         label="Log exercise"
-        className="md:max-w-3xl lg:max-w-4xl"
+        className="md:max-w-3xl lg:max-w-4xl md:has-data-workout:max-w-5xl lg:has-data-workout:max-w-6xl"
       >
         <ExercisePanel
           goals={plannedExercises}

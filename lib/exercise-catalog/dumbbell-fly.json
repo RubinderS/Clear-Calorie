@@ -1,0 +1,25 @@
+{
+  "id": "dumbbell-fly",
+  "name": "Dumbbell fly",
+  "view": "side",
+  "equipment": ["dumbbells", "bench"],
+  "phases": [
+    {"name": "open", "durationMs": 2000, "from": 0, "to": 1, "cue": "Open your arms wide in an arc"},
+    {"name": "stretch", "durationMs": 400, "from": 1, "to": 1, "cue": "Feel the stretch at chest level"},
+    {"name": "close", "durationMs": 1300, "from": 1, "to": 0, "cue": "Hug the dumbbells back together"},
+    {"name": "squeeze", "durationMs": 400, "from": 0, "to": 0, "cue": "Squeeze your chest at the top"}
+  ],
+  "formTips": [
+    "Lie flat with your feet planted and the dumbbells together over your chest, palms facing",
+    "Keep a soft, fixed bend in your elbows the whole rep",
+    "Open your arms out to the sides in a wide arc until the dumbbells are about level with your chest",
+    "Bring them back up the same arc, as if hugging a big tree",
+    "Keep your shoulder blades pinched and your back on the bench"
+  ],
+  "commonMistakes": [
+    "Bending and straightening the elbows, which turns it into a press",
+    "Lowering the dumbbells far below the chest and straining the shoulders",
+    "Going too heavy and dropping into the bottom",
+    "Banging the dumbbells together at the top"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "id": "jumping-jack",
+  "name": "Jumping jack",
+  "view": "front",
+  "equipment": [],
+  "phases": [
+    {
+      "name": "out",
+      "durationMs": 450,
+      "from": 0,
+      "to": 1,
+      "cue": "Jump out — arms overhead"
+    },
+    {
+      "name": "wide",
+      "durationMs": 150,
+      "from": 1,
+      "to": 1,
+      "cue": "Land softly, feet wide"
+    },
+    {
+      "name": "in",
+      "durationMs": 450,
+      "from": 1,
+      "to": 0,
+      "cue": "Jump in — arms down"
+    },
+    {
+      "name": "together",
+      "durationMs": 150,
+      "from": 0,
+      "to": 0,
+      "cue": "Stay light on the balls of your feet"
+    }
+  ],
+  "formTips": [
+    "Land softly on the balls of your feet with your knees a little bent",
+    "Swing your arms all the way up until your hands are above your head",
+    "Jump your feet out to just wider than your shoulders",
+    "Keep your chest up and your core braced"
+  ],
+  "commonMistakes": [
+    "Landing heavily on flat feet or locked knees",
+    "Only raising the arms to shoulder height",
+    "Leaning forward or letting the back arch"
+  ]
+}

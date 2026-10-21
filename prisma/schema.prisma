@@ -130,6 +130,8 @@ model ExerciseLog {
   exerciseGoalId String?
   // User-local yyyy-MM-dd the goal was ticked for; one tick per goal per day
   goalDate       String?
+  // Built-in exercise (lib/exercise-catalog) this is linked to; set from the name
+  catalogId      String?
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   exerciseGoal ExerciseGoal? @relation(fields: [exerciseGoalId], references: [id], onDelete: SetNull)
@@ -167,6 +169,8 @@ model SavedExerciseItem {
   weight      Float?
   // JSON array of each planned set (reps or durationSec, weight); columns above summarize it
   setPlan     String?
+  // Built-in exercise (lib/exercise-catalog) this is linked to; set from the name
+  catalogId   String?
   isPinned    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -193,6 +197,8 @@ model ExerciseGoal {
   tempoMs     Int?
   // Free-form notes shown in the plan and during the workout
   notes       String?
+  // Built-in exercise (lib/exercise-catalog) this is linked to; set from the name
+  catalogId   String?
   // Bit n set = active on JS getDay() n (0 = Sunday)
   daysMask    Int
   createdAt   DateTime @default(now())

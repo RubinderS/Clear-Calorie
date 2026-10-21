@@ -120,6 +120,22 @@ function handleChat(res: ServerResponse, messages: ChatMessage[]) {
         }),
       );
     }
+    // Reads the plan, then matches its first unlinked exercise to the push-up.
+    if (scenario === 'chat-links' && result.plan) {
+      const unlinked = result.plan.find((item: {catalogId?: string}) => !item.catalogId);
+      return respondStream(
+        res,
+        toolCallChunks('call_links', 'propose_exercise_catalog_links', {
+          links: [{exerciseId: unlinked?.id, catalogId: 'push-up'}],
+        }),
+      );
+    }
+    if (scenario === 'chat-links') {
+      return respondStream(
+        res,
+        textChunks(result.error ?? `I've proposed matching ${result.proposed?.[0]?.from} to ${result.proposed?.[0]?.to}.`),
+      );
+    }
     if (scenario === 'chat-plan') {
       return respondStream(
         res,
@@ -145,7 +161,7 @@ function handleChat(res: ServerResponse, messages: ChatMessage[]) {
       toolCallChunks('call_food', 'propose_food_log', {description: 'mock toast'}),
     );
   }
-  if (scenario === 'chat-plan') {
+  if (scenario === 'chat-plan' || scenario === 'chat-links') {
     return respondStream(res, toolCallChunks('call_plan', 'get_exercise_plan', {}));
   }
   if (scenario === 'chat-slow') {

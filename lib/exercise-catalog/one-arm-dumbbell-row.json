@@ -1,0 +1,25 @@
+{
+  "id": "one-arm-dumbbell-row",
+  "name": "One-arm dumbbell row",
+  "view": "side",
+  "equipment": ["dumbbell", "bench"],
+  "phases": [
+    {"name": "row", "durationMs": 1000, "from": 0, "to": 1, "cue": "Pull the dumbbell to your hip"},
+    {"name": "squeeze", "durationMs": 400, "from": 1, "to": 1, "cue": "Squeeze your shoulder blade back"},
+    {"name": "lower", "durationMs": 1800, "from": 1, "to": 0, "cue": "Lower until your arm is long"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Flat back, hand and knee on the bench"}
+  ],
+  "formTips": [
+    "Put one knee and the same-side hand on a bench, the other foot on the floor",
+    "Keep your back flat and roughly level with the floor",
+    "Let the dumbbell hang at arm's length under your shoulder",
+    "Drive your elbow back and pull the dumbbell towards your hip",
+    "Lower slowly until your arm is long; do all the reps, then switch sides"
+  ],
+  "commonMistakes": [
+    "Twisting the torso to swing the weight up",
+    "Rounding the back",
+    "Pulling to the chest with the elbow flared out",
+    "Shrugging the shoulder up to the ear"
+  ]
+}

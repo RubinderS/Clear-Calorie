@@ -1,6 +1,6 @@
 'use client';
 
-import {useCallback, useEffect, useId, useRef, useState} from 'react';
+import {useCallback, useEffect, useId, useRef, useState, type ReactNode} from 'react';
 import {
   Check,
   Loader2,
@@ -12,6 +12,7 @@ import {
   SkipForward,
   X,
 } from 'lucide-react';
+import {ExerciseAnimation, ExerciseAreas} from '@/components/exercise-animation';
 import {GoalNotes} from '@/components/goal-notes';
 import {Button} from '@/components/ui/button';
 import {ProgressRing} from '@/components/ui/progress-ring';
@@ -26,6 +27,7 @@ import {
   setsOf,
   type ExerciseSet,
 } from '@/lib/exercise';
+import {exerciseCatalog} from '@/lib/exercise-catalog';
 import {
   DEFAULT_TEMPO_MS,
   leadInMs,
@@ -35,6 +37,7 @@ import {
   REST_ADJUST_MS,
   TEMPO_STEP_MS,
   adjustRest,
+  animationSync,
   buildWorkoutSteps,
   clampReps,
   clampTempo,
@@ -52,6 +55,7 @@ import {
   startWorkout,
   tickWorkout,
   togglePause,
+  type AnimationSync,
   type CompletedSet,
   type WorkoutCue,
   type WorkoutState,
@@ -123,9 +127,15 @@ function savePrefs(prefs: WorkoutPrefs) {
 // Tempos saved since the page loaded, so a rerun doesn't use the stale prop.
 const savedTempos = new Map<string, number>();
 
+/** A built-in exercise's own rep time, to the stepper's step, else the app default. */
+function defaultTempo(goal: PlannedExercise): number {
+  const cycleMs = exerciseCatalog.get(goal.catalogId)?.cycleMs;
+  return cycleMs ? Math.round(cycleMs / TEMPO_STEP_MS) * TEMPO_STEP_MS : DEFAULT_TEMPO_MS;
+}
+
 function loadTempo(goal: PlannedExercise): number {
   return clampTempo(
-    savedTempos.get(goal.id) ?? goal.tempoMs ?? DEFAULT_TEMPO_MS,
+    savedTempos.get(goal.id) ?? goal.tempoMs ?? defaultTempo(goal),
   );
 }
 
@@ -395,6 +405,39 @@ function LoadingVoice({onCancel}: {onCancel: () => void}) {
   );
 }
 
+/**
+ * A built-in exercise's animation beside the workout controls on wider
+ * screens, so it's bigger and nothing scrolls, and above them on phones.
+ * Just the controls for the user's own exercises.
+ */
+function WithAnimation({
+  goal,
+  sync,
+  children,
+}: {
+  goal: PlannedExercise;
+  sync: {key: string; message: AnimationSync};
+  children: ReactNode;
+}) {
+  const entry = exerciseCatalog.get(goal.catalogId);
+  if (!entry) return children;
+  return (
+    <div className="flex flex-col gap-6 md:grid md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] md:items-center md:gap-8">
+      <div className="space-y-2">
+        <ExerciseAnimation
+          entry={entry}
+          sync={sync}
+          className="mx-auto max-w-sm md:max-w-none"
+          // Small enough above the controls on phones; as big as fits beside them on desktop.
+          maxHeightClassName="[&>*]:max-h-[min(30vh,15rem)] md:[&>*]:max-h-[min(70vh,30rem)]"
+        />
+        <ExerciseAreas entry={entry} className="text-center" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function StrengthSetup({
   goal,
   onStart,
@@ -435,36 +478,45 @@ function StrengthSetup({
     if (prefs.music) void preloadWorkoutMusic().catch(() => {});
   }, [prefs.music]);
 
+  // Previews a rep at the chosen tempo, so changing it shows the pace.
   return (
-    <div className="space-y-4">
-      <SoundControls
-        cues={prefs.cues}
-        onCuesChange={(cues) => setPrefs({...prefs, cues})}
-        music={prefs.music}
-        onMusicToggle={() => setPrefs({...prefs, music: !prefs.music})}
-      />
-      <TempoStepper
-        tempoMs={tempoMs}
-        onChange={(value) => setTempoMs(clampTempo(value))}
-      />
-      {/* Sets that differ are shown in the target; each can be changed when logging. */}
-      {sameSets ? (
-        <RepsStepper
-          reps={reps}
-          onChange={(value) => setRepsValue(clampReps(value))}
+    <WithAnimation
+      goal={goal}
+      sync={{
+        key: `preview:${tempoMs}`,
+        message: {cmd: 'sync', repMs: tempoMs, repElapsedMs: 0, playing: true},
+      }}
+    >
+      <div className="space-y-4">
+        <SoundControls
+          cues={prefs.cues}
+          onCuesChange={(cues) => setPrefs({...prefs, cues})}
+          music={prefs.music}
+          onMusicToggle={() => setPrefs({...prefs, music: !prefs.music})}
         />
-      ) : null}
-      {/* Weight is changed when logging, so here it is only shown. */}
-      <SetPlanTable target={planned} lastWeek={goal.lastWeekSets} />
-      <Button className="h-12 w-full" onClick={start}>
-        <Play />
-        Start {planned.length} {planned.length === 1 ? 'set' : 'sets'}
-      </Button>
-      <Button variant="ghost" size="sm" className="w-full" onClick={onCancel}>
-        <X />
-        Cancel
-      </Button>
-    </div>
+        <TempoStepper
+          tempoMs={tempoMs}
+          onChange={(value) => setTempoMs(clampTempo(value))}
+        />
+        {/* Sets that differ are shown in the target; each can be changed when logging. */}
+        {sameSets ? (
+          <RepsStepper
+            reps={reps}
+            onChange={(value) => setRepsValue(clampReps(value))}
+          />
+        ) : null}
+        {/* Weight is changed when logging, so here it is only shown. */}
+        <SetPlanTable target={planned} lastWeek={goal.lastWeekSets} />
+        <Button className="h-12 w-full" onClick={start}>
+          <Play />
+          Start {planned.length} {planned.length === 1 ? 'set' : 'sets'}
+        </Button>
+        <Button variant="ghost" size="sm" className="w-full" onClick={onCancel}>
+          <X />
+          Cancel
+        </Button>
+      </div>
+    </WithAnimation>
   );
 }
 
@@ -742,7 +794,7 @@ function ActiveWorkout({
     caption = `of ${state.reps} reps`;
   }
 
-  return (
+  const controls = (
     <div className="flex flex-col items-center gap-6">
       <div className="text-center" aria-live="polite">
         <p className="text-lg font-semibold">{stepLabel(step)}</p>
@@ -845,5 +897,10 @@ function ActiveWorkout({
         Cancel without logging
       </Button>
     </div>
+  );
+  return (
+    <WithAnimation goal={goal} sync={animationSync(state, now)}>
+      {controls}
+    </WithAnimation>
   );
 }

@@ -9,12 +9,14 @@ import {
   CalendarDays,
   Check,
   Dumbbell,
+  Link2,
   Scale,
   Utensils,
 } from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {formatExerciseDetail, type ExerciseSet} from '@/lib/exercise';
 import {
+  catalogLinksSchema,
   planChangeRows,
   planChangeSchema,
   type StoredPlanChange,
@@ -27,6 +29,7 @@ const KIND = {
   exercise: {icon: Dumbbell, label: 'Log exercise'},
   weight: {icon: Scale, label: 'Log weight'},
   plan: {icon: CalendarDays, label: 'Change plan'},
+  links: {icon: Link2, label: 'Match to built-in exercises'},
 } as const;
 
 const PLAN_LABEL = {
@@ -73,6 +76,29 @@ function PlanSummary({change}: {change: StoredPlanChange}) {
   );
 }
 
+function LinksSummary({action}: {action: ChatActionView}) {
+  const parsed = catalogLinksSchema.safeParse(action.entry);
+  if (!parsed.success) {
+    return <p className="text-sm text-muted-foreground">These changes can&apos;t be shown.</p>;
+  }
+  return (
+    <>
+      <ul className="space-y-0.5 text-sm">
+        {parsed.data.links.map((link) => (
+          <li key={link.goalId} className="flex flex-wrap items-baseline gap-x-1.5">
+            <span className="text-muted-foreground line-through">{link.before}</span>
+            <ArrowRight aria-label="to" className="size-3.5 self-center" />
+            <span className="font-medium">{link.name}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Renamed in your plan to show how-to animations. Sets and days stay the same.
+      </p>
+    </>
+  );
+}
+
 const num = (value: unknown) => (typeof value === 'number' ? value : 0);
 
 function Summary({action}: {action: ChatActionView}) {
@@ -85,6 +111,7 @@ function Summary({action}: {action: ChatActionView}) {
       <p className="text-sm text-muted-foreground">This plan change can&apos;t be shown.</p>
     );
   }
+  if (action.kind === 'links') return <LinksSummary action={action} />;
   if (action.kind === 'food') {
     const alert = entry.healthAlert as {level: string; message: string} | null | undefined;
     return (
@@ -144,7 +171,7 @@ export function ActionCard({
   const {icon: Icon, label: kindLabel} = KIND[action.kind] ?? KIND.food;
   const planChange = planChangeOf(action);
   const label = planChange ? PLAN_LABEL[planChange.operation] : kindLabel;
-  const isPlan = action.kind === 'plan';
+  const isPlan = action.kind === 'plan' || action.kind === 'links';
 
   async function decide(decision: 'confirm' | 'dismiss') {
     setBusy(decision);

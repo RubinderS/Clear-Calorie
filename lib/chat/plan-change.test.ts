@@ -1,13 +1,40 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {daysToMask} from '@/lib/exercise';
+import {createCatalog, type CatalogSource} from '@/lib/exercise-catalog';
 import {ToolInputError} from './helpers';
 import {
+  buildCatalogLinks,
   buildPlanChange,
+  catalogLinksSchema,
   planChangeRows,
   planChangeSchema,
   type CurrentGoal,
 } from './plan-change';
+
+function entry(id: string, name: string, overrides: Partial<CatalogSource> = {}): CatalogSource {
+  return {
+    config: {
+      id,
+      name,
+      view: 'side',
+      equipment: [],
+      phases: [{name: 'lift', durationMs: 1000, from: 0, to: 1, cue: 'Lift'}],
+      formTips: [],
+      commonMistakes: [],
+    },
+    type: 'STRENGTH',
+    areas: {primary: ['chest']},
+    ...overrides,
+  };
+}
+
+const catalog = createCatalog([
+  entry('barbell-back-squat', 'Barbell back squat', {areas: {primary: ['quads', 'glutes']}}),
+  entry('bench-press', 'Bench press'),
+  entry('swimming', 'Swimming', {type: 'TIME', areas: {primary: ['cardio']}}),
+  entry('old-row', 'Old row', {retired: true}),
+]);
 
 const updatedAt = new Date('2026-10-01T00:00:00.000Z');
 
@@ -45,36 +72,88 @@ const run = goal({
   daysMask: daysToMask([2]),
 });
 
-test('adds an exercise with uniform sets on the given days', () => {
+test('adds a built-in exercise with uniform sets on the given days', () => {
   const {change, workChanged} = buildPlanChange(
-    {operation: 'add', name: 'Squat', type: 'STRENGTH', days: ['Monday', 'fri'], sets: 5, reps: 5, weight: 80},
+    {operation: 'add', catalogId: 'barbell-back-squat', days: ['Monday', 'fri'], sets: 5, reps: 5, weight: 80},
     [goal()],
+    catalog,
   );
   assert.equal(workChanged, true);
-  assert.equal(change.operation, 'add');
   assert.ok(change.operation === 'add');
+  assert.equal(change.goal.name, 'Barbell back squat');
   assert.deepEqual(change.goal.days, [1, 5]);
   assert.equal(change.goal.exerciseSets.length, 5);
   assert.deepEqual(change.goal.exerciseSets[0], {reps: 5, weight: 80});
   assert.ok(planChangeSchema.safeParse(change).success);
+  assert.deepEqual(planChangeRows(change, catalog)[0], {label: 'Areas', after: 'Quads, Glutes'});
+});
+
+test('takes the type from the entry when adding', () => {
+  const {change} = buildPlanChange(
+    {operation: 'add', catalogId: 'swimming', days: ['Tuesday'], durationMin: 20},
+    [],
+    catalog,
+  );
+  assert.ok(change.operation === 'add');
+  assert.deepEqual(change.goal.exerciseSets, [{durationSec: 1200, weight: null}]);
+});
+
+test('only adds built-in exercises', () => {
+  assert.throws(
+    () => buildPlanChange({operation: 'add', days: ['Monday'], sets: 3, reps: 8}, [], catalog),
+    /Only exercises from the built-in list/,
+  );
+  assert.throws(
+    () => buildPlanChange({operation: 'add', catalogId: 'made-up', days: ['Monday'], sets: 3, reps: 8}, [], catalog),
+    /not in the built-in exercise list/,
+  );
+  assert.throws(
+    () => buildPlanChange({operation: 'add', catalogId: 'old-row', days: ['Monday'], sets: 3, reps: 8}, [], catalog),
+    /not in the built-in exercise list/,
+  );
 });
 
 test('refuses to add without days, or with a name already planned', () => {
   assert.throws(
-    () => buildPlanChange({operation: 'add', name: 'Squat', type: 'STRENGTH', sets: 5, reps: 5}, []),
+    () => buildPlanChange({operation: 'add', catalogId: 'barbell-back-squat', sets: 5, reps: 5}, [], catalog),
     /days is required/,
   );
   assert.throws(
     () =>
       buildPlanChange(
-        {operation: 'add', name: 'bench press', type: 'STRENGTH', days: ['Monday'], sets: 3, reps: 8},
+        {operation: 'add', catalogId: 'bench-press', days: ['Monday'], sets: 3, reps: 8},
         [goal()],
+        catalog,
       ),
     /already in the plan/,
   );
   assert.throws(
-    () => buildPlanChange({operation: 'add', name: 'Swim', type: 'TIME', days: ['Funday']}, []),
+    () => buildPlanChange({operation: 'add', catalogId: 'swimming', days: ['Funday'], durationMin: 20}, [], catalog),
     ToolInputError,
+  );
+});
+
+test('linking renames to the built-in name without changing the work', () => {
+  const {change, workChanged} = buildPlanChange(
+    {operation: 'update', exerciseId: 'bench', catalogId: 'barbell-back-squat'},
+    [goal({name: 'Squats'})],
+    catalog,
+  );
+  assert.equal(workChanged, false);
+  assert.ok(change.operation === 'update');
+  assert.equal(change.goal.name, 'Barbell back squat');
+  assert.deepEqual(planChangeRows(change, catalog).slice(0, 2), [
+    {label: 'Name', before: 'Squats', after: 'Barbell back squat'},
+    {label: 'Areas', before: 'None', after: 'Quads, Glutes'},
+  ]);
+  assert.throws(
+    () =>
+      buildPlanChange(
+        {operation: 'update', exerciseId: 'run', catalogId: 'bench-press'},
+        [goal(), run],
+        catalog,
+      ),
+    /already in the plan/,
   );
 });
 
@@ -163,4 +242,57 @@ test('removes with the goal as it was', () => {
     {label: 'Sets', after: '3 × 8 @ 60 kg'},
     {label: 'Notes', after: 'Arch'},
   ]);
+});
+
+test('links several exercises at once, skipping ones already linked', () => {
+  const {links} = buildCatalogLinks(
+    {
+      links: [
+        {exerciseId: 'run', catalogId: 'swimming'},
+        {exerciseId: 'bench', catalogId: 'bench-press'},
+      ],
+    },
+    [goal(), run],
+    catalog,
+  );
+  assert.deepEqual(links, [
+    {goalId: 'run', updatedAt: updatedAt.toISOString(), before: 'Running', name: 'Swimming'},
+  ]);
+  assert.ok(catalogLinksSchema.safeParse({links}).success);
+});
+
+test('refuses links that clash, repeat or change nothing', () => {
+  const squats = goal({id: 'a', name: 'Squats'});
+  const backSquat = goal({id: 'b', name: 'Back squat'});
+  assert.throws(
+    () =>
+      buildCatalogLinks(
+        {
+          links: [
+            {exerciseId: 'a', catalogId: 'barbell-back-squat'},
+            {exerciseId: 'b', catalogId: 'barbell-back-squat'},
+          ],
+        },
+        [squats, backSquat],
+        catalog,
+      ),
+    /would both be "Barbell back squat"/,
+  );
+  assert.throws(
+    () =>
+      buildCatalogLinks(
+        {links: [{exerciseId: 'a', catalogId: 'swimming'}, {exerciseId: 'a', catalogId: 'swimming'}]},
+        [squats],
+        catalog,
+      ),
+    /only be linked once/,
+  );
+  assert.throws(
+    () => buildCatalogLinks({links: [{exerciseId: 'bench', catalogId: 'bench-press'}]}, [goal()], catalog),
+    /nothing would change/,
+  );
+  assert.throws(
+    () => buildCatalogLinks({links: [{exerciseId: 'bench', catalogId: 'nope'}]}, [goal()], catalog),
+    /search_exercise_catalog/,
+  );
 });

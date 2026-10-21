@@ -4,6 +4,7 @@ import {z} from 'zod';
 import {Prisma} from '@prisma/client';
 import {authOptions} from '@/lib/auth-options';
 import {exerciseInputSchema, inputSets, toPlanFields} from '@/lib/exercise';
+import {catalogIdFor} from '@/lib/exercise-catalog';
 import {prisma} from '@/lib/prisma';
 
 const savedExerciseSchema = z
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
     const fields = toPlanFields(inputSets(parsed.data));
     const data = {
       name,
+      catalogId: catalogIdFor(name),
       calories,
       isPinned,
       ...fields,

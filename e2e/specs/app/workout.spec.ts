@@ -186,6 +186,33 @@ test('WO-03 start saves sound preferences and tempo', async ({
   await expect(controls(reloaded).tempo).toHaveText('3.5 s / rep');
 });
 
+test('WO-12 a built-in exercise animates in time with the workout', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  await seedExerciseGoal(db, user.id, {name: 'Push-up', catalogId: 'push-up', sets: 2, reps: 10});
+  // Today's plan shows its main area beside the name.
+  await page.goto('/dashboard');
+  const today = await openQuickLog(page, 'exercise');
+  await expect(today.getByTitle('Main area worked')).toHaveText('Chest');
+
+  const {workout} = await startGoal(page, 'Push-up');
+  const c = controls(workout);
+  // Without a saved tempo it starts at the animation's own rep time.
+  await expect(c.tempo).toHaveText('3.5 s / rep');
+  // The setup screen previews it at the chosen tempo, with no controls of its own.
+  await expect(workout.getByRole('img', {name: 'Push-up'})).toBeVisible();
+  await expect(workout.getByRole('button', {name: /animation$/})).toHaveCount(0);
+  await workout.getByRole('button', {name: 'Start 2 sets'}).click();
+
+  await expect(workout.getByRole('img', {name: 'Push-up'})).toBeVisible();
+  await expect(workout.getByRole('group', {name: 'Areas worked'})).toContainText('Chest');
+  // The workout drives it, so it has no controls of its own.
+  await expect(workout.getByRole('button', {name: /animation$/})).toHaveCount(0);
+  await workout.getByRole('button', {name: 'Cancel without logging'}).click();
+});
+
 test('WO-04/05/06/07 a full strength workout', async ({authedPage: page, db, user}) => {
   await page.clock.install();
   const goal = await seedExerciseGoal(db, user.id, {name: 'Deadlift', sets: 3, reps: 10, weight: 100});

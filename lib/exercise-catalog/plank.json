@@ -1,0 +1,23 @@
+{
+  "id": "plank",
+  "name": "Plank",
+  "view": "side",
+  "equipment": [],
+  "phases": [
+    {"name": "set", "durationMs": 1500, "from": 0, "to": 0, "cue": "Elbows under your shoulders"},
+    {"name": "brace", "durationMs": 1500, "from": 0, "to": 0, "cue": "Squeeze your glutes and brace your abs"},
+    {"name": "breathe", "durationMs": 1500, "from": 0, "to": 0, "cue": "Breathe steadily, straight line heels to head"}
+  ],
+  "formTips": [
+    "Rest on your forearms with your elbows right under your shoulders",
+    "Tuck your toes and lift your body into one straight line from heels to head",
+    "Squeeze your glutes and brace your abs as if about to be poked in the stomach",
+    "Keep breathing steadily for the whole hold"
+  ],
+  "commonMistakes": [
+    "Hips sagging towards the floor",
+    "Hips piked up high",
+    "Holding your breath",
+    "Letting the head drop"
+  ]
+}

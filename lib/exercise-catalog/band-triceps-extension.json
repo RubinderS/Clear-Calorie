@@ -1,0 +1,25 @@
+{
+  "id": "band-triceps-extension",
+  "name": "Band triceps extension",
+  "view": "side",
+  "equipment": ["resistance band"],
+  "phases": [
+    {"name": "extend", "durationMs": 1000, "from": 0, "to": 1, "cue": "Straighten your arm overhead"},
+    {"name": "squeeze", "durationMs": 400, "from": 1, "to": 1, "cue": "Squeeze your triceps"},
+    {"name": "lower", "durationMs": 1600, "from": 1, "to": 0, "cue": "Lower your hand behind your head"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Elbow up by your ear"}
+  ],
+  "formTips": [
+    "Stand on one end of the band and hold the other end in one hand behind your head",
+    "Point your elbow at the ceiling, close to your ear",
+    "Straighten your arm overhead; only your forearm moves",
+    "Lower your hand slowly behind your head",
+    "Do all the reps on one side, then switch arms"
+  ],
+  "commonMistakes": [
+    "Letting the elbow drift forward or out to the side",
+    "Arching the lower back",
+    "Letting the band pull the hand down fast",
+    "Stopping short of a straight arm"
+  ]
+}

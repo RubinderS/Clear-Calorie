@@ -1,0 +1,25 @@
+{
+  "id": "band-face-pull",
+  "name": "Band face pull",
+  "view": "side",
+  "equipment": ["resistance band"],
+  "phases": [
+    {"name": "pull", "durationMs": 1000, "from": 0, "to": 1, "cue": "Pull the band towards your face"},
+    {"name": "hold", "durationMs": 500, "from": 1, "to": 1, "cue": "Elbows high, hands by your ears"},
+    {"name": "return", "durationMs": 1800, "from": 1, "to": 0, "cue": "Let your arms go long, slowly"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Stand tall, shoulders down"}
+  ],
+  "formTips": [
+    "Anchor the band at about face height and hold it with your arms long in front",
+    "Stand tall with your core braced and your shoulders down",
+    "Pull towards your face, spreading your elbows out wide and high",
+    "Finish with your hands beside your ears and squeeze your upper back",
+    "Return slowly, keeping tension on the band"
+  ],
+  "commonMistakes": [
+    "Letting the elbows drop below the shoulders, which turns it into a row",
+    "Leaning back to pull the band",
+    "Shrugging the shoulders up",
+    "Letting the band snap the arms back forward"
+  ]
+}

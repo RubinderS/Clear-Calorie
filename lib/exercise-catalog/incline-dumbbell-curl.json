@@ -1,0 +1,24 @@
+{
+  "id": "incline-dumbbell-curl",
+  "name": "Incline dumbbell curl",
+  "view": "side",
+  "equipment": ["dumbbells", "bench"],
+  "phases": [
+    {"name": "curl", "durationMs": 1200, "from": 0, "to": 1, "cue": "Curl up without moving your upper arms"},
+    {"name": "squeeze", "durationMs": 400, "from": 1, "to": 1, "cue": "Squeeze your biceps"},
+    {"name": "lower", "durationMs": 2200, "from": 1, "to": 0, "cue": "Lower slowly to a full stretch"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Arms hanging straight down"}
+  ],
+  "formTips": [
+    "Set the bench to about 45–60° and lie back with your head and shoulders on the pad",
+    "Let your arms hang straight down, palms facing forward",
+    "Keep your upper arms still and curl the dumbbells up",
+    "Lower slowly until your arms are fully straight for a big stretch"
+  ],
+  "commonMistakes": [
+    "Swinging the elbows forward as the dumbbells rise",
+    "Lifting the shoulders or head off the pad",
+    "Stopping short of a full stretch at the bottom",
+    "Going too heavy and losing control on the way down"
+  ]
+}

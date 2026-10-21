@@ -46,10 +46,103 @@ test('EP-01 empty plan', async ({authedPage: page}) => {
   await expect(add.getByRole('button', {name: 'Estimate calories burned with AI'})).toHaveCount(0);
 });
 
+test('EP-12 a built-in exercise is suggested, linked and has a how-to', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  const add = await openAdd(page);
+  const f = goalForm(add);
+  await f.name.fill('push');
+  const suggestions = add.getByRole('list', {name: 'Built-in exercises'});
+  await expect(suggestions).toContainText('Push-up');
+  await expect(suggestions).toContainText('Chest');
+  await suggestions.getByText('Push-up').click();
+  await expect(f.name).toHaveValue('Push-up');
+  await expect(suggestions).toBeHidden();
+  await f.fillSets(repeat(12, 3));
+  await f.day('Mon').check();
+  await add.getByRole('button', {name: 'Add exercise'}).click();
+  await expect(add).toBeHidden();
+
+  const goal = await db.exerciseGoal.findFirstOrThrow({where: {userId: user.id}});
+  expect(goal).toMatchObject({name: 'Push-up', catalogId: 'push-up'});
+
+  // The schedule shows its main area beside the name.
+  await expect(daySection(page, 1).getByTitle('Main area worked')).toHaveText('Chest');
+  await daySection(page, 1).getByRole('button', {name: 'How to do Push-up'}).click();
+  const howTo = dialog(page, 'How to do Push-up');
+  await expect(howTo.getByRole('img', {name: 'Push-up'})).toBeVisible();
+  await expect(howTo.getByRole('group', {name: 'Areas worked'})).toHaveText(
+    'Works Chest · also Triceps, Shoulders, Core',
+  );
+  // Tips and mistakes start collapsed; tapping a title opens it.
+  const tips = howTo.getByRole('list', {name: 'Form tips'});
+  await expect(tips).toBeHidden();
+  await expect(howTo.getByRole('list', {name: 'Common mistakes'})).toBeHidden();
+  await howTo.getByText('Form tips').click();
+  await expect(tips).toContainText('Lower until your chest is just above the floor');
+  // The rep's phases, as steps in order.
+  await expect(howTo.getByRole('list', {name: 'Steps'})).toHaveText(
+    /Lower.*Chest just above the floor.*Push the floor away.*Straight line, heels to head/,
+  );
+  // Plays on its own, with its own controls.
+  await howTo.getByRole('button', {name: 'Pause animation'}).click();
+  await expect(howTo.getByRole('button', {name: 'Play animation'})).toBeVisible();
+});
+
+test('EP-14 the add dialog shows how to do a built-in exercise', async ({authedPage: page}) => {
+  const add = await openAdd(page);
+  const f = goalForm(add);
+  const howTo = add.getByRole('button', {name: 'How to do Push-up'});
+  await expect(howTo).toHaveCount(0);
+  await f.name.fill('push');
+  await add.getByRole('list', {name: 'Built-in exercises'}).getByText('Push-up').click();
+  await expect(howTo).toBeVisible();
+  // The areas it works, in the same words as the how-to.
+  await expect(add.getByRole('group', {name: 'Areas worked'})).toHaveText(
+    'Works Chest · also Triceps, Shoulders, Core',
+  );
+
+  // Closing the how-to, by button or Escape, leaves the form as it was.
+  await howTo.click();
+  const guide = dialog(page, 'How to do Push-up');
+  await expect(guide.getByRole('img', {name: 'Push-up'})).toBeVisible();
+  await guide.getByRole('button', {name: 'Close'}).click();
+  await expect(guide).toBeHidden();
+  await expect(add).toBeVisible();
+  await howTo.click();
+  await expect(guide).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(guide).toBeHidden();
+  await expect(add).toBeVisible();
+  await expect(f.name).toHaveValue('Push-up');
+
+  // A name that isn't built-in has none.
+  await f.name.fill('Kettlebell swings');
+  await expect(add.getByRole('button', {name: /^How to do/})).toHaveCount(0);
+  await expect(add.getByRole('group', {name: 'Areas worked'})).toHaveCount(0);
+});
+
+test('EP-13 own exercises stay unlinked, with no how-to', async ({authedPage: page, db, user}) => {
+  const add = await openAdd(page);
+  const f = goalForm(add);
+  await f.name.fill('Kettlebell swings');
+  await expect(add.getByRole('list', {name: 'Built-in exercises'})).toHaveCount(0);
+  await f.fillSets(repeat(10, 3));
+  await f.day('Tue').check();
+  await add.getByRole('button', {name: 'Add exercise'}).click();
+  await expect(add).toBeHidden();
+
+  expect((await db.exerciseGoal.findFirstOrThrow({where: {userId: user.id}})).catalogId).toBeNull();
+  await expect(daySection(page, 2)).toContainText('Kettlebell swings');
+  await expect(page.getByRole('button', {name: /^How to do/})).toHaveCount(0);
+});
+
 test('EP-02 add a strength goal on Mon/Wed/Fri', async ({authedPage: page, db, user}) => {
   const add = await openAdd(page);
   const f = goalForm(add);
-  await f.name.fill('Goblet squats');
+  await f.name.fill('Kettlebell swings');
   await f.fillSets(repeat(10, 3), 50);
   await f.calories.fill('200');
   await f.notes.fill('Heels down');
@@ -61,7 +154,7 @@ test('EP-02 add a strength goal on Mon/Wed/Fri', async ({authedPage: page, db, u
   await add.getByRole('button', {name: 'Add exercise'}).click();
   const sent = await request;
   expect(sent.postDataJSON()).toEqual({
-    name: 'Goblet squats',
+    name: 'Kettlebell swings',
     calories: 200,
     notes: 'Heels down',
     days: [1, 3, 5],
@@ -72,7 +165,7 @@ test('EP-02 add a strength goal on Mon/Wed/Fri', async ({authedPage: page, db, u
 
   for (const day of [1, 3, 5]) {
     const section = daySection(page, day);
-    await expect(section).toContainText('Goblet squats');
+    await expect(section).toContainText('Kettlebell swings');
     await expect(section).toContainText('3 × 10 @ 50 · 200 kcal');
     await expect(section).toContainText('Heels down');
   }

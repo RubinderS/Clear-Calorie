@@ -1,0 +1,25 @@
+{
+  "id": "dumbbell-shoulder-press",
+  "name": "Dumbbell shoulder press",
+  "view": "front",
+  "equipment": ["dumbbells"],
+  "phases": [
+    {"name": "press", "durationMs": 1200, "from": 0, "to": 1, "cue": "Press the dumbbells straight overhead"},
+    {"name": "lockout", "durationMs": 400, "from": 1, "to": 1, "cue": "Arms long, biceps by your ears"},
+    {"name": "lower", "durationMs": 1800, "from": 1, "to": 0, "cue": "Lower to shoulder height"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Elbows under the wrists, core tight"}
+  ],
+  "formTips": [
+    "Stand tall with your feet about shoulder-width and your core braced",
+    "Start with the dumbbells just above your shoulders, elbows under your wrists",
+    "Press straight up until your arms are long and the dumbbells are over your shoulders",
+    "Lower slowly back to shoulder height",
+    "Keep your ribs down so your lower back doesn't arch"
+  ],
+  "commonMistakes": [
+    "Arching the lower back to push the weight up",
+    "Stopping short of full lockout",
+    "Letting the elbows drift far forward or behind the wrists",
+    "Bouncing the dumbbells off the shoulders"
+  ]
+}

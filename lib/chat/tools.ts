@@ -15,6 +15,12 @@ import {
   isSameExerciseName,
   toExerciseFields,
 } from '@/lib/exercise';
+import {
+  BODY_AREA_KEYS,
+  describeAreas,
+  exerciseCatalog,
+  type CatalogEntry,
+} from '@/lib/exercise-catalog';
 import {exerciseLogSchema} from '@/lib/exercise-log';
 import {getLastWeekSets, getPlannedExerciseGoals} from '@/lib/exercise-plan';
 import {foodSchema} from '@/lib/food';
@@ -40,7 +46,9 @@ import {
 } from '@/lib/weekly-report-metrics';
 import {ToolInputError, resolveDates} from './helpers';
 import {
+  buildCatalogLinks,
   buildPlanChange,
+  catalogLinksArgsSchema,
   planChangeArgsSchema,
   planChangeRows,
   type PlanGoal,
@@ -99,6 +107,25 @@ function rangeNote(truncated: boolean, capped = false) {
       `Only the most recent ${MAX_LOG_ROWS} entries are included. Ask for a shorter range for older ones.`,
   ].filter(Boolean);
   return notes.length ? {note: notes.join(' ')} : {};
+}
+
+/** The built-in exercise a plan or log row is linked to, for the model. */
+function catalogFields(catalogId: string | null) {
+  const entry = exerciseCatalog.get(catalogId);
+  return entry
+    ? {catalogId: entry.id, areas: describeAreas(entry)}
+    : {catalogId: undefined};
+}
+
+function catalogResult(entry: CatalogEntry) {
+  return {
+    id: entry.id,
+    name: entry.name,
+    type: entry.type,
+    equipment: entry.equipment.length ? entry.equipment : undefined,
+    areas: describeAreas(entry),
+    formTips: entry.formTips.length ? entry.formTips : undefined,
+  };
 }
 
 function weekdayNames(mask: number) {
@@ -272,6 +299,7 @@ export const TOOLS = {
           entries: entries.map((entry) => ({
             date: localDate(entry.loggedAt, timeZone),
             name: entry.name,
+            ...catalogFields(entry.catalogId),
             type: entry.type,
             detail: formatExerciseDetail(entry),
             durationMin: entry.durationMin || undefined,
@@ -285,7 +313,7 @@ export const TOOLS = {
 
   get_exercise_plan: defineTool({
     description:
-      "The user's weekly exercise plan (each exercise with its id, weekdays, sets/reps/weight or duration, calories and notes) and which of today's planned exercises are done.",
+      "The user's weekly exercise plan (each exercise with its id, weekdays, sets/reps/weight or duration, calories and notes) and which of today's planned exercises are done. Exercises linked to the built-in list have a catalogId and the body areas they work; ones without are the user's own.",
     status: 'Checking your exercise plan',
     schema: z.object({}),
     parameters: {type: 'object', properties: {}},
@@ -307,6 +335,7 @@ export const TOOLS = {
           plan: goals.map((goal) => ({
             id: goal.id,
             name: goal.name,
+            ...catalogFields(goal.catalogId),
             type: goal.type,
             days: weekdayNames(goal.daysMask),
             detail: formatExerciseDetail(goal),
@@ -324,6 +353,36 @@ export const TOOLS = {
             };
           }),
         },
+      };
+    },
+  }),
+
+  search_exercise_catalog: defineTool({
+    description:
+      'Search the built-in exercise list, the only exercises that can be added to a plan or linked to existing ones. Matches names, common aliases, equipment and body areas. An empty query with an area lists every exercise for that area.',
+    status: 'Looking through the exercise list',
+    schema: z.object({
+      query: z.string().max(100).default(''),
+      area: z.enum(BODY_AREA_KEYS).optional(),
+    }),
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {type: 'string', description: 'e.g. "bench", "squat" or "dumbbell"; empty to list by area'},
+        area: {type: 'string', enum: BODY_AREA_KEYS, description: 'Only exercises working this body area'},
+      },
+    },
+    async run({query, area}) {
+      const entries = exerciseCatalog.search(query, {area, limit: 12});
+      return {
+        result: entries.length
+          ? {exercises: entries.map(catalogResult)}
+          : {
+              exercises: [],
+              note: exerciseCatalog.entries.length
+                ? 'No built-in exercise matches. Try other words, or tell the user it is not available yet.'
+                : 'The built-in exercise list is empty for now, so nothing can be added to the plan yet. Tell the user; they can add their own exercises on the Exercise plan page.',
+            },
       };
     },
   }),
@@ -501,7 +560,8 @@ export const TOOLS = {
       "Propose logging an exercise the user did today that is not in today's plan (planned exercises are ticked off on the dashboard instead). Shows the user a card to confirm. Use only when the user asks to log something.",
     status: 'Preparing the exercise',
     schema: z.object({
-      name: z.string().trim().min(1).max(100),
+      name: z.string().trim().min(1).max(100).optional(),
+      catalogId: z.string().trim().min(1).optional(),
       type: z.enum(['TIME', 'STRENGTH']),
       durationMin: z.number().int().min(1).max(1440).optional(),
       sets: z.number().int().min(1).optional(),
@@ -512,7 +572,8 @@ export const TOOLS = {
     parameters: {
       type: 'object',
       properties: {
-        name: {type: 'string', description: 'Exercise name, e.g. "Running" or "Bench press"'},
+        name: {type: 'string', description: 'Exercise name, e.g. "Running" or "Bench press"; required without catalogId'},
+        catalogId: {type: 'string', description: 'The id from search_exercise_catalog when it is a built-in exercise; sets the name'},
         type: {type: 'string', enum: ['TIME', 'STRENGTH'], description: 'TIME for cardio or timed work, STRENGTH for sets and reps'},
         durationMin: {type: 'integer', description: 'Minutes; required for TIME'},
         sets: {type: 'integer', description: 'Required for STRENGTH'},
@@ -520,9 +581,15 @@ export const TOOLS = {
         weight: {type: 'number', description: 'Load in kg, for STRENGTH'},
         calories: {type: 'integer', description: 'Only if the user gave it; otherwise the app estimates it'},
       },
-      required: ['name', 'type'],
+      required: ['type'],
     },
     async run(args, ctx) {
+      const catalogEntry = exerciseCatalog.get(args.catalogId);
+      if (args.catalogId && !catalogEntry) {
+        return {result: {error: `"${args.catalogId}" is not in the built-in exercise list. Call search_exercise_catalog, or pass a name instead.`}};
+      }
+      const name = catalogEntry?.name ?? args.name;
+      if (!name) return {result: {error: 'name or catalogId is required.'}};
       const details = exerciseDetailsSchema.safeParse(
         args.type === 'TIME'
           ? {type: 'TIME', durationMin: args.durationMin}
@@ -539,10 +606,10 @@ export const TOOLS = {
         };
       }
       const planned = await getPlannedExerciseGoals(ctx.userId, ctx.timeZone);
-      if (planned.some((goal) => isSameExerciseName(goal.name, args.name))) {
+      if (planned.some((goal) => isSameExerciseName(goal.name, name))) {
         return {
           result: {
-            error: `"${args.name}" is in today's plan. Tell the user to tick it off on the dashboard instead.`,
+            error: `"${name}" is in today's plan. Tell the user to tick it off on the dashboard instead.`,
           },
         };
       }
@@ -556,14 +623,14 @@ export const TOOLS = {
           select: {weight: true},
         });
         const estimate = await estimateExercise(
-          {name: args.name, ...details.data},
+          {name, ...details.data},
           latestWeight?.weight ?? null,
         );
         calories = estimate.calories;
         note = estimate.assumptions;
       }
 
-      const entry = exerciseLogSchema.parse({name: args.name, calories, ...details.data});
+      const entry = exerciseLogSchema.parse({name, calories, ...details.data});
       const action = await createAction(ctx, 'exercise', entry, note);
       return {
         result: {proposed: entry, assumptions: note, status: PROPOSAL_RESULT},
@@ -574,7 +641,7 @@ export const TOOLS = {
 
   propose_exercise_plan_change: defineTool({
     description:
-      "Propose adding, changing or removing one exercise in the user's weekly exercise plan. Shows the user a card with the change to confirm. Use only when the user asks to change their plan or agrees to a suggested change. Call get_exercise_plan first for the exercise ids and current values. One call per exercise. For update, pass only the fields that change.",
+      "Propose adding, changing or removing one exercise in the user's weekly exercise plan. Shows the user a card with the change to confirm. Use only when the user asks to change their plan or agrees to a suggested change. Call get_exercise_plan first for the exercise ids and current values. One call per exercise. For update, pass only the fields that change. Only built-in exercises can be added: call search_exercise_catalog and pass its catalogId; never invent exercises. To link several existing exercises to built-in ones, use propose_exercise_catalog_links instead.",
     status: 'Preparing the plan change',
     schema: planChangeArgsSchema,
     parameters: {
@@ -582,8 +649,8 @@ export const TOOLS = {
       properties: {
         operation: {type: 'string', enum: ['add', 'update', 'remove']},
         exerciseId: {type: 'string', description: 'The exercise id from get_exercise_plan; required for update and remove'},
-        name: {type: 'string', description: 'Exercise name; required for add'},
-        type: {type: 'string', enum: ['TIME', 'STRENGTH'], description: 'TIME for cardio or timed work, STRENGTH for sets and reps; required for add'},
+        catalogId: {type: 'string', description: 'The built-in exercise id from search_exercise_catalog; required for add. For update, links the exercise and renames it to the built-in name'},
+        type: {type: 'string', enum: ['TIME', 'STRENGTH'], description: 'TIME for cardio or timed work, STRENGTH for sets and reps. Defaults to the built-in exercise type for add'},
         days: {type: 'array', items: {type: 'string', enum: WEEKDAYS.map(({name}) => name)}, description: 'Every weekday it is planned on; required for add'},
         sets: {type: 'integer', description: 'For STRENGTH'},
         reps: {type: 'integer', description: 'Reps per set, for STRENGTH'},
@@ -631,6 +698,45 @@ export const TOOLS = {
             changes: planChangeRows(change),
           },
           assumptions: note,
+          status: PLAN_PROPOSAL_RESULT,
+        },
+        action,
+      };
+    },
+  }),
+
+  propose_exercise_catalog_links: defineTool({
+    description:
+      "Propose linking existing exercises in the user's plan to built-in exercises, so they get an animation and body areas. Each one is renamed to the built-in name. Shows one card for all of them to confirm. Call get_exercise_plan for the ids of exercises without a catalogId and search_exercise_catalog for matches first. Only include confident matches; ask the user about ambiguous ones (e.g. \"Press\" could be a bench or overhead press).",
+    status: 'Matching your exercises',
+    schema: catalogLinksArgsSchema,
+    parameters: {
+      type: 'object',
+      properties: {
+        links: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              exerciseId: {type: 'string', description: 'The exercise id from get_exercise_plan'},
+              catalogId: {type: 'string', description: 'The id from search_exercise_catalog'},
+            },
+            required: ['exerciseId', 'catalogId'],
+          },
+        },
+      },
+      required: ['links'],
+    },
+    async run(args, ctx) {
+      const goals = await prisma.exerciseGoal.findMany({
+        where: {userId: ctx.userId},
+        orderBy: {createdAt: 'asc'},
+      });
+      const proposal = buildCatalogLinks(args, goals);
+      const action = await createAction(ctx, 'links', proposal);
+      return {
+        result: {
+          proposed: proposal.links.map(({before, name}) => ({from: before, to: name})),
           status: PLAN_PROPOSAL_RESULT,
         },
         action,

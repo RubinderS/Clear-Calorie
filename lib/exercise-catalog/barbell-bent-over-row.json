@@ -1,0 +1,25 @@
+{
+  "id": "barbell-bent-over-row",
+  "name": "Barbell bent-over row",
+  "view": "side",
+  "equipment": ["barbell"],
+  "phases": [
+    {"name": "pull", "durationMs": 1000, "from": 0, "to": 1, "cue": "Pull the bar to your belly"},
+    {"name": "squeeze", "durationMs": 400, "from": 1, "to": 1, "cue": "Squeeze your shoulder blades"},
+    {"name": "lower", "durationMs": 1800, "from": 1, "to": 0, "cue": "Lower under control"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Flat back, hips back"}
+  ],
+  "formTips": [
+    "Hinge at the hips with soft knees until your back is flat at about 45°",
+    "Grip just wider than your shoulders and let the bar hang at arm's length",
+    "Drive your elbows back and pull the bar to your belly",
+    "Keep your back flat and still; only your arms move",
+    "Lower the bar slowly until your arms are long again"
+  ],
+  "commonMistakes": [
+    "Rounding the back",
+    "Standing up or jerking the torso to swing the bar",
+    "Flaring the elbows out wide instead of driving them back",
+    "Shrugging the bar up with the shoulders"
+  ]
+}

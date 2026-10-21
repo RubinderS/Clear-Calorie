@@ -1,0 +1,24 @@
+{
+  "id": "dumbbell-calf-raise",
+  "name": "Dumbbell calf raise",
+  "view": "side",
+  "equipment": ["dumbbells"],
+  "phases": [
+    {"name": "rise", "durationMs": 1000, "from": 0, "to": 1, "cue": "Rise onto the balls of your feet"},
+    {"name": "squeeze", "durationMs": 600, "from": 1, "to": 1, "cue": "Squeeze at the top"},
+    {"name": "lower", "durationMs": 1800, "from": 1, "to": 0, "cue": "Lower your heels slowly"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Heels down, stand tall"}
+  ],
+  "formTips": [
+    "Stand tall with a dumbbell in each hand at your sides, feet hip-width",
+    "Rise straight up onto the balls of your feet as high as you can",
+    "Pause and squeeze your calves at the top",
+    "Lower your heels slowly; stand on a step to let the heels drop below your toes for more stretch"
+  ],
+  "commonMistakes": [
+    "Bouncing quickly through the reps",
+    "Rolling onto the outsides of the feet",
+    "Bending the knees to push up",
+    "Cutting the range short at the top"
+  ]
+}

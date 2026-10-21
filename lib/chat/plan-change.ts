@@ -18,6 +18,12 @@ import {
   type ExerciseGoalInput,
   type ExerciseSet,
 } from '@/lib/exercise';
+import {
+  describeAreas,
+  exerciseCatalog,
+  type Catalog,
+  type CatalogEntry,
+} from '@/lib/exercise-catalog';
 import {MAX_REPS} from '@/lib/workout';
 import {ToolInputError} from './helpers';
 
@@ -62,7 +68,8 @@ export type PlanChange =
 export const planChangeArgsSchema = z.object({
   operation: z.enum(['add', 'update', 'remove']),
   exerciseId: z.string().trim().min(1).optional(),
-  name: z.string().trim().min(1).max(100).optional(),
+  // Plans only take built-in exercises; the name comes from the entry
+  catalogId: z.string().trim().min(1).optional(),
   type: z.enum(['TIME', 'STRENGTH']).optional(),
   days: z.array(z.string()).min(1).max(7).optional(),
   sets: z.number().int().min(1).max(MAX_SETS).optional(),
@@ -181,6 +188,19 @@ function changedSets(args: PlanChangeArgs, goal: CurrentGoal): ExerciseSet[] {
   return durationMin === undefined ? current : timeSets(durationMin);
 }
 
+/** The built-in exercise a change names; the coach can't plan anything else. */
+function findEntry(catalogId: string | undefined, catalog: Catalog): CatalogEntry {
+  const entry = catalog.get(catalogId);
+  if (!entry || entry.retired) {
+    throw new ToolInputError(
+      catalogId
+        ? `"${catalogId}" is not in the built-in exercise list. Call search_exercise_catalog for ids.`
+        : "Only exercises from the built-in list can be added. Call search_exercise_catalog for the catalogId. If nothing fits, tell the user it isn't available yet and that they can add it themselves on the Exercise plan page.",
+    );
+  }
+  return entry;
+}
+
 function findGoal(args: PlanChangeArgs, goals: readonly CurrentGoal[]) {
   const goal = args.exerciseId && goals.find((item) => item.id === args.exerciseId);
   if (!goal) {
@@ -208,21 +228,22 @@ function checkNameFree(name: string, goals: readonly CurrentGoal[], exceptId?: s
 export function buildPlanChange(
   args: PlanChangeArgs,
   goals: readonly CurrentGoal[],
+  catalog: Catalog = exerciseCatalog,
 ): {change: PlanChange; workChanged: boolean} {
   if (args.operation === 'add') {
-    if (!args.name) throw new ToolInputError('name is required to add an exercise.');
-    if (!args.type) throw new ToolInputError('type is required to add an exercise.');
+    const entry = findEntry(args.catalogId, catalog);
     if (!args.days) {
       throw new ToolInputError('days is required to add an exercise. Ask the user which days.');
     }
-    checkNameFree(args.name, goals);
+    checkNameFree(entry.name, goals);
+    const type = args.type ?? entry.type;
     const goal: PlanGoal = {
-      name: args.name,
+      name: entry.name,
       calories: args.calories ?? 0,
       notes: normalizeNotes(args.notes),
       days: parseDays(args.days),
       exerciseSets:
-        args.type === 'STRENGTH'
+        type === 'STRENGTH'
           ? strengthSets(args.sets, args.reps, args.weight)
           : timeSets(args.durationMin),
     };
@@ -237,9 +258,11 @@ export function buildPlanChange(
     return {change: {operation: 'remove', ...changeOf}, workChanged: false};
   }
 
-  if (args.name) checkNameFree(args.name, goals, current.id);
+  // Linking to a built-in exercise renames it to the entry's name.
+  const name = args.catalogId ? findEntry(args.catalogId, catalog).name : before.name;
+  if (name !== before.name) checkNameFree(name, goals, current.id);
   const goal: PlanGoal = {
-    name: args.name ?? before.name,
+    name,
     calories: args.calories ?? before.calories,
     notes: args.notes === undefined ? before.notes : normalizeNotes(args.notes),
     days: args.days ? parseDays(args.days) : before.days,
@@ -273,8 +296,16 @@ export function formatPlanSets(sets: readonly ExerciseSet[]): string {
 export type PlanChangeRow = {label: string; before?: string; after: string};
 
 /** The fields a change sets, or for an update the ones it changes, as text. */
-export function planChangeRows(change: StoredPlanChange): PlanChangeRow[] {
+export function planChangeRows(
+  change: StoredPlanChange,
+  catalog: Catalog = exerciseCatalog,
+): PlanChangeRow[] {
+  const areas = (name: string) => {
+    const entry = catalog.linkFor(name);
+    return entry ? describeAreas(entry).primary.join(', ') : 'None';
+  };
   const describe = (goal: ExerciseGoalInput) => ({
+    Areas: areas(goal.name),
     Days: formatDays(goal.days),
     Sets: formatPlanSets(inputSets(goal)),
     Calories: goal.calories > 0 ? `${goal.calories} kcal` : 'None',
@@ -291,4 +322,73 @@ export function planChangeRows(change: StoredPlanChange): PlanChangeRow[] {
   return (Object.keys(after) as (keyof typeof after)[])
     .filter((label) => before[label] !== after[label])
     .map((label) => ({label, before: before[label], after: after[label]}));
+}
+
+/**
+ * Several exercises in the plan linked to built-in ones at once, as a chat
+ * action stores it. Each link renames the goal; `updatedAt` lets confirm
+ * refuse a goal edited since.
+ */
+export const catalogLinksSchema = z.object({
+  links: z
+    .array(
+      z.object({
+        goalId: z.string().min(1),
+        updatedAt: z.string().min(1),
+        before: z.string().min(1),
+        name: z.string().min(1),
+      }),
+    )
+    .min(1),
+});
+export type StoredCatalogLinks = z.infer<typeof catalogLinksSchema>;
+
+export const catalogLinksArgsSchema = z.object({
+  links: z
+    .array(
+      z.object({
+        exerciseId: z.string().trim().min(1),
+        catalogId: z.string().trim().min(1),
+      }),
+    )
+    .min(1)
+    .max(30),
+});
+export type CatalogLinksArgs = z.infer<typeof catalogLinksArgsSchema>;
+
+/** Builds a links proposal, refusing renames that would clash in the plan. */
+export function buildCatalogLinks(
+  args: CatalogLinksArgs,
+  goals: readonly CurrentGoal[],
+  catalog: Catalog = exerciseCatalog,
+): StoredCatalogLinks {
+  const links = args.links.map(({exerciseId, catalogId}) => {
+    const goal = findGoal({operation: 'update', exerciseId}, goals);
+    return {
+      goalId: goal.id,
+      updatedAt: goal.updatedAt.toISOString(),
+      before: goal.name,
+      name: findEntry(catalogId, catalog).name,
+    };
+  });
+  if (new Set(links.map((link) => link.goalId)).size !== links.length) {
+    throw new ToolInputError('Each exercise can only be linked once.');
+  }
+  const changed = links.filter((link) => link.before !== link.name);
+  if (changed.length === 0) {
+    throw new ToolInputError('Those exercises are already linked; nothing would change.');
+  }
+  const nameAfter = (goal: CurrentGoal) =>
+    changed.find((link) => link.goalId === goal.id)?.name ?? goal.name;
+  for (const link of changed) {
+    const clash = goals.find(
+      (goal) => goal.id !== link.goalId && isSameExerciseName(nameAfter(goal), link.name),
+    );
+    if (clash) {
+      throw new ToolInputError(
+        `"${link.before}" and "${clash.name}" would both be "${link.name}". Link only one, or suggest removing the other.`,
+      );
+    }
+  }
+  return {links: changed};
 }
