@@ -57,7 +57,7 @@ test('EP-12 a built-in exercise is suggested, linked and has a how-to', async ({
   const suggestions = add.getByRole('list', {name: 'Built-in exercises'});
   await expect(suggestions).toContainText('Push-up');
   await expect(suggestions).toContainText('Chest');
-  await suggestions.getByText('Push-up').click();
+  await suggestions.getByRole('listitem').filter({hasText: /^Push-up/}).click();
   await expect(f.name).toHaveValue('Push-up');
   await expect(suggestions).toBeHidden();
   await f.fillSets(repeat(12, 3));
@@ -97,7 +97,11 @@ test('EP-14 the add dialog shows how to do a built-in exercise', async ({authedP
   const howTo = add.getByRole('button', {name: 'How to do Push-up'});
   await expect(howTo).toHaveCount(0);
   await f.name.fill('push');
-  await add.getByRole('list', {name: 'Built-in exercises'}).getByText('Push-up').click();
+  await add
+    .getByRole('list', {name: 'Built-in exercises'})
+    .getByRole('listitem')
+    .filter({hasText: /^Push-up/})
+    .click();
   await expect(howTo).toBeVisible();
   // The areas it works, in the same words as the how-to.
   await expect(add.getByRole('group', {name: 'Areas worked'})).toHaveText(
@@ -119,7 +123,7 @@ test('EP-14 the add dialog shows how to do a built-in exercise', async ({authedP
   await expect(f.name).toHaveValue('Push-up');
 
   // A name that isn't built-in has none.
-  await f.name.fill('Kettlebell swings');
+  await f.name.fill('Sandbag carries');
   await expect(add.getByRole('button', {name: /^How to do/})).toHaveCount(0);
   await expect(add.getByRole('group', {name: 'Areas worked'})).toHaveCount(0);
 });
@@ -127,7 +131,7 @@ test('EP-14 the add dialog shows how to do a built-in exercise', async ({authedP
 test('EP-13 own exercises stay unlinked, with no how-to', async ({authedPage: page, db, user}) => {
   const add = await openAdd(page);
   const f = goalForm(add);
-  await f.name.fill('Kettlebell swings');
+  await f.name.fill('Sandbag carries');
   await expect(add.getByRole('list', {name: 'Built-in exercises'})).toHaveCount(0);
   await f.fillSets(repeat(10, 3));
   await f.day('Tue').check();
@@ -135,7 +139,7 @@ test('EP-13 own exercises stay unlinked, with no how-to', async ({authedPage: pa
   await expect(add).toBeHidden();
 
   expect((await db.exerciseGoal.findFirstOrThrow({where: {userId: user.id}})).catalogId).toBeNull();
-  await expect(daySection(page, 2)).toContainText('Kettlebell swings');
+  await expect(daySection(page, 2)).toContainText('Sandbag carries');
   await expect(page.getByRole('button', {name: /^How to do/})).toHaveCount(0);
 });
 

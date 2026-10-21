@@ -208,7 +208,7 @@ test.describe('Saved exercises', () => {
     const panel = await openExercise(page);
     await panel.getByRole('button', {name: 'Log custom exercise'}).click();
     const f = form(panel);
-    await f.activity.fill('i');
+    await f.activity.fill('ng');
     await expect(f.suggestions).toHaveText([/Morning run/, /Strength training/]);
   });
 
