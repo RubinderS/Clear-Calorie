@@ -30,6 +30,7 @@ import {
   unlockAudio,
   type WorkoutSound,
 } from '@/lib/workout-sound';
+import {dayFocus} from '@/lib/day-focus';
 import {formatExerciseDetail, setsOf, type ExerciseSet} from '@/lib/exercise';
 
 export type PlannedExercise = {
@@ -150,6 +151,7 @@ export function TodaysExercisePlan({
     if (hasGoals) void loadWorkoutVoice();
   }, [hasGoals]);
   const doneCount = goals.filter((goal) => completedIds.has(goal.id)).length;
+  const focus = dayFocus(goals.map((goal) => goal.catalogId));
   const visibleGoals = hideCompleted
     ? goals.filter((goal) => !completedIds.has(goal.id))
     : goals;
@@ -212,6 +214,7 @@ export function TodaysExercisePlan({
         <CardTitle>Today&apos;s plan</CardTitle>
         {goals.length > 0 && (
           <CardDescription>
+            {focus && `${focus} · `}
             {doneCount} of {goals.length} done
           </CardDescription>
         )}

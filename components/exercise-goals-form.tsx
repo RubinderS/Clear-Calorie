@@ -31,6 +31,7 @@ import {
 } from '@/components/exercise-detail-fields';
 import {ExerciseAreaTag, ExerciseAreas, ExerciseHowTo} from '@/components/exercise-animation';
 import {ExerciseNameInput} from '@/components/exercise-name-input';
+import {dayFocus} from '@/lib/day-focus';
 import {Decimal} from '@/lib/decimal';
 import {catalogIdFor, exerciseCatalog} from '@/lib/exercise-catalog';
 import {cn} from '@/lib/utils';
@@ -239,6 +240,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
               const dayGoals = goals.filter((goal) =>
                 isActiveOn(goal.daysMask, day),
               );
+              const focus = dayFocus(dayGoals.map((goal) => goal.catalogId));
               const collapsed = collapsedDays.includes(day);
               return (
                 <section key={day}>
@@ -258,6 +260,11 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
                         )}
                       />
                       {name}
+                      {focus && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                          {focus}
+                        </span>
+                      )}
                       {/* An open rest day already says so below. */}
                       {(collapsed || dayGoals.length > 0) && (
                         <span className="ml-auto font-normal">
