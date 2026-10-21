@@ -27,7 +27,7 @@ Where things live:
     scene says so and lists the rep's steps.
 - `components/exercise-animations/index.ts`: maps each id to its scene.
 - `components/exercise-animation.tsx`: the player. It runs every animation's clock,
-  Play/Pause, reduced motion and workout tempo sync. The how-to lists the phases' cues as
+  always-on looping and workout tempo sync. The how-to lists the phases' cues as
   steps.
 - `lib/exercise-animation.ts`: the frame and timing helpers the player and poses use.
 - `docs/exercise-animation-prompt.md`: the prompt for making an exercise.

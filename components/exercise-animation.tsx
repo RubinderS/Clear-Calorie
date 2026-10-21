@@ -7,11 +7,10 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type LazyExoticComponent,
   type RefObject,
 } from 'react';
-import {ChevronRight, CircleHelp, Pause, Play} from 'lucide-react';
+import {ChevronRight, CircleHelp} from 'lucide-react';
 import {EXERCISE_ANIMATIONS} from '@/components/exercise-animations';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
@@ -42,20 +41,6 @@ function sceneFor(id: string) {
   return scene;
 }
 
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
-
-function usePrefersReducedMotion() {
-  return useSyncExternalStore(
-    (onChange) => {
-      const media = window.matchMedia(REDUCED_MOTION);
-      media.addEventListener('change', onChange);
-      return () => media.removeEventListener('change', onChange);
-    },
-    () => window.matchMedia(REDUCED_MOTION).matches,
-    () => false,
-  );
-}
-
 /** False while the element is scrolled away or the tab is hidden. */
 function useOnScreen(ref: RefObject<HTMLElement | null>) {
   const [onScreen, setOnScreen] = useState(true);
@@ -83,8 +68,8 @@ const MAX_FRAME_MS = 50;
 
 /**
  * Plays a built-in exercise's animation. Without `sync` it loops at the
- * exercise's own tempo with a Play/Pause button, starting paused for reduced
- * motion; with it the workout drives it, each rep lasting one tempo beat.
+ * exercise's own tempo; with it the workout drives it, each rep lasting one
+ * tempo beat.
  */
 export function ExerciseAnimation({
   entry,
@@ -101,8 +86,6 @@ export function ExerciseAnimation({
   const Scene = sceneFor(entry.id);
   const container = useRef<HTMLElement>(null);
   const onScreen = useOnScreen(container);
-  const reducedMotion = usePrefersReducedMotion();
-  const [chosen, setChosen] = useState<boolean | null>(null);
   const [time, setTime] = useState(0);
   const clock = useRef(0);
 
@@ -112,9 +95,7 @@ export function ExerciseAnimation({
     () => (repMs ? scalePhases(entry.phases, repMs) : entry.phases),
     [entry.phases, repMs],
   );
-  const playing = message
-    ? message.cmd !== 'pose' && message.playing
-    : (chosen ?? !reducedMotion);
+  const playing = message ? message.cmd !== 'pose' && message.playing : true;
 
   // Jumps to where the workout is once per key; between keys the clock runs
   // on its own, so it isn't reset every render.
@@ -155,21 +136,6 @@ export function ExerciseAnimation({
           <Scene frame={frame} />
         </Suspense>
       </div>
-      {/* The cues change too fast to read here; the how-to lists them as steps. */}
-      {!sync && (
-        <figcaption className="flex justify-center">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-label={playing ? 'Pause animation' : 'Play animation'}
-            onClick={() => setChosen(!playing)}
-          >
-            {playing ? <Pause /> : <Play />}
-            {playing ? 'Pause' : 'Play'}
-          </Button>
-        </figcaption>
-      )}
     </figure>
   );
 }

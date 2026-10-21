@@ -86,9 +86,8 @@ test('EP-12 a built-in exercise is suggested, linked and has a how-to', async ({
   await expect(howTo.getByRole('list', {name: 'Steps'})).toHaveText(
     /Lower.*Chest just above the floor.*Push the floor away.*Straight line, heels to head/,
   );
-  // Plays on its own, with its own controls.
-  await howTo.getByRole('button', {name: 'Pause animation'}).click();
-  await expect(howTo.getByRole('button', {name: 'Play animation'})).toBeVisible();
+  // Plays on its own, with no controls.
+  await expect(howTo.getByRole('button', {name: /animation/})).toHaveCount(0);
 });
 
 test('EP-14 the add dialog shows how to do a built-in exercise', async ({authedPage: page}) => {
