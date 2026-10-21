@@ -262,12 +262,14 @@ export function TodaysExercisePlan({
                       className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-input accent-primary disabled:cursor-wait disabled:opacity-50"
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="flex min-w-0 items-baseline gap-2">
+                      {/* Wraps rather than truncates: the How to and Start
+                          buttons leave little room for the name on phones. */}
+                      <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
                         <span
                           className={
                             checked
-                              ? 'truncate font-medium text-muted-foreground line-through'
-                              : 'truncate font-medium'
+                              ? 'wrap-break-word font-medium text-muted-foreground line-through'
+                              : 'wrap-break-word font-medium'
                           }
                         >
                           {goal.name}
@@ -285,7 +287,7 @@ export function TodaysExercisePlan({
                       )}
                     </span>
                   </div>
-                  <ExerciseHowTo catalogId={goal.catalogId} className="mr-1 shrink-0" />
+                  <ExerciseHowTo catalogId={goal.catalogId} className="mr-1 shrink-0" compact />
                   {!checked && (
                     <Button
                       type="button"

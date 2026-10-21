@@ -270,9 +270,12 @@ function TipList({
 export function ExerciseHowTo({
   catalogId,
   className,
+  compact = false,
 }: {
   catalogId: string | null | undefined;
   className?: string;
+  /** Icon only on phones, for rows that are short on width. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const entry = exerciseCatalog.get(catalogId);
@@ -288,7 +291,7 @@ export function ExerciseHowTo({
         onClick={() => setOpen(true)}
       >
         <CircleHelp />
-        How to
+        <span className={compact ? 'max-sm:hidden' : undefined}>How to</span>
       </Button>
       <Dialog open={open} onClose={() => setOpen(false)} label={`How to do ${entry.name}`}>
         <div className="space-y-4 p-5">
