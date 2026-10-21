@@ -38,8 +38,6 @@ test('DSH-01 empty state for a new user', async ({authedPage: page}) => {
   await expect(calories.remaining).toHaveText('2000');
   await expect(calories.caption).toHaveText('remaining');
   await expect(calories.ratio).toHaveText('0 / 2000');
-  await expect(calories.eaten).toHaveText('0');
-  await expect(calories.burned).toHaveText('0');
 
   const exercise = exerciseProgress(page);
   await expect(exercise).toHaveAttribute('aria-valuenow', '0');
@@ -66,7 +64,7 @@ test('DSH-01 empty state for a new user', async ({authedPage: page}) => {
   }
 });
 
-test('DSH-02 totals come from today’s food and exercise', async ({
+test('DSH-02 totals come from today’s food, not exercise', async ({
   authedPage: page,
   db,
   user,
@@ -76,10 +74,9 @@ test('DSH-02 totals come from today’s food and exercise', async ({
   await page.goto('/dashboard');
 
   const calories = calorieSummary(page);
-  await expect(calories.remaining).toHaveText('1700');
-  await expect(calories.ratio).toHaveText('300 / 2000');
-  await expect(calories.eaten).toHaveText('500');
-  await expect(calories.burned).toHaveText('200');
+  await expect(calories.remaining).toHaveText('1500');
+  await expect(calories.ratio).toHaveText('500 / 2000');
+  // Logged exercise doesn't change the calorie target; it's already in the goal.
 
   await expect(macroRing(page, 'Protein').remaining).toHaveText('120');
   await expect(macroRing(page, 'Protein').ratio).toHaveText('30 / 150');
@@ -113,7 +110,20 @@ test('DSH-04 decimal totals have no float artifacts', async ({
   await page.goto('/dashboard');
   await expect(macroRing(page, 'Protein').ratio).toHaveText('0.3 / 150');
   await expect(macroRing(page, 'Protein').remaining).toHaveText('149.7');
-  await expect(calorieSummary(page).eaten).toHaveText('0.3');
+  await expect(calorieSummary(page).ratio).toHaveText('0.3 / 2000');
+});
+
+test('DSH-04b rings round to one decimal place', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  await seedFood(db, user.id, {calories: 100.25, protein: 10.04});
+  await page.goto('/dashboard');
+  await expect(calorieSummary(page).ratio).toHaveText('100.3 / 2000');
+  await expect(calorieSummary(page).remaining).toHaveText('1899.8');
+  await expect(macroRing(page, 'Protein').ratio).toHaveText('10 / 150');
+  await expect(macroRing(page, 'Protein').remaining).toHaveText('140');
 });
 
 test('DSH-05 custom goals are used', async ({page, makeUser, db}) => {
@@ -151,7 +161,7 @@ test('DSH-06 yesterday counts in the week, not today', async ({
   await expect(proteinTooltip).toContainText('protein : 45');
 });
 
-test('DSH-06b net calories subtract exercise in the weekly chart', async ({
+test('DSH-06b the weekly chart shows intake, not net of exercise', async ({
   authedPage: page,
   db,
   user,
@@ -164,7 +174,7 @@ test('DSH-06b net calories subtract exercise in the weekly chart', async ({
     card(page, 'Calories this week'),
     chartLabel(daysAgoIn(2)),
   );
-  await expect(tooltip).toContainText('calories : 700');
+  await expect(tooltip).toContainText('calories : 1000');
 });
 
 test('DSH-07 exercise ring counts ticked planned exercises', async ({

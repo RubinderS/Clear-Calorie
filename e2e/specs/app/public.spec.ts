@@ -9,11 +9,11 @@ test('PUB-01 landing page for visitors', async ({page}) => {
   ).toBeVisible();
   await expect(page.getByText('Your personal health companion')).toBeVisible();
 
-  // Sample data preview: 1700 eaten - 250 burned = 1450 net of 2000.
+  // Sample data preview: 1700 eaten of 2000.
   const preview = card(page, "Today's progress");
-  await expect(preview.getByText('550', {exact: true})).toBeVisible();
+  await expect(preview.getByText('300', {exact: true})).toBeVisible();
   await expect(preview.getByText('remaining', {exact: true})).toBeVisible();
-  await expect(preview.getByText('1450 / 2000')).toBeVisible();
+  await expect(preview.getByText('1700 / 2000')).toBeVisible();
   await expect(preview.getByText('2/3')).toBeVisible();
   await expect(preview.getByText('58', {exact: true})).toBeVisible(); // 150 - 92 protein
 

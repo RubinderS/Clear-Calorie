@@ -93,7 +93,7 @@ test.describe('TZ-03 pages in Kiritimati', () => {
     });
 
     await page.goto('/dashboard');
-    await expect(calorieSummary(page).eaten).toHaveText('400');
+    await expect(calorieSummary(page).ratio).toHaveText(/^400 \//);
 
     await page.goto('/logs');
     const row = logRow(page, 'Local today');

@@ -1,8 +1,7 @@
-import {Flame, Utensils} from 'lucide-react';
 import {Progress} from '@/components/ui/progress';
 import {ProgressRing} from '@/components/ui/progress-ring';
 import {cn} from '@/lib/utils';
-import {Decimal, getGoalProgress} from '@/lib/decimal';
+import {getGoalProgress, roundNumber} from '@/lib/decimal';
 
 interface NutritionProgressItem {
   label: string;
@@ -15,7 +14,6 @@ interface NutritionProgressItem {
 
 interface CalorieTotals {
   eaten: number;
-  burned: number;
   goal: number;
 }
 
@@ -64,23 +62,13 @@ export function NutritionProgress({
   );
 }
 
-function CalorieSummary({eaten, burned, goal}: CalorieTotals) {
-  const net = new Decimal(eaten).minus(burned).toNumber();
-  const {percent, isOver, remaining, value} = getGoalProgress(net, goal);
-  const stats = [
-    {
-      label: 'Eaten',
-      value: eaten,
-      icon: Utensils,
-      iconClassName: 'text-blue-500',
-    },
-    {
-      label: 'Burned',
-      value: burned,
-      icon: Flame,
-      iconClassName: 'text-orange-500',
-    },
-  ];
+// Rings show at most one decimal place; the math stays exact.
+function formatRingNumber(value: number | string) {
+  return roundNumber(value, 1);
+}
+
+function CalorieSummary({eaten, goal}: CalorieTotals) {
+  const {percent, isOver, remaining, value} = getGoalProgress(eaten, goal);
 
   return (
     <div className="flex flex-col items-center gap-2 text-center">
@@ -96,7 +84,7 @@ function CalorieSummary({eaten, burned, goal}: CalorieTotals) {
             isOver && 'text-destructive',
           )}
         >
-          {remaining}
+          {formatRingNumber(remaining)}
         </span>
         <span className="text-xs text-muted-foreground sm:text-sm">
           {isOver ? 'over goal' : 'remaining'}
@@ -105,27 +93,9 @@ function CalorieSummary({eaten, burned, goal}: CalorieTotals) {
       <div>
         <p className="text-sm font-medium">Calories</p>
         <p className="text-xs text-muted-foreground">
-          {value} / {goal}
+          {formatRingNumber(value)} / {formatRingNumber(goal)}
         </p>
       </div>
-      <dl className="flex justify-center gap-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="flex items-center gap-1.5"
-            title={stat.label}
-          >
-            <dt className="flex">
-              <stat.icon
-                className={cn('size-4', stat.iconClassName)}
-                aria-hidden="true"
-              />
-              <span className="sr-only">{stat.label}</span>
-            </dt>
-            <dd className="text-sm font-semibold tabular-nums">{stat.value}</dd>
-          </div>
-        ))}
-      </dl>
     </div>
   );
 }
@@ -183,7 +153,7 @@ function MacroRing({item}: {item: NutritionProgressItem}) {
             isOver && 'text-destructive',
           )}
         >
-          {remaining}
+          {formatRingNumber(remaining)}
         </span>
         <span className="text-xs text-muted-foreground">
           {isOver ? 'over' : 'left'}
@@ -200,7 +170,7 @@ function MacroRing({item}: {item: NutritionProgressItem}) {
           )}
         </p>
         <p className="text-xs text-muted-foreground">
-          {value} / {item.goal}
+          {formatRingNumber(value)} / {formatRingNumber(item.goal)}
         </p>
       </div>
     </div>

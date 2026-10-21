@@ -8,7 +8,6 @@ import {
 } from '../../fixtures/test';
 import {seedExerciseGoal, seedSavedExercise} from '../../fixtures/db';
 import {
-  calorieSummary,
   fillSets,
   openQuickLog,
   repeat,
@@ -80,7 +79,6 @@ test('EX-03 log a strength exercise', async ({authedPage: page}) => {
   });
   expect((await sent.response())?.status()).toBe(201);
   await expect(page.getByRole('dialog', {name: 'Log exercise'})).toBeHidden();
-  await expect(calorieSummary(page).burned).toHaveText('150');
 });
 
 test('EX-04/05 log a time exercise; blank weight is null', async ({
@@ -110,7 +108,6 @@ test('EX-04/05 log a time exercise; blank weight is null', async ({
   expect((await request).postDataJSON()).toMatchObject({
     exerciseSets: repeat(20, 3).map((reps) => ({reps, weight: null})),
   });
-  await expect(calorieSummary(page).burned).toHaveText('290');
 });
 
 test('EX-06 browser limits on reps, times and required fields', async ({authedPage: page}) => {

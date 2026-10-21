@@ -15,7 +15,7 @@ import {BRAND_GRADIENT, LogoGlyph} from '@/lib/app-icon';
 import {ArrowRight, HeartPulse} from 'lucide-react';
 
 // Sample data used only to preview the dashboard's progress UI for logged-out visitors.
-const previewCalories = {eaten: 1700, burned: 250, goal: 2000};
+const previewCalories = {eaten: 1700, goal: 2000};
 const previewExercise = {done: 2, total: 3};
 const previewMacroItems = [
   {

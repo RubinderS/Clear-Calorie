@@ -71,15 +71,13 @@ function summaryBlock(page: Page, label: string | RegExp) {
     .filter({has: page.getByText(label, {exact: true})});
 }
 
-/** The calorie ring and eaten/burned stats on "Today's progress". */
+/** The calorie ring on "Today's progress". */
 export function calorieSummary(page: Page) {
   const block = summaryBlock(page, 'Calories');
   return {
     remaining: block.locator('span.tabular-nums').first(),
     caption: block.locator('span.text-muted-foreground').first(),
     ratio: block.locator('p.text-xs'),
-    eaten: block.locator('[title="Eaten"] dd'),
-    burned: block.locator('[title="Burned"] dd'),
   };
 }
 

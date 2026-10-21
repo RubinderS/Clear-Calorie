@@ -60,7 +60,7 @@ test('FOOD-01 log a food with just name and calories', async ({
   expect(await response?.json()).toMatchObject({id: expect.any(String), name: 'Banana'});
 
   await expect(page.getByRole('dialog', {name: 'Log food'})).toBeHidden();
-  await expect(calorieSummary(page).eaten).toHaveText('105');
+  await expect(calorieSummary(page).ratio).toHaveText(/^105 \//);
   expect(await db.foodLog.count({where: {userId: user.id}})).toBe(1);
 });
 
@@ -84,7 +84,7 @@ test('FOOD-02 decimal macros are kept', async ({authedPage: page, db, user}) => 
     fat: 7.5,
     saturatedFat: 4.8,
   });
-  await expect(calorieSummary(page).eaten).toHaveText('146.5');
+  await expect(calorieSummary(page).ratio).toHaveText(/^146\.5 \//);
   expect(await db.foodLog.findFirst({where: {userId: user.id}})).toMatchObject({
     protein: 12.5,
     saturatedFat: 4.8,

@@ -27,7 +27,7 @@ export function MacrosChart({data, dataKey, color, goal}: MacrosChartProps) {
       : undefined;
   const resolvedColor = color ?? colorFromData;
 
-  // avoid clipping bars that exceed the goal, or dip below zero (net calories)
+  // avoid clipping bars that exceed the goal, or dip below zero
   const maxDataValue = data.reduce((max, entry) => {
     const value = entry[dataKey];
     return typeof value === 'number' ? Decimal.max(max, value) : max;
