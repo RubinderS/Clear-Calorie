@@ -44,6 +44,15 @@ test('ignores core, cardio and full body finishers unless the day is only those'
   assert.equal(dayFocus(['plank', 'hanging-knee-raise']), 'Core day');
   assert.equal(dayFocus(['jumping-jack']), 'Cardio day');
   assert.equal(dayFocus(['pull-up', 'jumping-jack']), 'Back day');
+  assert.equal(
+    dayFocus(['low-jack', 'running-man', 'standing-hamstring-curl', 'jump-squat', 'burpee']),
+    'Cardio day',
+  );
+  assert.equal(
+    dayFocus(['high-knees', 'mountain-climber', 'shadow-boxing', 'butt-kicks']),
+    'Cardio day',
+  );
+  assert.equal(dayFocus(['barbell-squat', 'goblet-squat', 'jump-squat']), 'Leg day');
 });
 
 test('gives an exercise its whole vote for the main group it works alongside a finisher', () => {

@@ -51,6 +51,11 @@ export function dayFocus(
   const entries = catalogIds.flatMap((id) => catalog.get(id) ?? []);
   if (entries.length === 0 || entries.length < catalogIds.length / 2) return null;
 
+  // A circuit of mostly cardio moves is a cardio day, even when some of them
+  // also mainly work the legs, as a jump squat does.
+  const cardio = entries.filter((entry) => entry.areas.primary.includes('cardio'));
+  if (cardio.length > entries.length / 2) return 'Cardio day';
+
   // Each exercise has one vote, shared across the groups it mainly works,
   // leaving out finishers when it also works something else.
   const votes = new Map<string, number>();
