@@ -17,7 +17,8 @@ import {cn} from '@/lib/utils';
 export type DailyLogEntry = {
   id: string;
   name: string;
-  calories: number;
+  /** Shown beside the entry when set. */
+  calories?: number;
   loggedAt: string | Date;
 };
 
@@ -122,7 +123,7 @@ type DailyLogCardProps<T extends DailyLogEntry> = {
   timeZone: string;
   todayTitle: string;
   dateInputLabel: string;
-  summary: ReactNode;
+  summary?: ReactNode;
   loadingText: string;
   emptyText: string;
   icon: LucideIcon;
@@ -208,7 +209,9 @@ export function DailyLogCard<T extends DailyLogEntry>({
         </div>
       </CardHeader>
       <CardContent>
-        <p className="mb-4 text-sm text-muted-foreground">{summary}</p>
+        {summary && (
+          <p className="mb-4 text-sm text-muted-foreground">{summary}</p>
+        )}
         {isLoading ? (
           <p className="text-sm text-muted-foreground">{loadingText}</p>
         ) : entries.length === 0 ? (
@@ -240,7 +243,9 @@ export function DailyLogCard<T extends DailyLogEntry>({
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <div className="text-right">
-                    <p className="font-semibold">{entry.calories} kcal</p>
+                    {entry.calories != null && (
+                      <p className="font-semibold">{entry.calories} kcal</p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {format(
                         new TZDate(new Date(entry.loggedAt), timeZone),

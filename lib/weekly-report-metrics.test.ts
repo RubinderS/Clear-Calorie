@@ -44,7 +44,6 @@ function exercise(date: string, values: Partial<ReportExercise> = {}): ReportExe
     date,
     name: 'Cardio',
     type: 'TIME',
-    calories: 0,
     durationMin: 0,
     weight: null,
     exerciseGoalId: null,
@@ -113,10 +112,10 @@ test('exercise metrics count cardio minutes, strength days and plan ticks', () =
   const metrics = computeWeekMetrics(
     input({
       exercise: [
-        exercise('2026-10-05', {durationMin: 20, calories: 150, goalDate: '2026-10-05'}),
-        exercise('2026-10-06', {type: 'STRENGTH', calories: 20, goalDate: '2026-10-06'}),
-        exercise('2026-10-06', {type: 'STRENGTH', calories: 20}),
-        exercise('2026-10-08', {durationMin: 5, calories: 37}),
+        exercise('2026-10-05', {durationMin: 20, goalDate: '2026-10-05'}),
+        exercise('2026-10-06', {type: 'STRENGTH', goalDate: '2026-10-06'}),
+        exercise('2026-10-06', {type: 'STRENGTH'}),
+        exercise('2026-10-08', {durationMin: 5}),
       ],
       plannedCounts: new Map([
         ['2026-10-05', 1],
@@ -126,7 +125,6 @@ test('exercise metrics count cardio minutes, strength days and plan ticks', () =
   );
   assert.equal(metrics.cardioMinutes, 25);
   assert.equal(metrics.strengthSessions, 1);
-  assert.equal(metrics.exerciseCalories, 227);
   assert.equal(metrics.exercisesPlanned, 4);
   assert.equal(metrics.exercisesDone, 2);
   assert.equal(planAdherence(metrics), 50);

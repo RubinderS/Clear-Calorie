@@ -44,7 +44,6 @@ function goal(overrides: Partial<CurrentGoal> = {}): CurrentGoal {
     id: 'bench',
     name: 'Bench press',
     type: 'STRENGTH',
-    calories: 0,
     durationMin: null,
     sets: 3,
     reps: 8,
@@ -75,12 +74,11 @@ const run = goal({
 });
 
 test('adds a built-in exercise with uniform sets on the given days', () => {
-  const {change, workChanged} = buildPlanChange(
+  const change = buildPlanChange(
     {operation: 'add', catalogId: 'barbell-back-squat', days: ['Monday', 'fri'], sets: 5, reps: 5, weight: 80},
     [goal()],
     catalog,
   );
-  assert.equal(workChanged, true);
   assert.ok(change.operation === 'add');
   assert.equal(change.goal.name, 'Barbell back squat');
   assert.deepEqual(change.goal.days, [1, 5]);
@@ -91,7 +89,7 @@ test('adds a built-in exercise with uniform sets on the given days', () => {
 });
 
 test('takes the type from the entry when adding', () => {
-  const {change} = buildPlanChange(
+  const change = buildPlanChange(
     {operation: 'add', catalogId: 'swimming', days: ['Tuesday'], durationMin: 20},
     [],
     catalog,
@@ -136,12 +134,11 @@ test('refuses to add without days, or with a name already planned', () => {
 });
 
 test('linking renames to the built-in name without changing the work', () => {
-  const {change, workChanged} = buildPlanChange(
+  const change = buildPlanChange(
     {operation: 'update', exerciseId: 'bench', catalogId: 'barbell-back-squat'},
     [goal({name: 'Squats'})],
     catalog,
   );
-  assert.equal(workChanged, false);
   assert.ok(change.operation === 'update');
   assert.equal(change.goal.name, 'Barbell back squat');
   assert.deepEqual(planChangeRows(change, catalog).slice(0, 2), [
@@ -160,12 +157,11 @@ test('linking renames to the built-in name without changing the work', () => {
 });
 
 test('updates only the fields given, keeping the rest', () => {
-  const {change, workChanged} = buildPlanChange(
+  const change = buildPlanChange(
     {operation: 'update', exerciseId: 'bench', weight: 62.5},
     [goal()],
   );
   assert.ok(change.operation === 'update');
-  assert.equal(workChanged, true);
   assert.equal(change.updatedAt, updatedAt.toISOString());
   assert.deepEqual(change.goal.days, [1, 4]);
   assert.deepEqual(
@@ -178,18 +174,17 @@ test('updates only the fields given, keeping the rest', () => {
 });
 
 test('changing days alone leaves the sets as they are', () => {
-  const {change, workChanged} = buildPlanChange(
+  const change = buildPlanChange(
     {operation: 'update', exerciseId: 'run', days: ['Tuesday', 'Thursday']},
     [goal(), run],
   );
-  assert.equal(workChanged, false);
   assert.deepEqual(planChangeRows(change), [
     {label: 'Days', before: 'Tue', after: 'Tue, Thu'},
   ]);
 });
 
 test('weight 0 clears the load', () => {
-  const {change} = buildPlanChange({operation: 'update', exerciseId: 'bench', weight: 0}, [goal()]);
+  const change = buildPlanChange({operation: 'update', exerciseId: 'bench', weight: 0}, [goal()]);
   assert.ok(change.operation === 'update');
   assert.equal(planGoalSets(change.goal)[0].weight, null);
 });
@@ -207,7 +202,7 @@ test('a plan with different sets is only replaced as a whole', () => {
     () => buildPlanChange({operation: 'update', exerciseId: 'bench', weight: 65}, [pyramid]),
     /has different sets/,
   );
-  const {change} = buildPlanChange(
+  const change = buildPlanChange(
     {operation: 'update', exerciseId: 'bench', sets: 3, reps: 8, weight: 65},
     [pyramid],
   );
@@ -215,7 +210,8 @@ test('a plan with different sets is only replaced as a whole', () => {
   assert.equal(planGoalSets(change.goal).length, 3);
   // Notes and days changes don't touch the sets.
   const notes = buildPlanChange({operation: 'update', exerciseId: 'bench', notes: 'Pause reps'}, [pyramid]);
-  assert.equal(notes.workChanged, false);
+  assert.ok(notes.operation === 'update');
+  assert.deepEqual(planGoalSets(notes.goal), planGoalSets(notes.before));
 });
 
 test('switching type needs the new type\'s fields', () => {
@@ -237,7 +233,7 @@ test('refuses an unknown id or a change that changes nothing', () => {
 });
 
 test('removes with the goal as it was', () => {
-  const {change} = buildPlanChange({operation: 'remove', exerciseId: 'bench'}, [goal({notes: 'Arch'})]);
+  const change = buildPlanChange({operation: 'remove', exerciseId: 'bench'}, [goal({notes: 'Arch'})]);
   assert.ok(change.operation === 'remove');
   assert.equal(change.goalId, 'bench');
   assert.deepEqual(planChangeRows(change), [
@@ -312,8 +308,7 @@ const circuitArgs = {
 };
 
 test('adds a sequence of built-in exercises in one change', () => {
-  const {change, workChanged} = buildPlanChange(circuitArgs, [], catalog);
-  assert.equal(workChanged, true);
+  const change = buildPlanChange(circuitArgs, [], catalog);
   assert.ok(change.operation === 'add' && 'steps' in change.goal);
   assert.deepEqual(
     change.goal.steps.map((step) => [step.name, step.restSec]),
@@ -346,7 +341,7 @@ test('a sequence needs a name, days and built-in steps with reps or a time', () 
 });
 
 function sequenceGoal(): CurrentGoal {
-  const {change} = buildPlanChange(circuitArgs, [], catalog);
+  const change = buildPlanChange(circuitArgs, [], catalog);
   assert.ok(change.operation === 'add' && 'steps' in change.goal);
   return goal({
     id: 'circuit',
@@ -360,7 +355,7 @@ function sequenceGoal(): CurrentGoal {
 
 test('updates a sequence as a whole and only through its steps', () => {
   const current = sequenceGoal();
-  const {change, workChanged} = buildPlanChange(
+  const change = buildPlanChange(
     {
       operation: 'update',
       exerciseId: 'circuit',
@@ -369,7 +364,6 @@ test('updates a sequence as a whole and only through its steps', () => {
     [current],
     catalog,
   );
-  assert.equal(workChanged, true);
   assert.ok(change.operation === 'update' && 'steps' in change.goal);
   assert.equal(change.goal.steps.length, 1);
   assert.ok(planChangeSchema.safeParse(change).success);
@@ -379,9 +373,8 @@ test('updates a sequence as a whole and only through its steps', () => {
     [current],
     catalog,
   );
-  assert.equal(days.workChanged, false);
-  assert.ok(days.change.operation === 'update' && 'steps' in days.change.goal);
-  assert.equal(days.change.goal.steps.length, 3);
+  assert.ok(days.operation === 'update' && 'steps' in days.goal);
+  assert.equal(days.goal.steps.length, 3);
 
   assert.throws(
     () => buildPlanChange({operation: 'update', exerciseId: 'circuit', reps: 12}, [current], catalog),

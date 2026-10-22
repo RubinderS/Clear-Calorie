@@ -7,10 +7,8 @@ import {Check, Play, X} from 'lucide-react';
 import {
   ExerciseLogFields,
   formatTimeInput,
-  initialLogValues,
   toLogPayload,
   toWorkValues,
-  type ExerciseLogValues,
   type WorkValues,
 } from '@/components/exercise-detail-fields';
 import {ExerciseAreaTag, ExerciseHowTo} from '@/components/exercise-animation';
@@ -44,7 +42,6 @@ export type PlannedExercise = {
   id: string;
   name: string;
   type: string;
-  calories: number;
   durationMin: number | null;
   sets: number | null;
   reps: number | null;
@@ -63,7 +60,6 @@ export type PlannedExercise = {
 /** What was actually done, where it differs from the goal. */
 export type LogDetails = {
   exerciseSets?: ExerciseSet[];
-  calories?: number;
 };
 
 export function usePlannedExerciseToggle(initialCompletedIds: string[]) {
@@ -291,7 +287,6 @@ export function TodaysExercisePlan({
                       </span>
                       <span className="block text-xs text-muted-foreground">
                         {formatExerciseDetail(goal)}
-                        {goal.calories > 0 && ` · ${goal.calories} kcal`}
                       </span>
                       {goal.notes && (
                         <span className="mt-0.5 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">
@@ -344,7 +339,7 @@ export function TodaysExercisePlan({
 /** Only what differs from the goal, which the server logs by default. */
 function changedDetails(
   goal: PlannedExercise,
-  values: ExerciseLogValues,
+  values: WorkValues,
 ): LogDetails {
   const payload = toLogPayload(values);
   const changes: LogDetails = {};
@@ -358,7 +353,6 @@ function changedDetails(
         (set.weight ?? null) === (planned[index].weight ?? null),
     );
   if (!asPlanned) changes.exerciseSets = payload.exerciseSets;
-  if (payload.calories !== goal.calories) changes.calories = payload.calories;
   return changes;
 }
 
@@ -395,7 +389,7 @@ function LogReview({
       : undefined,
   );
   const [values, setValues] = useState(() =>
-    initialLogValues(planned, goal.calories, doneWork(planned, result)),
+    doneWork(planned, result),
   );
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -407,8 +401,6 @@ function LogReview({
     <form onSubmit={handleSubmit} className="space-y-4">
       <ExerciseLogFields
         idPrefix={`log-${goal.id}`}
-        baseline={planned}
-        baselineCalories={goal.calories}
         value={values}
         onChange={setValues}
         stepNames={stepNames}

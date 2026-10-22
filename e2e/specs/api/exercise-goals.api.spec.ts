@@ -9,7 +9,6 @@ const GOAL = {
   sets: 3,
   reps: 12,
   weight: 16,
-  calories: 90,
   days: [1, 3, 5],
 };
 
@@ -27,7 +26,6 @@ test('EP-02 POST creates a goal with a weekday mask', async ({api, user, db}) =>
     reps: 12,
     weight: 16,
     durationMin: null,
-    calories: 90,
     notes: 'Heels down',
     tempoMs: null,
     daysMask: daysToMask([1, 3, 5]),
@@ -35,12 +33,11 @@ test('EP-02 POST creates a goal with a weekday mask', async ({api, user, db}) =>
   expect(await db.exerciseGoal.count({where: {userId: user.id}})).toBe(1);
 });
 
-test('EP-03 calories default to 0 and blank notes become null', async ({api}) => {
+test('EP-03 blank notes become null', async ({api}) => {
   const response = await api.post('/api/exercise-goals', {
     data: {name: 'Walk', type: 'TIME', durationMin: 20, days: [0], notes: '   '},
   });
   expect(await response.json()).toMatchObject({
-    calories: 0,
     notes: null,
     durationMin: 20,
     // A timed goal is one set unless it lists more.
@@ -188,7 +185,6 @@ test.describe('Ticking planned exercises', () => {
   test('TP-03 tick copies the goal into today’s log', async ({api, db, user}) => {
     const goal = await seedExerciseGoal(db, user.id, {
       name: 'Push-ups',
-      calories: 40,
       sets: 3,
       reps: 15,
       weight: null,
@@ -203,7 +199,6 @@ test.describe('Ticking planned exercises', () => {
       goalDate: todayIn(),
       name: 'Push-ups',
       type: 'STRENGTH',
-      calories: 40,
       sets: 3,
       reps: 15,
       durationMin: 0,
@@ -311,16 +306,15 @@ test.describe('Ticking planned exercises', () => {
   });
 
   test('TP-08 reviewed details override the goal', async ({api, db, user}) => {
-    const strength = await seedExerciseGoal(db, user.id, {weight: 40, calories: 100});
+    const strength = await seedExerciseGoal(db, user.id, {weight: 40});
     const tick = await api.post('/api/exercise-goals/log', {
-      data: {goalId: strength.id, calories: 70, durationMin: 9},
+      data: {goalId: strength.id, durationMin: 9},
     });
     // Without sets, every set is logged as planned.
     expect(await tick.json()).toMatchObject({
       sets: 3,
       reps: 10,
       weight: 40,
-      calories: 70,
       exerciseSets: [
         {reps: 10, weight: 40},
         {reps: 10, weight: 40},
@@ -338,11 +332,11 @@ test.describe('Ticking planned exercises', () => {
     const timeTick = await api.post('/api/exercise-goals/log', {
       data: {goalId: time.id, durationMin: 25},
     });
-    expect(await timeTick.json()).toMatchObject({durationMin: 25, weight: null, calories: 100});
+    expect(await timeTick.json()).toMatchObject({durationMin: 25, weight: null});
 
     const negative = await seedExerciseGoal(db, user.id, {name: 'Lunges'});
     const invalid = await api.post('/api/exercise-goals/log', {
-      data: {goalId: negative.id, calories: -1},
+      data: {goalId: negative.id, durationMin: 0},
     });
     expect(invalid.status()).toBe(400);
   });

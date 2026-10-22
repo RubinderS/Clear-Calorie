@@ -33,11 +33,6 @@ export const FOOD_ESTIMATE = {
   assumptions: 'Assumed one regular serving.',
 };
 
-export const EXERCISE_ESTIMATE = {
-  calories: 321,
-  assumptions: 'Moderate intensity, MET 5, 80 kg.',
-};
-
 export const HEALTH_ALERTS = {
   avoid: {level: 'avoid', message: 'Very high in saturated fat.'},
   caution: {level: 'caution', message: 'Fairly high in sodium.'},

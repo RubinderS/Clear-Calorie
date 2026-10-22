@@ -15,7 +15,6 @@ test.beforeEach(async ({db, user}) => {
     name: 'Squats',
     sets: 3,
     reps: 10,
-    calories: 100,
     notes: 'Chest up',
   });
   await seedExerciseGoal(db, user.id, {
@@ -24,7 +23,6 @@ test.beforeEach(async ({db, user}) => {
     durationMin: 20,
     sets: null,
     reps: null,
-    calories: 150,
   });
   await seedExerciseGoal(db, user.id, {name: 'Tomorrow only', days: [(weekdayIn() + 1) % 7]});
 });
@@ -35,13 +33,11 @@ test("TP-01/02 today's plan lists only today's goals", async ({authedPage: page}
   await expect(plan.getByRole('link', {name: 'View logs'})).toBeVisible();
 
   const squats = plan.getByRole('listitem').filter({hasText: 'Squats'});
-  await expect(squats).toContainText('3 × 10 · 100 kcal');
+  await expect(squats).toContainText('3 × 10');
   await expect(squats).toContainText('Chest up');
   await expect(squats.getByRole('checkbox', {name: 'Mark Squats as done'})).not.toBeChecked();
   await expect(squats.getByRole('button', {name: 'Start Squats'})).toBeVisible();
-  await expect(plan.getByRole('listitem').filter({hasText: 'Jog'})).toContainText(
-    '20 min · 150 kcal',
-  );
+  await expect(plan.getByRole('listitem').filter({hasText: 'Jog'})).toContainText('20 min');
   await expect(plan.getByText('Tomorrow only')).toHaveCount(0);
 
   // The custom form stays tucked away until asked for.
@@ -65,7 +61,6 @@ test('TP-03/04 ticking logs the goal and updates progress', async ({
     await expect(review.getByLabel(`Set ${set} reps`)).toHaveValue('10');
   }
   await expect(review.getByLabel('Set 4 reps')).toHaveCount(0);
-  await expect(review.getByLabel('Calories burned')).toHaveValue('100');
   const request = nextApiRequest(page, '/api/exercise-goals/log');
   await review.getByRole('button', {name: 'Done', exact: true}).click();
   const sent = await request;
@@ -104,23 +99,16 @@ test('TP-03 each set can be corrected before it is saved', async ({
   const {panel, plan} = await openPlan(page);
   await plan.getByRole('checkbox', {name: 'Mark Squats as done'}).click();
   const review = card(panel, 'Squats');
-  const calories = review.getByLabel('Calories burned');
   await review.getByLabel('Set 3 reps').fill('8');
-  // Calories follow the reps done until set by hand.
-  await expect(calories).toHaveValue('93');
-  // A weight on some sets only doesn't change them.
   await review.getByLabel('Set 2 weight').fill('20');
   await review.getByLabel('Set 3 weight').fill('25');
-  await expect(calories).toHaveValue('93');
 
   // An extra set starts as a copy of the last.
   await review.getByRole('button', {name: 'Add set'}).click();
   await expect(review.getByLabel('Set 4 reps')).toHaveValue('8');
   await expect(review.getByLabel('Set 4 weight')).toHaveValue('25');
-  await expect(calories).toHaveValue('120');
   await review.getByRole('button', {name: 'Remove set 1'}).click();
   await expect(review.getByLabel('Set 1 weight')).toHaveValue('20');
-  await expect(calories).toHaveValue('87');
 
   const request = nextApiRequest(page, '/api/exercise-goals/log');
   await review.getByRole('button', {name: 'Done', exact: true}).click();
@@ -133,7 +121,6 @@ test('TP-03 each set can be corrected before it is saved', async ({
   expect((await request).postDataJSON()).toEqual({
     goalId: goal!.id,
     exerciseSets: sets,
-    calories: 87,
   });
   await expect(plan.getByText('1 of 2 done')).toBeVisible();
   await expect.poll(() =>
@@ -143,11 +130,10 @@ test('TP-03 each set can be corrected before it is saved', async ({
         sets: true,
         reps: true,
         weight: true,
-        calories: true,
         exerciseSets: {orderBy: {position: 'asc'}, select: {reps: true, weight: true}},
       },
     }),
-  ).toEqual({sets: 3, reps: 8, weight: 25, calories: 87, exerciseSets: sets});
+  ).toEqual({sets: 3, reps: 8, weight: 25, exerciseSets: sets});
 
   await page.goto('/logs?tab=exercise');
   await expect(logRow(page, 'Squats')).toContainText('10 @ 20, 8 @ 25, 8 @ 25 · Planned');

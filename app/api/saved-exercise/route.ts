@@ -11,7 +11,6 @@ const savedExerciseSchema = z
   .object({
     id: z.string().optional(),
     name: z.string().trim().min(1),
-    calories: z.number().int().min(0),
     isPinned: z.boolean().default(false),
   })
   .and(exerciseInputSchema);
@@ -50,12 +49,11 @@ export async function POST(request: Request) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
 
-    const {id, name, calories, isPinned} = parsed.data;
+    const {id, name, isPinned} = parsed.data;
     const fields = toPlanFields(inputSets(parsed.data));
     const data = {
       name,
       catalogId: catalogIdFor(name),
-      calories,
       isPinned,
       ...fields,
       durationMin: fields.durationMin ?? 0,

@@ -4,13 +4,12 @@ import {daysAgoIn, noonDaysAgo, todayIn, weekdayIn} from '../../fixtures/dates';
 
 const STRENGTH = {
   name: 'Bench press',
-  calories: 150,
   type: 'STRENGTH',
   sets: 5,
   reps: 5,
   weight: 60,
 };
-const TIME = {name: 'Rowing', calories: 250, type: 'TIME', durationMin: 25};
+const TIME = {name: 'Rowing', type: 'TIME', durationMin: 25};
 
 test('EX-03 POST strength exercise', async ({api, user}) => {
   const response = await api.post('/api/exercise', {data: STRENGTH});
@@ -50,16 +49,14 @@ test('EX-05 strength weight is optional', async ({api}) => {
 
 test.describe('XA-01 POST validation', () => {
   const invalid: [string, Record<string, unknown>][] = [
-    ['missing type', {name: 'x', calories: 1, durationMin: 1}],
+    ['missing type', {name: 'x', durationMin: 1}],
     ['unknown type', {...TIME, type: 'DISTANCE'}],
-    ['TIME without duration', {name: 'x', calories: 1, type: 'TIME'}],
+    ['TIME without duration', {name: 'x', type: 'TIME'}],
     ['TIME duration 0', {...TIME, durationMin: 0}],
     ['STRENGTH reps 0', {...STRENGTH, reps: 0}],
     ['STRENGTH reps 101', {...STRENGTH, reps: 101}],
     ['STRENGTH sets 0', {...STRENGTH, sets: 0}],
-    ['STRENGTH without reps', {name: 'x', calories: 1, type: 'STRENGTH', sets: 1}],
-    ['decimal calories', {...TIME, calories: 10.5}],
-    ['negative calories', {...TIME, calories: -5}],
+    ['STRENGTH without reps', {name: 'x', type: 'STRENGTH', sets: 1}],
     ['negative weight', {...STRENGTH, weight: -1}],
     ['blank name', {...TIME, name: '  '}],
   ];
@@ -127,15 +124,13 @@ test.describe('XA-04 PATCH', () => {
       sets: 3,
       reps: 10,
       weight: 50,
-      calories: 210,
     });
     const response = await api.patch('/api/exercise', {
-      data: {id: entry.id, calories: 105, type: 'STRENGTH', sets: 3, reps: 5, weight: null},
+      data: {id: entry.id, type: 'STRENGTH', sets: 3, reps: 5, weight: null},
     });
     expect(response.status()).toBe(200);
     expect(await response.json()).toMatchObject({
       id: entry.id,
-      calories: 105,
       sets: 3,
       reps: 5,
       weight: null,
@@ -148,7 +143,6 @@ test.describe('XA-04 PATCH', () => {
     const response = await api.patch('/api/exercise', {
       data: {
         id: entry.id,
-        calories: 1,
         exerciseSets: [{reps: 12}, {durationSec: 90, weight: 10}],
       },
     });
@@ -165,7 +159,7 @@ test.describe('XA-04 PATCH', () => {
     });
 
     const neither = await api.patch('/api/exercise', {
-      data: {id: entry.id, calories: 1, exerciseSets: [{weight: 10}]},
+      data: {id: entry.id, exerciseSets: [{weight: 10}]},
     });
     expect(neither.status()).toBe(400);
   });
@@ -173,13 +167,13 @@ test.describe('XA-04 PATCH', () => {
   test('past entries are read-only, unknown → 404', async ({api, db, user}) => {
     const entry = await seedExercise(db, user.id, {loggedAt: noonDaysAgo(1)});
     const past = await api.patch('/api/exercise', {
-      data: {id: entry.id, calories: 1, type: 'TIME', durationMin: 1},
+      data: {id: entry.id, type: 'TIME', durationMin: 1},
     });
     expect(past.status()).toBe(403);
     expect(await past.json()).toEqual({error: "Only today's entries can be edited"});
 
     const unknown = await api.patch('/api/exercise', {
-      data: {id: 'nope', calories: 1, type: 'TIME', durationMin: 1},
+      data: {id: 'nope', type: 'TIME', durationMin: 1},
     });
     expect(unknown.status()).toBe(404);
   });

@@ -70,7 +70,7 @@ test('DSH-02 totals come from today’s food, not exercise', async ({
   user,
 }) => {
   await seedFood(db, user.id, {calories: 500, protein: 30, carbs: 40, fat: 20, saturatedFat: 5});
-  await seedExercise(db, user.id, {calories: 200});
+  await seedExercise(db, user.id);
   await page.goto('/dashboard');
 
   const calories = calorieSummary(page);
@@ -167,7 +167,7 @@ test('DSH-06b the weekly chart shows intake, not net of exercise', async ({
   user,
 }) => {
   await seedFood(db, user.id, {calories: 1000, loggedAt: noonDaysAgo(2)});
-  await seedExercise(db, user.id, {calories: 300, loggedAt: noonDaysAgo(2)});
+  await seedExercise(db, user.id, {loggedAt: noonDaysAgo(2)});
   await page.goto('/dashboard');
   const tooltip = await hoverDay(
     page,

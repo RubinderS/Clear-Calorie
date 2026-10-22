@@ -58,6 +58,6 @@
 - User authentication (sign up / sign in)
 - Dashboard with daily summary and progress charts
 - Food logging with calories and macros
-- Exercise logging with calories burned
+- Exercise logging with sets, reps, weight and duration
 - Weight tracking over time
 - Daily goals configuration

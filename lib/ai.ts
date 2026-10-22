@@ -1,5 +1,4 @@
 import {z} from 'zod';
-import type {ExerciseType} from './exercise';
 
 // Any OpenAI-compatible /chat/completions endpoint (OpenAI, OpenRouter, Groq,
 // Gemini's compat layer, local Ollama/LM Studio). Read per call so a Docker
@@ -172,83 +171,6 @@ export async function estimateFood(
   );
 
   const estimate = parseEstimate(raw);
-  if (!estimate) {
-    throw new AiError('AI returned an invalid response');
-  }
-  return estimate;
-}
-
-const EXERCISE_SYSTEM_PROMPT = `You are an exercise energy expenditure estimator for a calorie tracking app.
-The user describes one exercise session. Estimate the total calories burned for the whole session.
-- Use MET values: kcal = MET x body weight (kg) x hours. Pick a MET that suits the exercise as named, assuming moderate intensity unless stated.
-- For sets and reps, estimate a realistic working time for the session including rest between sets.
-- "Load" is the weight lifted, not the user's body weight. Weights are in kilograms.
-- If body weight is not known, assume an average adult and say what you assumed.
-- Calories are kilocalories (kcal), gross for the whole session.
-Respond with only a JSON object with these keys:
-{"calories": number, "assumptions": one short sentence naming the assumed intensity or MET, duration and body weight used}`;
-
-export type ExerciseEstimateInput = {
-  name: string;
-  type: ExerciseType;
-  durationMin?: number | null;
-  sets?: number | null;
-  reps?: number | null;
-  weight?: number | null;
-  /** A sequence's steps and breaks, one per line. */
-  parts?: string[] | null;
-};
-
-export function buildExerciseDescription(
-  input: ExerciseEstimateInput,
-  bodyWeightKg: number | null,
-): string {
-  const lines = [`Exercise: ${input.name}`];
-  if (input.type === 'STRENGTH') {
-    if (input.sets) lines.push(`Sets: ${input.sets}`);
-    if (input.reps) lines.push(`Reps: ${input.reps}`);
-  }
-  if (input.weight) lines.push(`Load: ${input.weight} kg`);
-  // Strength exercises can also have timed sets, e.g. a weighted hold.
-  if (input.durationMin) lines.push(`Duration: ${input.durationMin} min`);
-  if (input.parts?.length) {
-    lines.push('Sequence, done back to back:', ...input.parts.map((part) => `- ${part}`));
-  }
-  lines.push(
-    bodyWeightKg
-      ? `Body weight: ${bodyWeightKg} kg`
-      : 'Body weight: not known; assume an average adult.',
-  );
-  return lines.join('\n');
-}
-
-const exerciseEstimateSchema = z.object({
-  calories: nutrient,
-  assumptions: z.string().trim().optional().default(''),
-});
-
-export type ExerciseEstimate = z.infer<typeof exerciseEstimateSchema>;
-
-export function parseExerciseEstimate(raw: unknown): ExerciseEstimate | null {
-  const parsed = exerciseEstimateSchema.safeParse(raw);
-  if (!parsed.success) return null;
-
-  return {
-    calories: Math.round(parsed.data.calories),
-    assumptions: parsed.data.assumptions.slice(0, 300),
-  };
-}
-
-export async function estimateExercise(
-  input: ExerciseEstimateInput,
-  bodyWeightKg: number | null,
-): Promise<ExerciseEstimate> {
-  const raw = await requestJson(
-    EXERCISE_SYSTEM_PROMPT,
-    buildExerciseDescription(input, bodyWeightKg),
-  );
-
-  const estimate = parseExerciseEstimate(raw);
   if (!estimate) {
     throw new AiError('AI returned an invalid response');
   }

@@ -4,7 +4,6 @@
 import {createServer, type IncomingMessage, type ServerResponse} from 'node:http';
 import {MOCK_PORT} from '../env';
 import {
-  EXERCISE_ESTIMATE,
   FOOD_ESTIMATE,
   HEALTH_ALERTS,
   type RecordedEmail,
@@ -222,13 +221,9 @@ async function handleCompletion(req: IncomingMessage, res: ServerResponse) {
     return respondJson(res, 200, completion('Sorry, I cannot help with that.'));
   }
 
-  const isExercise = system.startsWith('You are an exercise');
-  const payload = isExercise
-    ? scenario === 'missing-calories'
-      ? {assumptions: 'No idea.'}
-      : EXERCISE_ESTIMATE
-    : foodResponse(scenario, system.includes('<health_notes>'));
-  const content = JSON.stringify(payload);
+  const content = JSON.stringify(
+    foodResponse(scenario, system.includes('<health_notes>')),
+  );
 
   respondJson(
     res,

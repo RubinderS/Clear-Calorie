@@ -86,7 +86,7 @@ test.describe('Saved food', () => {
 test.describe('Saved exercise', () => {
   test('POST creates strength and time items', async ({api}) => {
     const strength = await api.post('/api/saved-exercise', {
-      data: {name: 'Deadlift', calories: 120, type: 'STRENGTH', sets: 3, reps: 5, weight: 100},
+      data: {name: 'Deadlift', type: 'STRENGTH', sets: 3, reps: 5, weight: 100},
     });
     expect(strength.status()).toBe(201);
     expect(await strength.json()).toMatchObject({
@@ -99,7 +99,7 @@ test.describe('Saved exercise', () => {
     });
 
     const time = await api.post('/api/saved-exercise', {
-      data: {name: '  Swim  ', calories: 300, type: 'TIME', durationMin: 30, isPinned: true},
+      data: {name: '  Swim  ', type: 'TIME', durationMin: 30, isPinned: true},
     });
     expect(await time.json()).toMatchObject({
       name: 'Swim',
@@ -112,7 +112,7 @@ test.describe('Saved exercise', () => {
   test('duplicate name → 400; update by id → 201', async ({api, db, user}) => {
     const item = await seedSavedExercise(db, user.id, {name: 'Yoga'});
     const duplicate = await api.post('/api/saved-exercise', {
-      data: {name: 'Yoga', calories: 1, type: 'TIME', durationMin: 5},
+      data: {name: 'Yoga', type: 'TIME', durationMin: 5},
     });
     expect(duplicate.status()).toBe(400);
     expect(await duplicate.json()).toEqual({
@@ -120,15 +120,15 @@ test.describe('Saved exercise', () => {
     });
 
     const update = await api.post('/api/saved-exercise', {
-      data: {id: item.id, name: 'Yoga', calories: 99, type: 'TIME', durationMin: 45},
+      data: {id: item.id, name: 'Yoga', type: 'TIME', durationMin: 45},
     });
     expect(update.status()).toBe(201);
-    expect(await update.json()).toMatchObject({id: item.id, calories: 99, durationMin: 45});
+    expect(await update.json()).toMatchObject({id: item.id, durationMin: 45});
   });
 
   test('validation and delete', async ({api, db, user}) => {
     const invalid = await api.post('/api/saved-exercise', {
-      data: {name: 'x', calories: 1, type: 'STRENGTH', sets: 1, reps: 0},
+      data: {name: 'x', type: 'STRENGTH', sets: 1, reps: 0},
     });
     expect(invalid.status()).toBe(400);
 

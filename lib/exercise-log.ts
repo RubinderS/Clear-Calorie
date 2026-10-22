@@ -14,7 +14,6 @@ import {prisma} from '@/lib/prisma';
 export const exerciseLogSchema = z
   .object({
     name: z.string().trim().min(1),
-    calories: z.number().int().min(0),
   })
   .and(exerciseInputSchema);
 
@@ -28,7 +27,7 @@ export async function createExerciseLog(
   timeZone: string,
   input: ExerciseLogInput,
 ) {
-  const {name, calories} = input;
+  const {name} = input;
 
   const planned = await getPlannedExerciseGoals(userId, timeZone);
   if (planned.some((goal) => isSameExerciseName(goal.name, name))) {
@@ -43,7 +42,6 @@ export async function createExerciseLog(
     data: {
       name,
       catalogId: catalogIdFor(name),
-      calories,
       ...fields,
       durationMin: fields.durationMin ?? 0,
       userId,

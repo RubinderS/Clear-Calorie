@@ -16,14 +16,12 @@ import {
   CatalogSuggestion,
   catalogSuggestions,
 } from '@/components/exercise-name-input';
-import {Decimal} from '@/lib/decimal';
 import {formatExerciseDetail, isSameExerciseName} from '@/lib/exercise';
 
 type SavedExerciseItem = {
   id: string;
   name: string;
   type: string;
-  calories: number;
   durationMin: number;
   sets: number | null;
   reps: number | null;
@@ -100,15 +98,6 @@ export function ExerciseForm({
     : [];
 
   function applySuggestion(item: SavedExerciseItem) {
-    const form = document.getElementById(
-      'exercise-form',
-    ) as HTMLFormElement | null;
-    if (!form) return;
-
-    (form.elements.namedItem('calories') as HTMLInputElement).value = String(
-      item.calories,
-    );
-
     setName(item.name);
     setDetails(toDetailValues(item));
     setSelectedId(item.id);
@@ -167,9 +156,6 @@ export function ExerciseForm({
     const formData = new FormData(event.currentTarget);
     const data = {
       name: (formData.get('name') as string)?.trim(),
-      calories: new Decimal(Number(formData.get('calories')))
-        .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
-        .toNumber(),
       ...toDetailsPayload(details),
     };
 
@@ -272,7 +258,7 @@ export function ExerciseForm({
                       {item.isPinned && '📌 '}
                       {item.name}
                       <span className="ml-2 text-xs text-muted-foreground">
-                        {formatExerciseDetail(item)} · {item.calories} kcal
+                        {formatExerciseDetail(item)}
                       </span>
                     </span>
                     <button
@@ -304,16 +290,6 @@ export function ExerciseForm({
             value={details}
             onChange={setDetails}
           />
-          <div className="flex flex-col space-y-2">
-            <Label htmlFor="calories">Calories burned</Label>
-            <Input
-              id="calories"
-              name="calories"
-              type="number"
-              min={0}
-              required
-            />
-          </div>
           <div className="flex flex-col gap-2 rounded-xl border border-border/50 bg-muted/30 p-3">
             <div className="flex items-center gap-2">
               <input

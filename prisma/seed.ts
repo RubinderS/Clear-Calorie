@@ -185,7 +185,6 @@ type GoalSeed = {
   key: string;
   name: string;
   type: "TIME" | "STRENGTH";
-  calories: number;
   durationMin?: number;
   sets?: number;
   reps?: number;
@@ -204,7 +203,6 @@ const GOALS: readonly GoalSeed[] = [
     key: "run",
     name: "Morning run",
     type: "TIME",
-    calories: 320,
     durationMin: 30,
     days: [1, 3, 5],
     createdDaysAgo: HISTORY_DAYS,
@@ -213,7 +211,6 @@ const GOALS: readonly GoalSeed[] = [
     key: "squat",
     name: "Barbell back squat with a two-second pause at the bottom and controlled tempo",
     type: "STRENGTH",
-    calories: 240,
     sets: 4,
     reps: 8,
     weight: 135,
@@ -224,7 +221,6 @@ const GOALS: readonly GoalSeed[] = [
     key: "walk",
     name: "Evening walk around the neighbourhood park, along the river and back home again",
     type: "TIME",
-    calories: 150,
     durationMin: 20,
     days: [0, 1, 2, 3, 4, 5, 6],
     createdDaysAgo: HISTORY_DAYS,
@@ -233,7 +229,6 @@ const GOALS: readonly GoalSeed[] = [
     key: "pushups",
     name: "Push-ups",
     type: "STRENGTH",
-    calories: 60,
     sets: 3,
     reps: 15,
     days: [1, 2, 3, 4, 5],
@@ -243,7 +238,6 @@ const GOALS: readonly GoalSeed[] = [
     key: "rdl",
     name: "Single-arm dumbbell Romanian deadlift to overhead press complex (alternating sides)",
     type: "STRENGTH",
-    calories: 180,
     sets: 3,
     reps: 10,
     weight: 25,
@@ -254,7 +248,6 @@ const GOALS: readonly GoalSeed[] = [
     key: "plank",
     name: "Plank",
     type: "TIME",
-    calories: 15,
     durationMin: 3,
     days: [1, 3, 5, 0],
     createdDaysAgo: 10,
@@ -263,7 +256,6 @@ const GOALS: readonly GoalSeed[] = [
     key: "yoga",
     name: "Yoga flow",
     type: "TIME",
-    calories: 180,
     durationMin: 45,
     days: [0, 1, 2, 3, 4, 5, 6],
     createdDaysAgo: 3,
@@ -274,7 +266,6 @@ const GOALS: readonly GoalSeed[] = [
     key: "bench",
     name: "Dumbbell bench press",
     type: "STRENGTH",
-    calories: 90,
     setPlan: [
       { reps: 10, weight: 20 },
       { reps: 8, weight: 22.5 },
@@ -290,7 +281,6 @@ const GOALS: readonly GoalSeed[] = [
 const DELETED_GOAL = {
   name: "Swimming laps at the community aquatic centre (freestyle and backstroke)",
   type: "TIME" as const,
-  calories: 400,
   durationMin: 40,
   days: [6],
   createdDaysAgo: HISTORY_DAYS,
@@ -300,7 +290,6 @@ const DELETED_GOAL = {
 type ExtraSeed = {
   name: string;
   type: "TIME" | "STRENGTH";
-  calories: number;
   durationMin?: number;
   sets?: number;
   reps?: number;
@@ -309,17 +298,15 @@ type ExtraSeed = {
 
 // Unplanned exercises that show up as "extra" on the chart.
 const EXTRAS: readonly ExtraSeed[] = [
-  { name: "Cycling to work", type: "TIME", calories: 260, durationMin: 35 },
+  { name: "Cycling to work", type: "TIME", durationMin: 35 },
   {
     name: "Pick-up basketball game with friends at the outdoor court downtown",
     type: "TIME",
-    calories: 520,
     durationMin: 60,
   },
   {
     name: "Bench press",
     type: "STRENGTH",
-    calories: 150,
     sets: 5,
     reps: 5,
     weight: 155,
@@ -327,7 +314,6 @@ const EXTRAS: readonly ExtraSeed[] = [
   {
     name: "Weighted pull-ups with neutral grip and slow eccentric lowering phase",
     type: "STRENGTH",
-    calories: 120,
     sets: 4,
     reps: 6,
     weight: 20,
@@ -335,13 +321,12 @@ const EXTRAS: readonly ExtraSeed[] = [
   {
     name: "Bicep curls",
     type: "STRENGTH",
-    calories: 70,
     sets: 3,
     reps: 12,
     weight: 30,
   },
-  { name: "Hiking", type: "TIME", calories: 610, durationMin: 120 },
-  { name: "Stretching", type: "TIME", calories: 30, durationMin: 10 },
+  { name: "Hiking", type: "TIME", durationMin: 120 },
+  { name: "Stretching", type: "TIME", durationMin: 10 },
 ];
 
 type DayScenario =
@@ -548,21 +533,18 @@ async function main() {
       {
         name: "Morning run",
         type: "TIME",
-        calories: 320,
         durationMin: 30,
         isPinned: true,
       },
       {
         name: "Evening walk",
         type: "TIME",
-        calories: 150,
         durationMin: 20,
         isPinned: true,
       },
       {
         name: "Strength training",
         type: "STRENGTH",
-        calories: 210,
         sets: 3,
         reps: 10,
         weight: 50,
@@ -673,7 +655,6 @@ async function main() {
       exerciseGoalId: goal.id,
       goalDate: dateKey(daysAgo),
       name: goal.name,
-      calories: goal.calories,
       loggedAt: dayAt(daysAgo, minutesAgo),
       exerciseSets: { create: toSetRows(sets) },
     });
@@ -717,7 +698,6 @@ async function main() {
         userId: user.id,
         name: DELETED_GOAL.name,
         type: DELETED_GOAL.type,
-        calories: DELETED_GOAL.calories,
         durationMin: DELETED_GOAL.durationMin,
         goalDate: dateKey(daysAgo),
         loggedAt: dayAt(daysAgo, minutesAgo--),

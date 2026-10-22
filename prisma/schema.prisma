@@ -118,7 +118,6 @@ model ExerciseLog {
   userId         String
   name           String
   type           String   @default("TIME")
-  calories       Int
   durationMin    Int      @default(0)
   sets           Int?
   reps           Int?
@@ -165,7 +164,6 @@ model SavedExerciseItem {
   userId      String
   name        String
   type        String   @default("TIME")
-  calories    Int
   durationMin Int      @default(0)
   sets        Int?
   reps        Int?
@@ -189,7 +187,6 @@ model ExerciseGoal {
   userId      String
   name        String
   type        String   @default("TIME")
-  calories    Int      @default(0)
   durationMin Int?
   sets        Int?
   reps        Int?
@@ -353,7 +350,6 @@ model WeeklyReport {
   exercisesDone    Int
   cardioMinutes    Int
   strengthSessions Int
-  exerciseCalories Int
 
   // Weight averages; weightAvg is null when there were no weigh-ins, and
   // prevWeightAvg covers the week before (or the latest earlier weigh-in)

@@ -3,13 +3,11 @@
 import {Plus, X} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
-import {Label} from '@/components/ui/label';
 import {Toggler, type TogglerOption} from '@/components/ui/toggler';
-import {Decimal, averageNumbers, roundNumber} from '@/lib/decimal';
+import {Decimal} from '@/lib/decimal';
 import {
   MAX_SETS,
   setsOf,
-  toExerciseFields,
   type ExerciseSet,
   type ExerciseWithSets,
 } from '@/lib/exercise';
@@ -81,26 +79,6 @@ export function toDetailValues(item: ExerciseWithSets): ExerciseDetailValues {
 
 export function toDetailsPayload(values: ExerciseDetailValues) {
   return {exerciseSets: toSetsPayload(values.sets)};
-}
-
-/**
- * A summary of the sets for estimating calories, averaging their weights.
- * Sets not filled in yet still count, so a partly filled form can be estimated.
- */
-export function toEstimateDetails(values: ExerciseDetailValues) {
-  const sets = toSetsPayload(values.sets).filter(
-    (set) => (set.reps ?? 0) > 0 || (set.durationSec ?? 0) > 0,
-  );
-  const {type, reps, durationMin} =
-    sets.length > 0
-      ? toExerciseFields(sets)
-      : {type: 'STRENGTH' as const, reps: null, durationMin: null};
-  const count = values.sets.length;
-  const average = averageNumbers(
-    sets.flatMap((set) => (set.weight ? [set.weight] : [])),
-  );
-  const weight = average === null ? null : roundNumber(average, 1);
-  return {type, sets: count, reps, durationMin, weight};
 }
 
 type SetRowsProps = {
@@ -272,12 +250,6 @@ export function ExerciseDetailFields({
 /** A log's work, set by set. */
 export type WorkValues = {sets: SetValues[]};
 
-export type ExerciseLogValues = WorkValues & {
-  calories: string;
-  /** Set once the user types calories, which then stop following the work. */
-  caloriesEdited: boolean;
-};
-
 export function toWorkValues(item: ExerciseWithSets): WorkValues {
   return {sets: setsOf(item).map(toSetValues)};
 }
@@ -286,128 +258,33 @@ export function toSetsPayload(sets: readonly SetValues[]): ExerciseSet[] {
   return sets.map(toSet);
 }
 
-/** Each set as the exercise APIs take them, plus calories. */
-export function toLogPayload(values: ExerciseLogValues) {
-  return {
-    calories: toInt(values.calories),
-    exerciseSets: toSetsPayload(values.sets),
-  };
-}
-
-// Roughly the time a rep takes, so reps and timed sets compare as work.
-const SECONDS_PER_REP = 3;
-
-/**
- * Relative amount of work. Weight counts only when every rep set has one,
- * so adding a weight to an unweighted log doesn't multiply its calories.
- */
-function workRatio(from: WorkValues, to: WorkValues) {
-  const repSets = [...from.sets, ...to.sets].filter(
-    (set) => set.mode === 'reps',
-  );
-  const weighted =
-    repSets.length > 0 && repSets.every((set) => Number(set.weight) > 0);
-  const work = ({sets}: WorkValues) =>
-    sets.reduce(
-      (sum, set) =>
-        sum +
-        (set.mode === 'reps'
-          ? Number(set.reps) *
-            SECONDS_PER_REP *
-            (weighted ? Number(set.weight) : 1)
-          : (parseTime(set.time) ?? 0)),
-      0,
-    );
-  const fromWork = work(from);
-  return fromWork > 0 ? work(to) / fromWork : null;
-}
-
-/** Scales calories burned by the change in work, or null if it can't tell. */
-function scaleCalories(
-  calories: number,
-  from: WorkValues,
-  to: WorkValues,
-): number | null {
-  const ratio = workRatio(from, to);
-  if (ratio === null || !Number.isFinite(ratio)) return null;
-  return new Decimal(calories)
-    .times(ratio)
-    .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
-    .toNumber();
-}
-
-/** Values for logging `work`, with calories scaled from the baseline's. */
-export function initialLogValues(
-  baseline: WorkValues,
-  baselineCalories: number,
-  work: WorkValues = baseline,
-): ExerciseLogValues {
-  return {
-    ...work,
-    calories: String(
-      scaleCalories(baselineCalories, baseline, work) ?? baselineCalories,
-    ),
-    caloriesEdited: false,
-  };
+/** Each set as the exercise APIs take them. */
+export function toLogPayload(values: WorkValues) {
+  return {exerciseSets: toSetsPayload(values.sets)};
 }
 
 type ExerciseLogFieldsProps = {
   idPrefix: string;
-  /** What the calories were known for; edits scale them from here. */
-  baseline: WorkValues;
-  baselineCalories: number;
-  value: ExerciseLogValues;
-  onChange: (value: ExerciseLogValues) => void;
+  value: WorkValues;
+  onChange: (value: WorkValues) => void;
   /** A sequence's exercises, one per step; its steps stay as planned. */
   stepNames?: readonly string[];
 };
 
-/** What was done, set by set, plus the calories it burned. */
+/** What was done, set by set. */
 export function ExerciseLogFields({
   idPrefix,
-  baseline,
-  baselineCalories,
   value,
   onChange,
   stepNames,
 }: ExerciseLogFieldsProps) {
-  function changeSets(sets: SetValues[]) {
-    const scaled = value.caloriesEdited
-      ? null
-      : scaleCalories(baselineCalories, baseline, {sets});
-    onChange({
-      ...value,
-      sets,
-      calories: scaled === null ? value.calories : String(scaled),
-    });
-  }
-
   return (
-    <div className="space-y-4">
-      <SetRows
-        idPrefix={idPrefix}
-        sets={value.sets}
-        onChange={changeSets}
-        labels={stepNames}
-        fixedCount={stepNames !== undefined}
-      />
-      <div className="flex flex-col space-y-2">
-        <Label htmlFor={`${idPrefix}-calories`}>Calories burned</Label>
-        <Input
-          id={`${idPrefix}-calories`}
-          type="number"
-          min={0}
-          value={value.calories}
-          onChange={(event) =>
-            onChange({
-              ...value,
-              calories: event.target.value,
-              caloriesEdited: true,
-            })
-          }
-          required
-        />
-      </div>
-    </div>
+    <SetRows
+      idPrefix={idPrefix}
+      sets={value.sets}
+      onChange={(sets) => onChange({sets})}
+      labels={stepNames}
+      fixedCount={stepNames !== undefined}
+    />
   );
 }

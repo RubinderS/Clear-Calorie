@@ -5,10 +5,8 @@ import {useRouter} from 'next/navigation';
 import {
   ChevronDown,
   ListOrdered,
-  Loader2,
   Pencil,
   Plus,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import type {ExerciseGoal} from '@prisma/client';
@@ -28,20 +26,17 @@ import {
   ExerciseDetailFields,
   toDetailValues,
   toDetailsPayload,
-  toEstimateDetails,
 } from '@/components/exercise-detail-fields';
 import {ExerciseAreaTag, ExerciseAreas, ExerciseHowTo} from '@/components/exercise-animation';
 import {ExerciseNameInput} from '@/components/exercise-name-input';
 import {
   SequenceStepsField,
   SequenceTag,
-  toSequenceEstimate,
   toStepDrafts,
   toStepsPayload,
   type StepDraft,
 } from '@/components/sequence-steps-field';
 import {dayFocus} from '@/lib/day-focus';
-import {Decimal} from '@/lib/decimal';
 import {catalogIdFor, exerciseCatalog} from '@/lib/exercise-catalog';
 import {cn} from '@/lib/utils';
 import {
@@ -59,10 +54,9 @@ import {
 
 type ExerciseGoalsFormProps = {
   goals: ExerciseGoal[];
-  aiEnabled?: boolean;
 };
 
-export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
+export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,13 +72,9 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
     kind === 'exercise' ? exerciseCatalog.get(catalogIdFor(name)) : undefined;
   const sequence = kind === 'sequence';
   const noun = sequence ? 'sequence' : 'exercise';
-  const [calories, setCalories] = useState('');
   const [notes, setNotes] = useState('');
   const [details, setDetails] = useState(EMPTY_EXERCISE_DETAILS);
   const [days, setDays] = useState<number[]>([]);
-  const [estimating, setEstimating] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
-  const [aiAssumptions, setAiAssumptions] = useState<string | null>(null);
 
   const allCollapsed = collapsedDays.length === WEEKDAYS.length;
 
@@ -110,13 +100,10 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
     setKind('exercise');
     setSteps([]);
     setName('');
-    setCalories('');
     setNotes('');
     setDetails(EMPTY_EXERCISE_DETAILS);
     setDays([]);
     setError(null);
-    setAiError(null);
-    setAiAssumptions(null);
   }
 
   function startEdit(goal: ExerciseGoal) {
@@ -125,47 +112,10 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
     setKind(isSequence(goal) ? 'sequence' : 'exercise');
     setSteps(toStepDrafts(parseSequenceSteps(goal.steps) ?? []));
     setName(goal.name);
-    setCalories(goal.calories > 0 ? String(goal.calories) : '');
     setNotes(goal.notes ?? '');
     setDetails(toDetailValues(goal));
     setDays(maskToDays(goal.daysMask));
     setError(null);
-    setAiError(null);
-    setAiAssumptions(null);
-  }
-
-  async function estimateWithAi() {
-    const exerciseName = name.trim();
-    if (!exerciseName) return;
-
-    setEstimating(true);
-    setAiError(null);
-
-    try {
-      const response = await fetch('/api/exercise/estimate', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          name: exerciseName,
-          ...(sequence
-            ? toSequenceEstimate(steps)
-            : toEstimateDetails(details)),
-        }),
-      });
-      const payload = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        setAiError(payload?.error ?? 'Could not estimate this exercise');
-        return;
-      }
-
-      setCalories(String(payload.calories));
-      setAiAssumptions(payload.assumptions || '');
-    } catch {
-      setAiError('Could not reach the AI service');
-    } finally {
-      setEstimating(false);
-    }
   }
 
   function toggleDay(day: number, checked: boolean) {
@@ -210,11 +160,6 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
       body: JSON.stringify({
         id: editingId ?? undefined,
         name: name.trim(),
-        calories: calories.trim()
-          ? new Decimal(Number(calories))
-              .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
-              .toNumber()
-          : 0,
         notes,
         days,
         ...(sequence
@@ -350,8 +295,6 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatExerciseDetail(goal)}
-                                {goal.calories > 0 &&
-                                  ` · ${goal.calories} kcal`}
                               </p>
                               {isSequence(goal) && (
                                 <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
@@ -464,56 +407,6 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
               />
             </>
           )}
-          <div className="flex flex-col space-y-2">
-            <Label htmlFor="exerciseGoalCalories">
-              Calories burned{' '}
-              <span className="font-normal text-muted-foreground">
-                (optional)
-              </span>
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                id="exerciseGoalCalories"
-                type="number"
-                min={0}
-                value={calories}
-                onChange={(event) => {
-                  setCalories(event.target.value);
-                  setAiAssumptions(null);
-                }}
-                className="min-w-0 flex-1"
-              />
-              {aiEnabled && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={estimateWithAi}
-                  disabled={estimating || !name.trim()}
-                  aria-label="Estimate calories burned with AI"
-                  className="shrink-0 px-3"
-                >
-                  {estimating ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    <Sparkles />
-                  )}
-                  {estimating ? 'Estimating...' : 'Estimate'}
-                </Button>
-              )}
-            </div>
-            {aiError && (
-              <p role="alert" className="text-sm text-red-500">
-                {aiError}
-              </p>
-            )}
-            {aiAssumptions !== null && (
-              <p className="text-xs text-muted-foreground">
-                <Sparkles className="mr-1 inline size-3" />
-                AI estimate. Check before saving.
-                {aiAssumptions && ` ${aiAssumptions}`}
-              </p>
-            )}
-          </div>
           <div className="flex flex-col space-y-2">
             <Label htmlFor="exerciseGoalNotes">
               Notes{' '}

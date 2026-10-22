@@ -62,7 +62,6 @@ export type StoredPlanChange = z.infer<typeof planChangeSchema>;
 /** A planned exercise in a proposal with every set listed, or a sequence. */
 export type PlanGoal = {
   name: string;
-  calories: number;
   notes?: string | null;
   days: number[];
 } & (
@@ -92,7 +91,6 @@ export const planChangeArgsSchema = z.object({
   reps: z.number().int().min(1).max(MAX_REPS).optional(),
   weight: z.number().min(0).max(1000).optional(),
   durationMin: z.number().int().min(1).max(1440).optional(),
-  calories: z.number().int().min(0).max(10_000).optional(),
   notes: z.string().max(EXERCISE_NOTES_MAX).optional(),
   // A sequence: several built-in exercises back to back, each step one set
   name: z.string().trim().min(1).max(100).optional(),
@@ -118,7 +116,6 @@ export type CurrentGoal = {
   id: string;
   name: string;
   type: string;
-  calories: number;
   durationMin: number | null;
   sets: number | null;
   reps: number | null;
@@ -133,7 +130,6 @@ export type CurrentGoal = {
 export function toPlanGoal(goal: CurrentGoal): PlanGoal {
   const base = {
     name: goal.name,
-    calories: goal.calories,
     notes: goal.notes,
     days: maskToDays(goal.daysMask),
   };
@@ -290,14 +286,13 @@ function checkNameFree(name: string, goals: readonly CurrentGoal[], exceptId?: s
 /**
  * Builds the change a proposal describes from the model's arguments and the
  * user's plan. Throws ToolInputError with a message for the model when the
- * arguments are incomplete. `workChanged` is true when the sets are new or
- * changed, so calories may need estimating.
+ * arguments are incomplete.
  */
 export function buildPlanChange(
   args: PlanChangeArgs,
   goals: readonly CurrentGoal[],
   catalog: Catalog = exerciseCatalog,
-): {change: PlanChange; workChanged: boolean} {
+): PlanChange {
   if (args.operation === 'add' && args.steps) {
     if (!args.name) {
       throw new ToolInputError(
@@ -310,13 +305,12 @@ export function buildPlanChange(
     checkNameFree(args.name, goals);
     const goal: PlanGoal = {
       name: args.name,
-      calories: args.calories ?? 0,
       notes: normalizeNotes(args.notes),
       days: parseDays(args.days),
       type: SEQUENCE_TYPE,
       steps: sequenceSteps(args.steps, catalog),
     };
-    return {change: {operation: 'add', goal}, workChanged: true};
+    return {operation: 'add', goal};
   }
 
   if (args.operation === 'add') {
@@ -328,7 +322,6 @@ export function buildPlanChange(
     const type = args.type ?? entry.type;
     const goal: PlanGoal = {
       name: entry.name,
-      calories: args.calories ?? 0,
       notes: normalizeNotes(args.notes),
       days: parseDays(args.days),
       exerciseSets:
@@ -336,7 +329,7 @@ export function buildPlanChange(
           ? strengthSets(args.sets, args.reps, args.weight)
           : timeSets(args.durationMin),
     };
-    return {change: {operation: 'add', goal}, workChanged: true};
+    return {operation: 'add', goal};
   }
 
   const current = findGoal(args, goals);
@@ -344,11 +337,10 @@ export function buildPlanChange(
   const changeOf = {goalId: current.id, updatedAt: current.updatedAt.toISOString(), before};
 
   if (args.operation === 'remove') {
-    return {change: {operation: 'remove', ...changeOf}, workChanged: false};
+    return {operation: 'remove', ...changeOf};
   }
 
   const shared = {
-    calories: args.calories ?? before.calories,
     notes: args.notes === undefined ? before.notes : normalizeNotes(args.notes),
     days: args.days ? parseDays(args.days) : before.days,
   };
@@ -379,13 +371,12 @@ export function buildPlanChange(
     if (name !== before.name) checkNameFree(name, goals, current.id);
     goal = {name, ...shared, exerciseSets: changedSets(args, current)};
   }
-  const details = ({name, calories, notes, days}: PlanGoal) =>
-    JSON.stringify({name, calories, notes, days});
-  const workChanged = workKey(goal) !== workKey(before);
-  if (!workChanged && details(goal) === details(before)) {
+  const details = ({name, notes, days}: PlanGoal) =>
+    JSON.stringify({name, notes, days});
+  if (workKey(goal) === workKey(before) && details(goal) === details(before)) {
     throw new ToolInputError('That is already the plan; nothing would change.');
   }
-  return {change: {operation: 'update', ...changeOf, goal}, workChanged};
+  return {operation: 'update', ...changeOf, goal};
 }
 
 export function formatDays(days: readonly number[]): string {
@@ -429,7 +420,6 @@ export function planChangeRows(
     ...('steps' in goal
       ? {Steps: describeSequence(goal.steps).join(' · ')}
       : {Sets: formatPlanSets(goalInputSets(goal))}),
-    Calories: goal.calories > 0 ? `${goal.calories} kcal` : 'None',
     Notes: goal.notes?.trim() || 'None',
   });
   const linesFor = (goal: ExerciseGoalInput, label: string) =>

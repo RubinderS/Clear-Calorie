@@ -39,7 +39,6 @@ export async function saveExerciseGoal(
 ) {
   const data = {
     name: input.name,
-    calories: input.calories,
     notes: normalizeNotes(input.notes),
     daysMask: daysToMask(input.days),
     // A sequence's exercises and tempos are kept per step instead.
@@ -126,7 +125,6 @@ export async function getTodaysPlanStatus(
     id: goal.id,
     name: goal.name,
     type: goal.type,
-    calories: goal.calories,
     durationMin: goal.durationMin,
     sets: goal.sets,
     reps: goal.reps,

@@ -7,7 +7,6 @@ import {
   SET_MODES,
   UnitInput,
   formatTimeInput,
-  toEstimateDetails,
   toSetsPayload,
   type SetValues,
 } from '@/components/exercise-detail-fields';
@@ -19,7 +18,6 @@ import {Toggler} from '@/components/ui/toggler';
 import {
   DEFAULT_BREAK_SEC,
   MAX_SEQUENCE_STEPS,
-  describeSequence,
   formatDuration,
   type SequenceStep,
 } from '@/lib/exercise';
@@ -62,14 +60,6 @@ export function toStepsPayload(drafts: readonly StepDraft[]): SequenceStep[] {
     catalogId: draft.catalogId,
     restSec: index === 0 ? 0 : draft.restSec,
   }));
-}
-
-/** A summary of every step for estimating calories, with the steps listed. */
-export function toSequenceEstimate(drafts: readonly StepDraft[]) {
-  return {
-    ...toEstimateDetails({sets: drafts.map((draft) => draft.set)}),
-    parts: describeSequence(toStepsPayload(drafts)),
-  };
 }
 
 export function SequenceTag() {

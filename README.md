@@ -7,7 +7,7 @@ A Next.js web app for tracking calories, exercise, weight, and health goals.
 - User authentication (sign up / sign in) with NextAuth.js
 - Dashboard with daily calorie summary and progress charts
 - Food logging with calories and macros
-- Exercise logging with calories burned and duration
+- Exercise logging with sets, reps, weight and duration
 - Weight tracking over time
 - Daily nutrition goals
 

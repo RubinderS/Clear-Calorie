@@ -110,7 +110,6 @@ test.describe('desktop drawer', () => {
   }) => {
     const goal = await seedExerciseGoal(db, user.id, {
       name: 'Bench press',
-      calories: 0,
       sets: 3,
       reps: 8,
       weight: 60,
@@ -159,7 +158,7 @@ test.describe('desktop drawer', () => {
     await card.getByRole('button', {name: 'Confirm'}).click();
     await expect(card.getByText('Plan updated')).toBeVisible();
     const goal = await db.exerciseGoal.findFirstOrThrow({where: {userId: user.id}});
-    expect(goal).toMatchObject({name: 'Cardio circuit', type: 'SEQUENCE', calories: 90, daysMask: 2});
+    expect(goal).toMatchObject({name: 'Cardio circuit', type: 'SEQUENCE', daysMask: 2});
     expect(JSON.parse(goal.steps ?? '[]')).toEqual([
       {durationSec: 45, weight: null, name: 'Jumping jack', catalogId: 'jumping-jack', restSec: 0},
       {reps: 12, weight: null, name: 'Goblet squat', catalogId: 'goblet-squat', restSec: 30},
@@ -171,7 +170,7 @@ test.describe('desktop drawer', () => {
     db,
     user,
   }) => {
-    const goal = await seedExerciseGoal(db, user.id, {name: 'Pushups', calories: 0, reps: 15});
+    const goal = await seedExerciseGoal(db, user.id, {name: 'Pushups', reps: 15});
     await page.goto('/dashboard');
     await page.getByRole('button', {name: 'Ask coach'}).click();
     await ask(page, '[ai:chat-links] Match my exercises to the built-in ones');
@@ -197,7 +196,7 @@ test.describe('desktop drawer', () => {
     db,
     user,
   }) => {
-    const goal = await seedExerciseGoal(db, user.id, {name: 'Bench press', calories: 0, weight: 60});
+    const goal = await seedExerciseGoal(db, user.id, {name: 'Bench press', weight: 60});
     await page.goto('/dashboard');
     await page.getByRole('button', {name: 'Ask coach'}).click();
     await ask(page, '[ai:chat-plan] Bump my bench by 2.5 kg');

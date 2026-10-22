@@ -283,16 +283,14 @@ test('WO-04/05/06/07 a full strength workout', async ({authedPage: page, db, use
   await expect(c.reps).toHaveText('8 reps');
   await c.next.click();
 
-  // Each set is shown for checking first, with calories scaled to the work done.
+  // Each set is shown for checking first.
   await expect(workout.getByText('Check what you did, then log it')).toBeVisible();
   await expect(workout.getByLabel('Set 1 reps')).toHaveValue('10');
   await expect(workout.getByLabel('Set 2 reps')).toHaveValue('10');
   await expect(workout.getByLabel('Set 3 reps')).toHaveValue('8');
   await expect(workout.getByLabel('Set 3 weight')).toHaveValue('100');
-  await expect(workout.getByLabel('Calories burned')).toHaveValue('93');
   // The last set went heavier.
   await workout.getByLabel('Set 3 weight').fill('110');
-  await expect(workout.getByLabel('Calories burned')).toHaveValue('96');
   const logged = nextApiRequest(page, '/api/exercise-goals/log');
   await workout.getByRole('button', {name: 'Done', exact: true}).click();
   expect((await logged).postDataJSON()).toEqual({
@@ -302,7 +300,6 @@ test('WO-04/05/06/07 a full strength workout', async ({authedPage: page, db, use
       {reps: 10, weight: 100},
       {reps: 8, weight: 110},
     ],
-    calories: 96,
   });
 
   const plan = card(panel, "Today's plan");
@@ -471,7 +468,6 @@ test('WO-13 a sequence runs its exercises in turn, with breaks that follow a cha
   const goal = await seedExerciseGoal(db, user.id, {
     name: 'Cardio circuit',
     type: 'SEQUENCE',
-    calories: 60,
     sets: 3,
     reps: 10,
     // Timed steps use the user's own exercise: animating 3D frames under the
@@ -533,7 +529,7 @@ test('WO-13 a sequence runs its exercises in turn, with breaks that follow a cha
     where: {userId: user.id},
     include: {exerciseSets: {orderBy: {position: 'asc'}}},
   });
-  expect(log).toMatchObject({exerciseGoalId: goal.id, name: 'Cardio circuit', calories: 60});
+  expect(log).toMatchObject({exerciseGoalId: goal.id, name: 'Cardio circuit'});
   expect(
     log.exerciseSets.map((set) => [set.name, set.catalogId, set.reps, set.durationSec]),
   ).toEqual([

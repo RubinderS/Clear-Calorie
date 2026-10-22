@@ -384,7 +384,6 @@ export const EXERCISE_NOTES_MAX = 500;
 export const exerciseGoalInputSchema = z
   .object({
     name: z.string().trim().min(1).max(100),
-    calories: z.number().int().min(0).default(0),
     notes: z.string().max(EXERCISE_NOTES_MAX).nullish(),
     days: z
       .array(z.number().int().min(0).max(6))

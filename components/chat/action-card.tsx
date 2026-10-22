@@ -184,7 +184,7 @@ function Summary({action}: {action: ChatActionView}) {
         <p className="font-medium">{String(entry.name ?? '')}</p>
         <p className="text-sm text-muted-foreground">
           {detail}
-          {entry.weight ? ' kg' : ''} · {num(entry.calories)} kcal
+          {entry.weight ? ' kg' : ''}
         </p>
       </>
     );

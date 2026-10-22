@@ -2,7 +2,6 @@ import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
 import {authOptions} from '@/lib/auth-options';
 import {prisma} from '@/lib/prisma';
-import {isAiEnabled} from '@/lib/ai';
 import {ExerciseGoalsForm} from '@/components/exercise-goals-form';
 
 export default async function ExercisePlanPage() {
@@ -23,7 +22,7 @@ export default async function ExercisePlanPage() {
         </p>
       </div>
 
-      <ExerciseGoalsForm goals={exerciseGoals} aiEnabled={isAiEnabled()} />
+      <ExerciseGoalsForm goals={exerciseGoals} />
     </div>
   );
 }

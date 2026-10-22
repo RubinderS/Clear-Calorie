@@ -24,7 +24,6 @@ function form(scope: Locator) {
     setReps: (n: number) => scope.getByLabel(`Set ${n} reps`),
     setTime: (n: number) => scope.getByLabel(`Set ${n} time`),
     setWeight: (n: number) => scope.getByLabel(`Set ${n} weight`),
-    calories: scope.getByLabel('Calories burned'),
     save: scope.getByLabel('Save this item for later'),
     pin: scope.getByLabel('Pin this item'),
     submit: scope.getByRole('button', {name: 'Log exercise'}),
@@ -67,14 +66,12 @@ test('EX-03 log a strength exercise', async ({authedPage: page}) => {
   const f = form(await openExercise(page));
   await f.activity.fill('Bench press');
   await f.fillSets(repeat(5, 5), 60);
-  await f.calories.fill('150');
 
   const request = nextApiRequest(page, '/api/exercise');
   await f.submit.click();
   const sent = await request;
   expect(sent.postDataJSON()).toEqual({
     name: 'Bench press',
-    calories: 150,
     exerciseSets: repeat(5, 5).map((reps) => ({reps, weight: 60})),
   });
   expect((await sent.response())?.status()).toBe(201);
@@ -88,12 +85,10 @@ test('EX-04/05 log a time exercise; blank weight is null', async ({
   await f.activity.fill('Rowing');
   // Whole minutes, without seconds.
   await f.fillSets(['25']);
-  await f.calories.fill('250');
   let request = nextApiRequest(page, '/api/exercise');
   await f.submit.click();
   expect((await request).postDataJSON()).toEqual({
     name: 'Rowing',
-    calories: 250,
     exerciseSets: [{durationSec: 1500, weight: null}],
   });
   // Reopening before the first save closes the dialog would be undone by that close.
@@ -102,7 +97,6 @@ test('EX-04/05 log a time exercise; blank weight is null', async ({
   f = form(await openQuickLog(page, 'exercise'));
   await f.activity.fill('Push-ups');
   await f.fillSets(repeat(20, 3));
-  await f.calories.fill('40');
   request = nextApiRequest(page, '/api/exercise');
   await f.submit.click();
   expect((await request).postDataJSON()).toMatchObject({
@@ -115,7 +109,6 @@ test('EX-06 browser limits on reps, times and required fields', async ({authedPa
   const f = form(await openExercise(page));
   await f.activity.fill('Curls');
   await f.fillSets([101]);
-  await f.calories.fill('50');
   await f.submit.click();
   await expect(f.setReps(1)).toHaveJSProperty('validity.rangeOverflow', true);
 
@@ -142,7 +135,6 @@ test("EX-07 custom exercise can't duplicate today's plan", async ({
   const f = form(panel);
   await f.activity.fill('  SQUATS ');
   await f.fillSets(repeat(10, 3));
-  await f.calories.fill('80');
   await f.submit.click();
   await expect(f.alert).toHaveText(`"SQUATS" is in today's plan. Tick it off there instead.`);
   expect(calls).toEqual([]);
@@ -154,7 +146,6 @@ test.describe('Saved exercises', () => {
       name: 'Morning run',
       type: 'TIME',
       durationMin: 30,
-      calories: 320,
       isPinned: true,
     });
     await seedSavedExercise(db, user.id, {
@@ -164,18 +155,17 @@ test.describe('Saved exercises', () => {
       sets: 3,
       reps: 10,
       weight: 50,
-      calories: 210,
       isPinned: true,
     });
-    await seedSavedExercise(db, user.id, {name: 'Hiking', durationMin: 120, calories: 610});
+    await seedSavedExercise(db, user.id, {name: 'Hiking', durationMin: 120});
   });
 
   test('EX-08 suggestions show details and fill the form', async ({authedPage: page}) => {
     const f = form(await openExercise(page));
     await f.activity.focus();
     await expect(f.suggestions).toHaveText([
-      /📌 Morning run\s*30 min · 320 kcal/,
-      /📌 Strength training\s*3 × 10 @ 50 · 210 kcal/,
+      /📌 Morning run\s*30 min/,
+      /📌 Strength training\s*3 × 10 @ 50/,
     ]);
 
     await f.suggestions.filter({hasText: 'Strength training'}).click();
@@ -183,7 +173,6 @@ test.describe('Saved exercises', () => {
     for (const n of [1, 2, 3]) await expect(f.setReps(n)).toHaveValue('10');
     await expect(f.setMode(4, 'reps')).toHaveCount(0);
     for (const n of [1, 2, 3]) await expect(f.setWeight(n)).toHaveValue('50');
-    await expect(f.calories).toHaveValue('210');
     await expect(f.save).toBeChecked();
     await expect(f.pin).toBeChecked();
 
@@ -192,7 +181,6 @@ test.describe('Saved exercises', () => {
     await expect(f.setMode(1, 'time')).toBeChecked();
     await expect(f.setTime(1)).toHaveValue('120:00');
     await expect(f.setMode(2, 'time')).toHaveCount(0);
-    await expect(f.calories).toHaveValue('610');
     await expect(f.pin).not.toBeChecked();
   });
 
@@ -213,7 +201,6 @@ test.describe('Saved exercises', () => {
     const f = form(await openExercise(page));
     await f.activity.fill('Kettlebell swings');
     await f.fillSets(repeat(15, 4), 16);
-    await f.calories.fill('120');
     await f.save.check();
     await f.pin.check();
 
@@ -221,7 +208,6 @@ test.describe('Saved exercises', () => {
     await f.submit.click();
     expect((await saved).postDataJSON()).toEqual({
       name: 'Kettlebell swings',
-      calories: 120,
       exerciseSets: repeat(15, 4).map((reps) => ({reps, weight: 16})),
       isPinned: true,
     });
@@ -238,7 +224,6 @@ test.describe('Saved exercises', () => {
     const f = form(await openExercise(page));
     await f.activity.fill('Hiking');
     await f.fillSets(['60']);
-    await f.calories.fill('300');
     await f.save.check();
     await f.submit.click();
     await expect(f.alert).toHaveText('An item with this name already exists');
@@ -268,7 +253,6 @@ test('EX-10 server errors are shown', async ({authedPage: page}) => {
   const f = form(panel);
   await f.activity.fill('Swim');
   await f.fillSets(['20']);
-  await f.calories.fill('200');
   await f.submit.click();
   await expect(f.alert).toHaveText('Failed to log exercise');
   await expect(panel).toBeVisible();

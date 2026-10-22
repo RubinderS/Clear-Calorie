@@ -237,10 +237,8 @@ test.describe('AIF-08 estimate API validation', () => {
   });
 
   test('SEC-02 signed-out callers get 401', async ({request}) => {
-    for (const path of ['/api/food/estimate', '/api/exercise/estimate']) {
-      const response = await request.post(path, {data: {description: 'x'}});
-      expect(response.status()).toBe(401);
-    }
+    const response = await request.post('/api/food/estimate', {data: {description: 'x'}});
+    expect(response.status()).toBe(401);
   });
 });
 

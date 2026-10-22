@@ -52,16 +52,15 @@ test.describe('SEC-01 unauthenticated requests', () => {
   }
 });
 
-test('SEC-02 estimate endpoints are hidden when AI is off', async ({request, api}) => {
-  for (const path of ['/api/food/estimate', '/api/exercise/estimate']) {
-    // The AI check runs before auth, so even anonymous callers get 404.
-    const anonymous = await request.post(path, {data: {description: 'egg'}});
-    expect(anonymous.status()).toBe(404);
-    expect(await anonymous.json()).toEqual({error: 'Not found'});
+test('SEC-02 the estimate endpoint is hidden when AI is off', async ({request, api}) => {
+  const path = '/api/food/estimate';
+  // The AI check runs before auth, so even anonymous callers get 404.
+  const anonymous = await request.post(path, {data: {description: 'egg'}});
+  expect(anonymous.status()).toBe(404);
+  expect(await anonymous.json()).toEqual({error: 'Not found'});
 
-    const signedIn = await api.post(path, {data: {description: 'egg'}});
-    expect(signedIn.status()).toBe(404);
-  }
+  const signedIn = await api.post(path, {data: {description: 'egg'}});
+  expect(signedIn.status()).toBe(404);
 });
 
 test.describe('SEC-03 users cannot touch each other’s data', () => {

@@ -55,7 +55,6 @@ export type ReportExercise = {
   date: string;
   name: string;
   type: string;
-  calories: number;
   durationMin: number;
   weight: number | null;
   exerciseGoalId: string | null;
@@ -95,7 +94,6 @@ export type WeekMetrics = {
   exercisesDone: number;
   cardioMinutes: number;
   strengthSessions: number;
-  exerciseCalories: number;
   weighInCount: number;
   /** Average of this week's weigh-ins; null when there were none. */
   weightAvg: number | null;
@@ -111,7 +109,6 @@ export type DayBreakdown = {
   carbs: number;
   fat: number;
   saturatedFat: number;
-  exerciseCalories: number;
   exercisesPlanned: number;
   exercisesDone: number;
 };
@@ -124,7 +121,6 @@ export const round1 = (value: number) => roundNumber(value, 1);
 export function computeDailyBreakdown(input: WeekInput): DayBreakdown[] {
   return input.dates.map((date) => {
     const food = input.food.filter((entry) => entry.date === date);
-    const exercise = input.exercise.filter((entry) => entry.date === date);
     return {
       date,
       foodLogged: food.length > 0,
@@ -133,7 +129,6 @@ export function computeDailyBreakdown(input: WeekInput): DayBreakdown[] {
       carbs: round1(sumNumbers(food.map((entry) => entry.carbs))),
       fat: round1(sumNumbers(food.map((entry) => entry.fat))),
       saturatedFat: round1(sumNumbers(food.map((entry) => entry.saturatedFat))),
-      exerciseCalories: sumNumbers(exercise.map((entry) => entry.calories)),
       exercisesPlanned: input.plannedCounts.get(date) ?? 0,
       // Ticked goals keep goalDate even if the goal is later deleted.
       exercisesDone: input.exercise.filter((entry) => entry.goalDate === date).length,
@@ -180,7 +175,6 @@ export function computeWeekMetrics(input: WeekInput): WeekMetrics {
         .filter((entry) => entry.type === 'STRENGTH')
         .map((entry) => entry.date),
     ).size,
-    exerciseCalories: sumNumbers(days.map((day) => day.exerciseCalories)),
     weighInCount: input.weights.length,
     weightAvg: averageWeight(input.weights),
     prevWeightAvg: averageWeight(input.previousWeights),

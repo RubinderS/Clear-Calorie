@@ -111,7 +111,6 @@ export async function DELETE(request: Request) {
 const updateSchema = z
   .object({
     id: z.string().min(1),
-    calories: z.number().int().min(0),
   })
   .and(exerciseInputSchema);
 
@@ -126,7 +125,7 @@ export async function PATCH(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
-    const {id, calories} = parsed.data;
+    const {id} = parsed.data;
 
     const entry = await prisma.exerciseLog.findFirst({
       where: {id, userId: session.user.id},
@@ -159,7 +158,6 @@ export async function PATCH(request: Request) {
     const updated = await prisma.exerciseLog.update({
       where: {id},
       data: {
-        calories,
         ...fields,
         durationMin: fields.durationMin ?? 0,
         exerciseSets: {deleteMany: {}, create: toSetRows(sets)},

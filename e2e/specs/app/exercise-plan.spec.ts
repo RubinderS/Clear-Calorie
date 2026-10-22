@@ -22,7 +22,6 @@ function goalForm(scope: ReturnType<typeof dialog>) {
     setReps: (n: number) => scope.getByLabel(`Set ${n} reps`),
     setTime: (n: number) => scope.getByLabel(`Set ${n} time`),
     setWeight: (n: number) => scope.getByLabel(`Set ${n} weight`),
-    calories: scope.getByLabel('Calories burned'),
     notes: scope.getByLabel('Notes'),
     everyDay: scope.getByLabel('Every day'),
     day: (label: string) => scope.getByLabel(label, {exact: true}),
@@ -42,8 +41,6 @@ test('EP-01 empty plan', async ({authedPage: page}) => {
   await expect(add.getByText('Choose the exercise and the days you plan to do it.')).toBeVisible();
   await expect(goalForm(add).name).toHaveAttribute('maxlength', '100');
   await expect(goalForm(add).notes).toHaveAttribute('maxlength', '500');
-  // AI is off on this server.
-  await expect(add.getByRole('button', {name: 'Estimate calories burned with AI'})).toHaveCount(0);
 });
 
 test('EP-12 a built-in exercise is suggested, linked and has a how-to', async ({
@@ -147,7 +144,6 @@ test('EP-02 add a strength goal on Mon/Wed/Fri', async ({authedPage: page, db, u
   const f = goalForm(add);
   await f.name.fill('Kettlebell swings');
   await f.fillSets(repeat(10, 3), 50);
-  await f.calories.fill('200');
   await f.notes.fill('Heels down');
   await f.day('Mon').check();
   await f.day('Wed').check();
@@ -158,7 +154,6 @@ test('EP-02 add a strength goal on Mon/Wed/Fri', async ({authedPage: page, db, u
   const sent = await request;
   expect(sent.postDataJSON()).toEqual({
     name: 'Kettlebell swings',
-    calories: 200,
     notes: 'Heels down',
     days: [1, 3, 5],
     exerciseSets: repeat(10, 3).map((reps) => ({reps, weight: 50})),
@@ -169,7 +164,7 @@ test('EP-02 add a strength goal on Mon/Wed/Fri', async ({authedPage: page, db, u
   for (const day of [1, 3, 5]) {
     const section = daySection(page, day);
     await expect(section).toContainText('Kettlebell swings');
-    await expect(section).toContainText('3 × 10 @ 50 · 200 kcal');
+    await expect(section).toContainText('3 × 10 @ 50');
     await expect(section).toContainText('Heels down');
   }
   for (const day of [2, 4, 6, 0]) {
@@ -178,7 +173,7 @@ test('EP-02 add a strength goal on Mon/Wed/Fri', async ({authedPage: page, db, u
   expect(await db.exerciseGoal.count({where: {userId: user.id}})).toBe(1);
 });
 
-test('EP-03 time goal without calories', async ({authedPage: page}) => {
+test('EP-03 time goal', async ({authedPage: page}) => {
   const add = await openAdd(page);
   const f = goalForm(add);
   await f.name.fill('Evening walk');
@@ -189,14 +184,12 @@ test('EP-03 time goal without calories', async ({authedPage: page}) => {
   await add.getByRole('button', {name: 'Add exercise'}).click();
   expect((await request).postDataJSON()).toEqual({
     name: 'Evening walk',
-    calories: 0,
     notes: '',
     days: [0],
     exerciseSets: [{durationSec: 1200, weight: null}],
   });
   const sunday = daySection(page, 0);
   await expect(sunday).toContainText('20 min');
-  await expect(sunday).not.toContainText('kcal');
 });
 
 test('EP-03b sets can mix reps and time, each with its own weight', async ({
@@ -273,7 +266,6 @@ test('EP-07 edit a goal', async ({authedPage: page, db, user}) => {
     sets: 3,
     reps: 8,
     weight: 20,
-    calories: 150,
     notes: 'Squeeze',
     days: [2, 4],
   });
@@ -286,7 +278,6 @@ test('EP-07 edit a goal', async ({authedPage: page, db, user}) => {
   await expect(f.name).toHaveValue('Rows');
   for (const n of [1, 2, 3]) await expect(f.setReps(n)).toHaveValue('8');
   for (const n of [1, 2, 3]) await expect(f.setWeight(n)).toHaveValue('20');
-  await expect(f.calories).toHaveValue('150');
   await expect(f.notes).toHaveValue('Squeeze');
   await expect(f.day('Tue')).toBeChecked();
   await expect(f.day('Thu')).toBeChecked();
@@ -436,7 +427,6 @@ test('EP-15 build a sequence with breaks between its exercises', async ({
   const sent = await request;
   expect(sent.postDataJSON()).toEqual({
     name: 'Cardio circuit',
-    calories: 0,
     notes: '',
     days: [1],
     type: 'SEQUENCE',

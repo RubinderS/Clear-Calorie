@@ -10,30 +10,25 @@ const STRENGTH = {
   sets: 3,
   reps: 10,
   weight: 50,
-  calories: 210,
 };
 
-test('EL-01 list shows details, totals and planned entries', async ({
+test('EL-01 list shows details and planned entries', async ({
   authedPage: page,
   db,
   user,
 }) => {
   const goal = await seedExerciseGoal(db, user.id, {name: 'Plank', type: 'TIME', durationMin: 5});
   await seedExercise(db, user.id, STRENGTH);
-  await seedExercise(db, user.id, {name: 'Run', durationMin: 30, calories: 300});
+  await seedExercise(db, user.id, {name: 'Run', durationMin: 30});
   await seedExercise(db, user.id, {
     name: 'Plank',
     durationMin: 5,
-    calories: 20,
     exerciseGoalId: goal.id,
     goalDate: todayIn(),
   });
   await page.goto('/logs?tab=exercise');
 
-  const list = card(page, "Today's workouts");
-  await expect(list.getByText('530 calories burned')).toBeVisible();
   await expect(logRow(page, 'Bench press')).toContainText('3 × 10 @ 50');
-  await expect(logRow(page, 'Bench press')).toContainText('210 kcal');
   await expect(logRow(page, 'Run')).toContainText('30 min');
   await expect(logRow(page, 'Run')).not.toContainText('Planned');
   await expect(logRow(page, 'Plank')).toContainText('5 min · Planned');
@@ -58,7 +53,7 @@ test('EL-02 past days are fetched and read-only', async ({authedPage: page, db, 
 });
 
 test.describe('EL-03 editing what was done', () => {
-  test('strength calories scale with volume and weight', async ({
+  test('strength sets can be corrected', async ({
     authedPage: page,
     db,
     user,
@@ -75,8 +70,6 @@ test.describe('EL-03 editing what was done', () => {
     await expect(edit.getByRole('heading', {name: 'Notes'})).toHaveCount(0);
 
     // Entries logged before sets were kept get one row per set.
-    const calories = edit.getByLabel('Calories burned');
-    await expect(calories).toHaveValue('210');
     await expect(edit.getByLabel('Set 3 reps')).toHaveValue('10');
     await expect(edit.getByLabel('Set 3 weight')).toHaveValue('50');
     await expect(edit.getByRole('button', {name: 'Remove set 1'})).toBeEnabled();
@@ -84,20 +77,13 @@ test.describe('EL-03 editing what was done', () => {
     // A pyramid: heavier each set.
     await edit.getByLabel('Set 2 weight').fill('60');
     await edit.getByLabel('Set 3 weight').fill('70');
-    await expect(calories).toHaveValue('252');
     await edit.getByLabel('Set 3 reps').fill('5');
-    await expect(calories).toHaveValue('203');
-
-    // Once set by hand, calories stop following the sets.
-    await calories.fill('200');
     await edit.getByLabel('Set 1 reps').fill('12');
-    await expect(calories).toHaveValue('200');
 
     const request = nextApiRequest(page, '/api/exercise', 'PATCH');
     await edit.getByRole('button', {name: 'Save changes'}).click();
     expect((await request).postDataJSON()).toEqual({
       id: entry.id,
-      calories: 200,
       exerciseSets: [
         {reps: 12, weight: 50},
         {reps: 10, weight: 60},
@@ -106,7 +92,6 @@ test.describe('EL-03 editing what was done', () => {
     });
     await expect(edit).toBeHidden();
     await expect(logRow(page, 'Bench press')).toContainText('12 @ 50, 10 @ 60, 5 @ 70');
-    await expect(logRow(page, 'Bench press')).toContainText('200 kcal');
 
     // Reopening shows the sets as saved; one set can't be removed.
     await logRow(page, 'Bench press').getByRole('button', {name: 'Edit Bench press'}).click();
@@ -118,18 +103,16 @@ test.describe('EL-03 editing what was done', () => {
     await expect(logRow(page, 'Bench press')).toContainText('1 × 12 @ 50');
   });
 
-  test('time calories scale with duration', async ({authedPage: page, db, user}) => {
-    await seedExercise(db, user.id, {name: 'Cycling', durationMin: 30, calories: 300});
+  test('a timed set can be shortened', async ({authedPage: page, db, user}) => {
+    await seedExercise(db, user.id, {name: 'Cycling', durationMin: 30});
     await page.goto('/logs?tab=exercise');
     await logRow(page, 'Cycling').getByRole('button', {name: 'Edit Cycling'}).click();
     const edit = dialog(page, 'Edit exercise');
     // Entries logged before sets were kept get one timed set.
     await expect(edit.getByLabel('Set 1 time')).toHaveValue('30:00');
     await edit.getByLabel('Set 1 time').fill('15');
-    await expect(edit.getByLabel('Calories burned')).toHaveValue('150');
     await edit.getByRole('button', {name: 'Save changes'}).click();
     await expect(logRow(page, 'Cycling')).toContainText('15 min');
-    await expect(page.getByText('150 calories burned')).toBeVisible();
   });
 
   test('a set can change from reps to time', async ({authedPage: page, db, user}) => {
@@ -251,8 +234,7 @@ test('EL-07 the plus button ticks the plan and logs custom exercise', async ({
   await panel.getByRole('button', {name: 'Log custom exercise'}).click();
   await panel.getByLabel('Activity').fill('Run');
   await fillSets(panel, ['30']);
-  await panel.getByLabel('Calories burned').fill('300');
   await panel.getByRole('button', {name: 'Log exercise'}).click();
   await expect(panel).toBeHidden();
-  await expect(logRow(page, 'Run')).toContainText('300 kcal');
+  await expect(logRow(page, 'Run')).toContainText('30 min');
 });

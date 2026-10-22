@@ -92,7 +92,6 @@ export function seedExercise(
     data: {
       name: 'Seeded exercise',
       type: 'TIME',
-      calories: 200,
       durationMin: 30,
       ...data,
       userId,
@@ -141,7 +140,6 @@ export function seedExerciseGoal(
     data: {
       name: 'Seeded goal',
       type: 'STRENGTH',
-      calories: 100,
       sets: 3,
       reps: 10,
       ...data,
@@ -172,7 +170,6 @@ export function seedSavedExercise(
     data: {
       name: `Saved ${randomUUID().slice(0, 6)}`,
       type: 'TIME',
-      calories: 100,
       durationMin: 10,
       ...data,
       userId,
@@ -238,7 +235,6 @@ export function seedWeeklyReport(
       exercisesDone: 8,
       cardioMinutes: 90,
       strengthSessions: 3,
-      exerciseCalories: 900,
       weighInCount: 2,
       weightAvg: 74.5,
       prevWeightAvg: 75,

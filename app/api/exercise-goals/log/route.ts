@@ -22,7 +22,6 @@ const tickSchema = z.object({
   goalId: z.string().min(1),
   exerciseSets: exerciseSetsSchema.optional(),
   durationMin: z.number().int().min(1).optional(),
-  calories: z.number().int().min(0).optional(),
 });
 
 /** The goal's sets, with a single timed set's time changed if asked. */
@@ -50,7 +49,7 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
-    const {goalId, exerciseSets, durationMin, calories} = parsed.data;
+    const {goalId, exerciseSets, durationMin} = parsed.data;
 
     const goal = await prisma.exerciseGoal.findFirst({
       where: {id: goalId, userId},
@@ -89,7 +88,6 @@ export async function POST(request: Request) {
           goalDate,
           name: goal.name,
           catalogId: goal.catalogId,
-          calories: calories ?? goal.calories,
           ...fields,
           durationMin: fields.durationMin ?? 0,
           exerciseSets: {create: toSetRows(sets)},

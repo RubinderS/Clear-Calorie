@@ -32,7 +32,7 @@ Each database is recreated from the migrations on every run (`e2e/scripts/prepar
 | `external` | `specs/external` (Upstash rate limits) | opt-in, see below |
 
 ### Mock AI scenarios
-Put a marker in the food description or exercise name to pick a response: `[ai:error500]`, `[ai:invalid]`, `[ai:empty]`, `[ai:missing-calories]`, `[ai:fenced]`, `[ai:overflow]`, `[ai:strings]`. When health notes are saved, `[ai:avoid]`, `[ai:caution]`, `[ai:ok]` and `[ai:bad-alert]` set the health check. `GET /__requests?contains=…` and `GET /__emails?to=…` return what the app sent, so tests can assert on prompts and verification links.
+Put a marker in the food description to pick a response: `[ai:error500]`, `[ai:invalid]`, `[ai:empty]`, `[ai:missing-calories]`, `[ai:fenced]`, `[ai:overflow]`, `[ai:strings]`. When health notes are saved, `[ai:avoid]`, `[ai:caution]`, `[ai:ok]` and `[ai:bad-alert]` set the health check. `GET /__requests?contains=…` and `GET /__emails?to=…` return what the app sent, so tests can assert on prompts and verification links.
 
 ### External project
 Rate limiting needs a real Upstash database. Set `E2E_UPSTASH_REDIS_REST_URL` and `E2E_UPSTASH_REDIS_REST_TOKEN` to a **test-only** instance, and the `external` project and its server (port 3102) are added automatically.

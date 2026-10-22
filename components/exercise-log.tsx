@@ -10,20 +10,17 @@ import {
 import {GoalNotes} from '@/components/goal-notes';
 import {
   ExerciseLogFields,
-  initialLogValues,
   toLogPayload,
   toWorkValues,
 } from '@/components/exercise-detail-fields';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
-import {sumNumbers} from '@/lib/decimal';
 import {formatExerciseDetail, type ExerciseSet} from '@/lib/exercise';
 
 type ExerciseEntry = {
   id: string;
   name: string;
   type: string;
-  calories: number;
   durationMin: number;
   sets: number | null;
   reps: number | null;
@@ -55,8 +52,6 @@ export function ExerciseLog({
   });
   const [editingEntry, setEditingEntry] = useState<ExerciseEntry | null>(null);
 
-  const totalBurned = sumNumbers(log.entries.map((entry) => entry.calories));
-
   return (
     <>
       <DailyLogCard
@@ -64,7 +59,6 @@ export function ExerciseLog({
         timeZone={timeZone}
         todayTitle="Today's workouts"
         dateInputLabel="View exercise logs for date"
-        summary={`${totalBurned} calories burned`}
         loadingText="Loading workouts..."
         emptyText="No exercise logged"
         icon={Dumbbell}
@@ -115,10 +109,7 @@ function EditExerciseForm({
   onSaved,
   onNotesSaved,
 }: EditExerciseFormProps) {
-  const [original] = useState(() => toWorkValues(entry));
-  const [values, setValues] = useState(() =>
-    initialLogValues(original, entry.calories),
-  );
+  const [values, setValues] = useState(() => toWorkValues(entry));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -157,8 +148,6 @@ function EditExerciseForm({
       </div>
       <ExerciseLogFields
         idPrefix="edit-exercise"
-        baseline={original}
-        baselineCalories={entry.calories}
         value={values}
         onChange={setValues}
       />

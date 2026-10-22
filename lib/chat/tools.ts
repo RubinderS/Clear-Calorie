@@ -1,7 +1,6 @@
 import {format, parseISO, subDays} from 'date-fns';
 import {z} from 'zod';
 import {
-  estimateExercise,
   estimateFood,
   type ToolDefinition,
 } from '@/lib/ai';
@@ -16,7 +15,6 @@ import {
   isSequence,
   parseSequenceSteps,
   isSameExerciseName,
-  toExerciseFields,
 } from '@/lib/exercise';
 import {
   BODY_AREA_KEYS,
@@ -54,8 +52,6 @@ import {
   catalogLinksArgsSchema,
   planChangeArgsSchema,
   planChangeRows,
-  planGoalSets,
-  type PlanGoal,
 } from './plan-change';
 import {toActionView, type ChatActionKind, type ChatActionView} from './view';
 
@@ -176,7 +172,6 @@ const REPORT_METRIC_FIELDS = [
   'exercisesDone',
   'cardioMinutes',
   'strengthSessions',
-  'exerciseCalories',
   'weighInCount',
   'weightAvg',
   'prevWeightAvg',
@@ -213,7 +208,7 @@ export const TOOLS = {
 
   get_daily_totals: defineTool({
     description:
-      'Per-day food totals (calories, protein, carbs, fat, saturated fat), exercise calories and planned vs done exercises for a date range, plus averages over days with food logged. Best for questions about intake or adherence over time.',
+      'Per-day food totals (calories, protein, carbs, fat, saturated fat) and planned vs done exercises for a date range, plus averages over days with food logged. Best for questions about intake or adherence over time.',
     status: 'Adding up your daily totals',
     schema: rangeSchema,
     parameters: rangeParameters(7),
@@ -283,7 +278,7 @@ export const TOOLS = {
 
   get_exercise_logs: defineTool({
     description:
-      'Exercise entries for a date range: name, type (TIME or STRENGTH), sets/reps/weight or duration, calories, and whether it was a planned exercise.',
+      'Exercise entries for a date range: name, type (TIME or STRENGTH), sets/reps/weight or duration, and whether it was a planned exercise.',
     status: 'Looking up your workouts',
     schema: rangeSchema,
     parameters: rangeParameters(14),
@@ -307,7 +302,6 @@ export const TOOLS = {
             type: entry.type,
             detail: formatExerciseDetail(entry),
             durationMin: entry.durationMin || undefined,
-            calories: entry.calories,
             planned: entry.exerciseGoalId != null,
           })),
         },
@@ -317,7 +311,7 @@ export const TOOLS = {
 
   get_exercise_plan: defineTool({
     description:
-      "The user's weekly exercise plan (each exercise with its id, weekdays, sets/reps/weight or duration, calories and notes) and which of today's planned exercises are done. Exercises linked to the built-in list have a catalogId and the body areas they work; ones without are the user's own. Type SEQUENCE items are several exercises done back to back, listed in steps with their breaks.",
+      "The user's weekly exercise plan (each exercise with its id, weekdays, sets/reps/weight or duration, and notes) and which of today's planned exercises are done. Exercises linked to the built-in list have a catalogId and the body areas they work; ones without are the user's own. Type SEQUENCE items are several exercises done back to back, listed in steps with their breaks.",
     status: 'Checking your exercise plan',
     schema: z.object({}),
     parameters: {type: 'object', properties: {}},
@@ -346,7 +340,6 @@ export const TOOLS = {
             steps: isSequence(goal)
               ? describeSequence(parseSequenceSteps(goal.steps) ?? [])
               : undefined,
-            calories: goal.calories || undefined,
             notes: goal.notes ?? undefined,
           })),
           today: today.map((goal) => {
@@ -574,7 +567,6 @@ export const TOOLS = {
       sets: z.number().int().min(1).optional(),
       reps: z.number().int().min(1).optional(),
       weight: z.number().positive().optional(),
-      calories: z.number().int().min(0).max(10_000).optional(),
     }),
     parameters: {
       type: 'object',
@@ -586,7 +578,6 @@ export const TOOLS = {
         sets: {type: 'integer', description: 'Required for STRENGTH'},
         reps: {type: 'integer', description: 'Reps per set; required for STRENGTH'},
         weight: {type: 'number', description: 'Load in kg, for STRENGTH'},
-        calories: {type: 'integer', description: 'Only if the user gave it; otherwise the app estimates it'},
       },
       required: ['type'],
     },
@@ -621,26 +612,10 @@ export const TOOLS = {
         };
       }
 
-      let calories = args.calories;
-      let note: string | undefined;
-      if (calories == null) {
-        const latestWeight = await prisma.weightLog.findFirst({
-          where: {userId: ctx.userId},
-          orderBy: {loggedAt: 'desc'},
-          select: {weight: true},
-        });
-        const estimate = await estimateExercise(
-          {name, ...details.data},
-          latestWeight?.weight ?? null,
-        );
-        calories = estimate.calories;
-        note = estimate.assumptions;
-      }
-
-      const entry = exerciseLogSchema.parse({name, calories, ...details.data});
-      const action = await createAction(ctx, 'exercise', entry, note);
+      const entry = exerciseLogSchema.parse({name, ...details.data});
+      const action = await createAction(ctx, 'exercise', entry);
       return {
-        result: {proposed: entry, assumptions: note, status: PROPOSAL_RESULT},
+        result: {proposed: entry, status: PROPOSAL_RESULT},
         action,
       };
     },
@@ -663,7 +638,6 @@ export const TOOLS = {
         reps: {type: 'integer', description: 'Reps per set, for STRENGTH'},
         weight: {type: 'number', description: 'Load in kg for every set, for STRENGTH; 0 for none'},
         durationMin: {type: 'integer', description: 'Minutes, for TIME'},
-        calories: {type: 'integer', description: 'Only if the user gave it; otherwise the app estimates it'},
         notes: {type: 'string', description: 'Replaces the notes; empty to clear'},
         name: {type: 'string', description: 'For a sequence: its name, e.g. "Cardio circuit"; required to add one'},
         steps: {
@@ -690,30 +664,8 @@ export const TOOLS = {
         where: {userId: ctx.userId},
         orderBy: {createdAt: 'asc'},
       });
-      const {change, workChanged} = buildPlanChange(args, goals);
-
-      // Estimate calories for new work, unless the user gave them or the
-      // exercise is planned without any.
-      let note: string | undefined;
-      const goal = change.operation === 'remove' ? null : change.goal;
-      const before = change.operation === 'update' ? change.before : null;
-      if (
-        goal &&
-        workChanged &&
-        args.calories === undefined &&
-        (before === null || before.calories > 0)
-      ) {
-        try {
-          const estimate = await estimatePlanCalories(ctx.userId, goal);
-          goal.calories = estimate.calories;
-          note = estimate.assumptions;
-        } catch (error) {
-          // Calories are optional in a plan, so propose without them.
-          console.error('Plan calorie estimate failed:', error);
-        }
-      }
-
-      const action = await createAction(ctx, 'plan', change, note);
+      const change = buildPlanChange(args, goals);
+      const action = await createAction(ctx, 'plan', change);
       return {
         result: {
           proposed: {
@@ -721,7 +673,6 @@ export const TOOLS = {
             name: (change.operation === 'remove' ? change.before : change.goal).name,
             changes: planChangeRows(change),
           },
-          assumptions: note,
           status: PLAN_PROPOSAL_RESULT,
         },
         action,
@@ -785,22 +736,6 @@ export const TOOLS = {
     },
   }),
 };
-
-async function estimatePlanCalories(userId: string, goal: PlanGoal) {
-  const latestWeight = await prisma.weightLog.findFirst({
-    where: {userId},
-    orderBy: {loggedAt: 'desc'},
-    select: {weight: true},
-  });
-  return estimateExercise(
-    {
-      name: goal.name,
-      ...toExerciseFields(planGoalSets(goal)),
-      parts: 'steps' in goal ? describeSequence(goal.steps) : null,
-    },
-    latestWeight?.weight ?? null,
-  );
-}
 
 export type ToolName = keyof typeof TOOLS;
 
