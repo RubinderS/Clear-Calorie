@@ -233,7 +233,7 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
               const dayGoals = goals.filter((goal) =>
                 isActiveOn(goal.daysMask, day),
               );
-              const focus = dayFocus(dayGoals.flatMap(goalCatalogIds));
+              const focus = dayFocus(dayGoals.map(goalCatalogIds));
               const collapsed = collapsedDays.includes(day);
               return (
                 <section key={day}>

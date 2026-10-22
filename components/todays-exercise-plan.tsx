@@ -156,7 +156,7 @@ export function TodaysExercisePlan({
     if (hasGoals) void loadWorkoutVoice();
   }, [hasGoals]);
   const doneCount = goals.filter((goal) => completedIds.has(goal.id)).length;
-  const focus = dayFocus(goals.flatMap(goalCatalogIds));
+  const focus = dayFocus(goals.map(goalCatalogIds));
   const visibleGoals = hideCompleted
     ? goals.filter((goal) => !completedIds.has(goal.id))
     : goals;

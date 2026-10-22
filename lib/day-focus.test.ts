@@ -55,6 +55,29 @@ test('ignores core, cardio and full body finishers unless the day is only those'
   assert.equal(dayFocus(['barbell-squat', 'goblet-squat', 'jump-squat']), 'Leg day');
 });
 
+test('gives a sequence one vote, shared across its steps', () => {
+  const warmUpA = ['jumping-jack', 'high-knees', 'mountain-climber', 'shadow-boxing', 'butt-kicks'];
+  const warmUpB = ['jumping-jack', 'running-man', 'plank-jack', 'high-knees', 'butt-kicks'];
+  assert.notEqual(
+    dayFocus([
+      'incline-dumbbell-press',
+      'close-grip-push-up',
+      'dumbbell-shoulder-press',
+      'dumbbell-lateral-raise',
+      'dumbbell-curl',
+      'hammer-curl',
+      'band-triceps-extension',
+      'dumbbell-wrist-curl',
+      warmUpA,
+      warmUpB,
+    ]),
+    'Cardio day',
+  );
+  assert.equal(dayFocus([['pull-up', 'dumbbell-curl'], 'pull-up']), 'Back day');
+  assert.equal(dayFocus([warmUpA, warmUpB]), 'Cardio day');
+  assert.equal(dayFocus([['pull-up', null], null]), null);
+});
+
 test('gives an exercise its whole vote for the main group it works alongside a finisher', () => {
   const catalog = createCatalog([
     source('crunch-thrust', ['core', 'glutes']),
