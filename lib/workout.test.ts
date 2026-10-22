@@ -4,6 +4,7 @@ import {
   adjustRest,
   animationSync,
   currentCue,
+  currentStepDurationMs,
   repsDone,
   setEndCue,
   setReps,
@@ -400,6 +401,18 @@ test("a sequence uses each exercise's tempo and keeps reps to one exercise", () 
   state = nextStep(state, 0);
   assert.equal(state.reps, 10);
   assert.equal(state.tempoMs, 4_000);
+});
+
+test('a sequence step with no break before it skips the count-in but sounds the end', () => {
+  const steps = buildSequenceSteps([
+    {durationSec: 45, part: JACKS},
+    {reps: 10, part: SQUATS},
+  ]);
+  const first = startWorkout(steps, 0);
+  const second = tickWorkout(first, LEAD_IN_MS + 45_000);
+  assert.equal(second.index, 1);
+  assert.equal(currentStepDurationMs(second), 10 * 4_000);
+  assert.deepEqual(setEndCue(first, second), {type: 'setEnd', lastSet: false});
 });
 
 test("setTempo during a break applies to the next exercise's sets", () => {

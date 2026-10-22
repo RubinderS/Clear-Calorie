@@ -145,8 +145,10 @@ export function resumeTimer(timer: Timer, now: number): Timer {
   return {...timer, startedAt: now};
 }
 
+/** A sequence step that follows straight on from another, with no break, starts at once. */
 export function leadInBeats(state: WorkoutState): number {
-  return state.index === 0 ? FIRST_LEAD_IN_BEATS : LEAD_IN_BEATS;
+  if (state.index === 0) return FIRST_LEAD_IN_BEATS;
+  return state.steps[state.index - 1].kind === 'rest' ? LEAD_IN_BEATS : 0;
 }
 
 export function leadInMs(state: WorkoutState): number {
@@ -362,8 +364,9 @@ export function currentCue(
 
 /**
  * The cue for a set that ended between two states, whether its reps ran out
- * or the user ended it early. Skipped when catching up after the background
- * has already carried the workout into the next set.
+ * or the user ended it early, including a sequence step going straight on to
+ * the next. Skipped when catching up after the background has already carried
+ * the workout past a break into the next set.
  */
 export function setEndCue(
   previous: WorkoutState,
@@ -371,7 +374,8 @@ export function setEndCue(
 ): WorkoutCue | null {
   if (next.setsCompleted <= previous.setsCompleted) return null;
   if (next.done) return {type: 'setEnd', lastSet: true};
-  return next.steps[next.index].kind === 'rest'
+  return next.steps[next.index].kind === 'rest' ||
+    next.index === previous.index + 1
     ? {type: 'setEnd', lastSet: false}
     : null;
 }

@@ -886,6 +886,8 @@ function ActiveWorkout({
       const cue = currentCue(current, time);
       if (!cue || cue.key === lastCueKey.current) return;
       lastCueKey.current = cue.key;
+      // With no count-in, the previous step's end tone already marks the start.
+      if (cue.cue.type === 'go' && leadInBeats(current) === 0) return;
       const mode = cueSound(cue.cue, cues, musicOn);
       if (mode && cue.lateMs <= MAX_CUE_LATE_MS) {
         sound?.play(cue.cue, mode, current.tempoMs, leadInBeats(current));
@@ -906,7 +908,10 @@ function ActiveWorkout({
       );
       if (next !== previous && isRunning(next.timer)) playCue(next, time);
       const endCue = setEndCue(previous, next);
-      const endMode = endCue && cueSound(endCue, cues, musicOn);
+      const straightOn = !next.done && next.steps[next.index].kind !== 'rest';
+      const endSound = endCue && cueSound(endCue, cues, musicOn);
+      // "And rest" would be wrong with no break, so going straight on is a tone.
+      const endMode = straightOn && endSound ? 'tones' : endSound;
       if (endCue && endMode) {
         sound?.play(endCue, endMode, next.tempoMs, leadInBeats(next));
       }
