@@ -66,6 +66,8 @@ test.describe('EL-03 editing what was done', () => {
     await expect(edit.getByRole('heading', {name: 'Bench press'})).toBeVisible();
     await expect(edit.getByText('Log what you actually did')).toBeVisible();
     await expect(edit.getByRole('group', {name: 'Exercise type'})).toHaveCount(0);
+    // Sets stay reps or time, as the exercise is done.
+    await expect(edit.getByRole('radio', {name: 'Time'})).toHaveCount(0);
     // Not a planned entry, so no goal notes.
     await expect(edit.getByRole('heading', {name: 'Notes'})).toHaveCount(0);
 

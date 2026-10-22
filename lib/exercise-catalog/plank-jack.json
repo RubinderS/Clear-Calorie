@@ -1,0 +1,47 @@
+{
+  "id": "plank-jack",
+  "name": "Plank jack",
+  "view": "side",
+  "equipment": [],
+  "phases": [
+    {
+      "name": "out",
+      "durationMs": 350,
+      "from": 0,
+      "to": 1,
+      "cue": "Jump your feet out wide"
+    },
+    {
+      "name": "wide",
+      "durationMs": 100,
+      "from": 1,
+      "to": 1,
+      "cue": "Land softly on your toes"
+    },
+    {
+      "name": "in",
+      "durationMs": 350,
+      "from": 1,
+      "to": 0,
+      "cue": "Jump your feet back together"
+    },
+    {
+      "name": "together",
+      "durationMs": 100,
+      "from": 0,
+      "to": 0,
+      "cue": "Hold the plank, hips level"
+    }
+  ],
+  "formTips": [
+    "Keep your hands under your shoulders and arms long",
+    "Hold a straight line from your head to your heels",
+    "Jump the feet out and in like a jumping jack, landing on your toes",
+    "Keep your hips level and still as the feet move"
+  ],
+  "commonMistakes": [
+    "Hips piking up or bouncing with each jump",
+    "Letting the lower back sag",
+    "Shoulders drifting back behind the hands"
+  ]
+}

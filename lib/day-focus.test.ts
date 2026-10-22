@@ -45,7 +45,7 @@ test('ignores core, cardio and full body finishers unless the day is only those'
   assert.equal(dayFocus(['jumping-jack']), 'Cardio day');
   assert.equal(dayFocus(['pull-up', 'jumping-jack']), 'Back day');
   assert.equal(
-    dayFocus(['low-jack', 'running-man', 'standing-hamstring-curl', 'jump-squat', 'burpee']),
+    dayFocus(['plank-jack', 'running-man', 'standing-hamstring-curl', 'jump-squat', 'burpee']),
     'Cardio day',
   );
   assert.equal(

@@ -30,7 +30,7 @@ import * as inclineCurl from './poses/incline-dumbbell-curl';
 import * as inclinePress from './poses/incline-dumbbell-press';
 import * as jumpSquat from './poses/jump-squat';
 import * as jumpingJack from './poses/jumping-jack';
-import * as lowJack from './poses/low-jack';
+import * as plankJack from './poses/plank-jack';
 import * as mountainClimber from './poses/mountain-climber';
 import * as oneArmRow from './poses/one-arm-dumbbell-row';
 import * as plank from './poses/plank';
@@ -261,9 +261,9 @@ export const SPECS: Record<string, Spec3D> = {
     pose: jumpingJack.pose,
     camera: {aspect: 308 / 406},
   },
-  'low-jack': {
-    pose: lowJack.pose,
-    camera: {aspect: 340 / 400},
+  'plank-jack': {
+    pose: plankJack.pose,
+    camera: {aspect: 418 / 230},
   },
   'mountain-climber': {
     pose: mountainClimber.pose,

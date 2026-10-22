@@ -89,6 +89,8 @@ type SetRowsProps = {
   labels?: readonly string[];
   /** Sets can't be added or removed, e.g. a sequence's steps. */
   fixedCount?: boolean;
+  /** Each set stays for reps or for a time, as the exercise is done, e.g. when logging. */
+  fixedMode?: boolean;
 };
 
 export const SET_MODES: TogglerOption<SetMode>[] = [
@@ -121,6 +123,7 @@ function SetRows({
   onChange,
   labels,
   fixedCount = false,
+  fixedMode = false,
 }: SetRowsProps) {
   function update(index: number, change: Partial<SetValues>) {
     onChange(sets.map((set, i) => (i === index ? {...set, ...change} : set)));
@@ -141,7 +144,9 @@ function SetRows({
             key={index}
             className={
               fixedCount
-                ? 'grid grid-cols-2 items-center gap-2 sm:grid-cols-[auto_1fr_1fr]'
+                ? fixedMode
+                  ? 'grid grid-cols-2 items-center gap-2'
+                  : 'grid grid-cols-2 items-center gap-2 sm:grid-cols-[auto_1fr_1fr]'
                 : 'grid grid-cols-[1fr_2.25rem] items-center gap-2 sm:grid-cols-[auto_1fr_1fr_2.25rem]'
             }
           >
@@ -150,14 +155,19 @@ function SetRows({
                 {index + 1}. {labels[index]}
               </p>
             ) : null}
-            <Toggler
-              name={`${idPrefix}-set-${index}-mode`}
-              label={`${label} type`}
-              options={SET_MODES}
-              value={set.mode}
-              onChange={(mode) => update(index, {mode})}
-              className="justify-self-start"
-            />
+            {!fixedMode ? (
+              <Toggler
+                name={`${idPrefix}-set-${index}-mode`}
+                label={`${label} type`}
+                options={SET_MODES}
+                value={set.mode}
+                onChange={(mode) => update(index, {mode})}
+                className="justify-self-start"
+              />
+            ) : fixedCount ? null : (
+              // The step's name already heads a sequence's row.
+              <p className="text-sm font-medium text-muted-foreground">{label}</p>
+            )}
             {set.mode === 'reps' ? (
               <UnitInput
                 unit="reps"
@@ -271,7 +281,7 @@ type ExerciseLogFieldsProps = {
   stepNames?: readonly string[];
 };
 
-/** What was done, set by set. */
+/** What was done, set by set, each for reps or a time as the exercise is done. */
 export function ExerciseLogFields({
   idPrefix,
   value,
@@ -285,6 +295,7 @@ export function ExerciseLogFields({
       onChange={(sets) => onChange({sets})}
       labels={stepNames}
       fixedCount={stepNames !== undefined}
+      fixedMode
     />
   );
 }

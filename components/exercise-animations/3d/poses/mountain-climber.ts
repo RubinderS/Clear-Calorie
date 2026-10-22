@@ -1,5 +1,5 @@
 import type {AnimationFrame} from '@/lib/exercise-animation';
-import {ANKLES, proneBody, proneLegs, pushUpWith, type PushUpSetup} from '../moves/prone';
+import {ANKLES, HIGH_PLANK, proneBody, proneLegs, pushUpWith} from '../moves/prone';
 import {RIG, Z, alternate, legTo, turn, type Body, type Side} from '../rig';
 import type {Leg3D, Skeleton} from '../skeleton';
 
@@ -8,13 +8,7 @@ import type {Leg3D, Skeleton} from '../skeleton';
  * either side of the origin; the knees drive in to the chest in turn.
  */
 
-/** Hands under the shoulders, arms long, heels to head in one straight line. */
-export const PLANK: PushUpSetup = {
-  hands: {x: 2.13, out: 0.3},
-  deg: {top: 27.8, bottom: 27.8},
-  elbows: {out: 0.6, up: 0.5},
-};
-export const BODY = proneBody(PLANK.deg.top);
+export const BODY = proneBody(HIGH_PLANK.deg.top);
 /** The driving leg at full drive, in degrees: the hip flexed from the plank, the knee bent. */
 export const DRIVE = {hip: 120, knee: 140};
 
@@ -31,7 +25,7 @@ export function drivenLeg(body: Body, side: Side, amount: number): Leg3D {
 
 /** The rabbit at a point in the rep: the left knee drives in and back (0 to 0.5), then the right. */
 export function mountainClimberPose(progress: number): Skeleton {
-  const plank = pushUpWith(PLANK, 0);
+  const plank = pushUpWith(HIGH_PLANK, 0);
   const {side, amount} = alternate(progress);
   const leg = drivenLeg(BODY, side, amount);
   // The foot keeps its tucked shape, carried with the ankle.

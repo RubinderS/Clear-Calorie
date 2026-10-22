@@ -26,7 +26,7 @@ import inclineDumbbellCurl from './incline-dumbbell-curl.json';
 import inclineDumbbellPress from './incline-dumbbell-press.json';
 import jumpSquat from './jump-squat.json';
 import jumpingJack from './jumping-jack.json';
-import lowJack from './low-jack.json';
+import plankJack from './plank-jack.json';
 import mountainClimber from './mountain-climber.json';
 import oneArmDumbbellRow from './one-arm-dumbbell-row.json';
 import plank from './plank.json';
@@ -257,10 +257,10 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     areas: {primary: ['cardio', 'hamstrings'], secondary: ['glutes', 'back']},
   },
   {
-    config: lowJack,
+    config: plankJack,
     type: 'TIME',
-    aliases: ['low impact jack', 'low impact jumping jack', 'step jack', 'step out jack', 'no jump jumping jack'],
-    areas: {primary: ['cardio'], secondary: ['shoulders', 'glutes', 'calves']},
+    aliases: ['plank jacks', 'plank jumping jack', 'jumping jack plank', 'plank jumping jacks'],
+    areas: {primary: ['cardio', 'core'], secondary: ['shoulders', 'glutes']},
   },
   {
     config: mountainClimber,

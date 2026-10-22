@@ -81,6 +81,13 @@ export function bodyAngle(setup: PushUpSetup, progress: number): number {
   return lerp(setup.deg.top, setup.deg.bottom, progress);
 }
 
+/** A high plank: hands under the shoulders, arms long, heels to head in one straight line. The mountain climber and plank jack hold it. */
+export const HIGH_PLANK: PushUpSetup = {
+  hands: {x: 2.13, out: 0.3},
+  deg: {top: 27.8, bottom: 27.8},
+  elbows: {out: 0.6, up: 0.5},
+};
+
 /** The rabbit at a point in a push-up: 0 = the top, 1 = the bottom. */
 export function pushUpWith(setup: PushUpSetup, progress: number): Skeleton {
   const deg = bodyAngle(setup, progress);

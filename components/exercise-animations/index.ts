@@ -41,7 +41,7 @@ export const EXERCISE_ANIMATIONS: Record<
   'incline-dumbbell-press': () => scene3D('incline-dumbbell-press'),
   'jump-squat': () => scene3D('jump-squat'),
   'jumping-jack': () => scene3D('jumping-jack'),
-  'low-jack': () => scene3D('low-jack'),
+  'plank-jack': () => scene3D('plank-jack'),
   'mountain-climber': () => scene3D('mountain-climber'),
   'one-arm-dumbbell-row': () => scene3D('one-arm-dumbbell-row'),
   'plank': () => scene3D('plank'),

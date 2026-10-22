@@ -40,7 +40,7 @@ import * as buttKicks from '@/components/exercise-animations/3d/poses/butt-kicks
 import * as hamstringCurl from '@/components/exercise-animations/3d/poses/standing-hamstring-curl';
 import * as highKnees from '@/components/exercise-animations/3d/poses/high-knees';
 import * as jumpSquat from '@/components/exercise-animations/3d/poses/jump-squat';
-import * as lowJack from '@/components/exercise-animations/3d/poses/low-jack';
+import * as plankJack from '@/components/exercise-animations/3d/poses/plank-jack';
 import * as climber from '@/components/exercise-animations/3d/poses/mountain-climber';
 import * as runningMan from '@/components/exercise-animations/3d/poses/running-man';
 import * as boxing from '@/components/exercise-animations/3d/poses/shadow-boxing';
@@ -305,11 +305,11 @@ const EXPECT: Record<string, Expect> = {
   },
   'high-knees': {elbow: elbowBehind, planted: bodyStill},
   'butt-kicks': {elbow: elbowBehind, planted: bodyStill},
-  'running-man': {elbow: elbowBehind, planted: bodyStill},
-  'standing-hamstring-curl': {elbow: elbowBehind, planted: bodyStill},
-  'low-jack': {
-    // As in the jumping jack, the elbow trails on the hip's side.
-    elbow: (s, side) => s.legs[side].hip.clone().sub(s.arms[side].shoulder),
+  'running-man': {elbow: elbowBehind},
+  'standing-hamstring-curl': {elbow: elbowBehind},
+  'plank-jack': {
+    elbow: () => X.clone().negate(),
+    planted: (s) => [...bodyStill(s), ...SIDES.flatMap((side) => [s.arms[side].wrist, s.paws[side].at])],
   },
   'mountain-climber': {
     elbow: () => X.clone().negate(),
@@ -1267,47 +1267,71 @@ test('butt kicks: the heel comes up behind to the glutes while the thigh stays p
   }
 });
 
-test('running man: the knee drives up, then the foot steps back onto its toes; the arms swing opposite', () => {
-  for (const [start, side, other] of [[0, 'left', 'right'], [0.5, 'right', 'left']] as const) {
-    const up = runningMan.runningManPose(start + 1 / 6);
-    assert.ok(up.legs[side].knee.y > up.legs[side].hip.y - 0.12, `${side} knee up`);
-    assert.ok(up.arms[other].wrist.x > up.arms[side].wrist.x, 'the other arm forward with the knee');
-    const back = runningMan.runningManPose(start + 1 / 3);
-    assert.ok(back.legs[side].ankle.x < -0.4 && back.feet[side].at.y < 0.2, `${side} foot back on its toes`);
-    assert.ok(back.arms[side].wrist.x > back.arms[other].wrist.x, 'the same arm forward with the foot back');
-    assert.ok(standingFlat(back, other), `${other} foot flat`);
+test('running man: hopping from foot to foot on the spot; each knee drives up as the other foot is down; the arms swing opposite', () => {
+  const onFloor = (s: Skeleton, side: Side) =>
+    close(s.legs[side].ankle.y, runningMan.onToes(THREE.MathUtils.radToDeg(Math.asin(s.feet[side].up.x))), 1e-9);
+  for (const [t, up, down] of PEAKS) {
+    const s = runningMan.runningManPose(t);
+    assert.ok(s.legs[up].knee.y > s.legs[up].hip.y + 0.12 && s.legs[up].knee.x > s.legs[up].hip.x + 0.45, `${up} knee driven up to the stomach`);
+    assert.ok(s.arms[down].wrist.x > s.arms[up].wrist.x, 'the other arm forward with the knee');
+    assert.ok(onFloor(s, down), `${down} foot on the floor`);
+    assert.ok(Math.abs(s.legs[down].ankle.x) < 0.15, `${down} foot under the hip`);
+  }
+  // One foot at a time on the floor, then a moment in the air with both off it, the hips at their highest.
+  for (const t of steps) {
+    const s = runningMan.runningManPose(t);
+    assert.ok(SIDES.filter((side) => onFloor(s, side)).length <= 1, `both feet down at ${t}`);
+  }
+  for (const t of [0.45, 0.95]) {
+    const s = runningMan.runningManPose(t);
+    for (const side of SIDES) assert.ok(!onFloor(s, side), `${side} foot down in the air at ${t}`);
+    assert.ok(close(s.hip.y, runningMan.HIP_Y.high), 'hips highest in the air');
+  }
+  // Smooth: no joint jumps between neighbouring frames.
+  for (let i = 0; i < 400; i++) {
+    const a = runningMan.runningManPose(i / 400);
+    const b = runningMan.runningManPose((i + 1) / 400);
+    for (const side of SIDES) assert.ok(a.legs[side].knee.distanceTo(b.legs[side].knee) < 0.03, `${side} knee jumps at ${i / 400}`);
   }
 });
 
-test('standing hamstring curl: the heel curls up behind as the arms row back; the knee stays under the hip', () => {
+test('standing hamstring curl: side to side, the weight over one foot as the other heel curls up behind and the arms row back', () => {
   const rest = hamstringCurl.hamstringCurlPose(0);
   for (const side of SIDES) {
     assert.ok(rest.arms[side].wrist.x > rest.arms[side].shoulder.x + 0.8, 'arms reach forward');
+    assert.ok(same(rest.legs[side].ankle, hamstringCurl.footOf(side)), `${side} foot planted wide`);
   }
+  assert.ok(Math.abs(rest.hip.z) < 1e-9, 'hips in the middle between curls');
   for (const [t, up, down] of PEAKS) {
     const s = hamstringCurl.hamstringCurlPose(t);
     const {hip, knee, ankle} = s.legs[up];
     assert.ok(ankle.y > knee.y - 0.15 && ankle.x < knee.x, `${up} shin about level behind`);
     assert.ok(Math.abs(knee.x - hip.x) < 0.2, `${up} knee under the hip`);
-    assert.ok(standingFlat(s, down), `${down} foot flat`);
+    assert.ok(same(s.legs[down].ankle, hamstringCurl.footOf(down)) && close(s.feet[down].at.y, FOOT.height, 1e-9), `${down} foot flat in its place`);
+    assert.ok(Math.abs(s.hip.z - hamstringCurl.footOf(down).z) < 0.1, `hips over the ${down} foot`);
     for (const side of SIDES) assert.ok(s.arms[side].elbow.x < s.shoulder.x - 0.2, 'elbows back past the body');
+  }
+  for (const t of steps) {
+    const s = hamstringCurl.hamstringCurlPose(t);
+    for (const side of SIDES) assert.ok(s.legs[side].ankle.y >= FOOT.ankle - 1e-9, `${side} foot through the floor at ${t}`);
   }
 });
 
-test('low jack: one foot steps out at a time, never both off the floor; the arms sweep overhead with each step', () => {
+test('plank jack: a straight high plank held still while both feet jump out wide and back in, landing on the floor', () => {
   for (const t of steps) {
-    const s = lowJack.lowJackPose(t);
-    const lifted = SIDES.filter((side) => s.legs[side].ankle.y > FOOT.ankle + 1e-9);
-    assert.ok(lifted.length <= 1, `both feet up at ${t}`);
+    const s = plankJack.plankJackPose(t);
+    for (const side of SIDES) {
+      assert.ok(close(s.legs[side].hip.distanceTo(s.legs[side].ankle), RIG.thigh + RIG.shin, 1e-6), `${side} leg straight at ${t}`);
+      assert.ok(close(s.legs[side].ankle.y, FOOT.ankle, 1e-9), `${side} foot on the floor at ${t}`);
+    }
   }
-  for (const [t, out, planted] of PEAKS) {
-    const s = lowJack.lowJackPose(t);
-    assert.ok(same(s.legs[out].ankle, lowJack.ankleOf(out, true, 1)), `${out} foot stepped out`);
-    assert.ok(same(s.legs[planted].ankle, lowJack.ankleOf(planted, false, 1)), `${planted} foot planted`);
-    for (const side of SIDES) assert.ok(s.arms[side].wrist.y > s.head.y + 0.3, 'hands overhead');
-  }
-  const together = lowJack.lowJackPose(0);
-  assert.ok(together.feet.left.at.distanceTo(together.feet.right.at) < 0.4, 'feet together between steps');
+  const together = plankJack.plankJackPose(0);
+  const wide = plankJack.plankJackPose(1);
+  for (const side of SIDES) assert.ok(same(together.legs[side].ankle, prone.ANKLES[side]), `${side} foot under its hip`);
+  const spread = (s: Skeleton) => s.legs.left.ankle.distanceTo(s.legs.right.ankle);
+  assert.ok(spread(wide) > spread(together) + 0.6, 'feet jump out wide');
+  const hop = plankJack.plankJackPose(0.5, plankJack.HOP);
+  for (const side of SIDES) assert.ok(hop.legs[side].ankle.y > FOOT.ankle + 0.05, `${side} foot off the floor mid-jump`);
 });
 
 test('mountain climber: a straight high plank; each knee drives in under the chest while the other toes stay planted', () => {

@@ -9,32 +9,32 @@
       "durationMs": 450,
       "from": 0,
       "to": 0.25,
-      "cue": "Curl your left heel up behind you, pulling your elbows back"
+      "cue": "Shift onto your right foot and curl your left heel up behind you, pulling your elbows back"
     },
     {
-      "name": "left lower",
+      "name": "left out",
       "durationMs": 450,
       "from": 0.25,
       "to": 0.5,
-      "cue": "Lower the foot and reach your arms forward"
+      "cue": "Step your left foot back out wide and reach your arms forward"
     },
     {
       "name": "right curl",
       "durationMs": 450,
       "from": 0.5,
       "to": 0.75,
-      "cue": "Curl your right heel up, squeezing your shoulder blades"
+      "cue": "Shift onto your left foot and curl your right heel up, squeezing your shoulder blades"
     },
     {
-      "name": "right lower",
+      "name": "right out",
       "durationMs": 450,
       "from": 0.75,
       "to": 1,
-      "cue": "Lower the foot and reach forward again"
+      "cue": "Step your right foot back out wide and reach forward again"
     }
   ],
   "formTips": [
-    "Keep the working thigh pointing down as the heel comes up",
+    "Shift your weight over the standing foot as the other heel comes up",
     "Squeeze the back of your thigh at the top",
     "Pull your elbows back past your sides and squeeze your shoulder blades",
     "Lean forward slightly with a flat back"
