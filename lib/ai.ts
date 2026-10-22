@@ -195,6 +195,8 @@ export type ExerciseEstimateInput = {
   sets?: number | null;
   reps?: number | null;
   weight?: number | null;
+  /** A sequence's steps and breaks, one per line. */
+  parts?: string[] | null;
 };
 
 export function buildExerciseDescription(
@@ -209,6 +211,9 @@ export function buildExerciseDescription(
   if (input.weight) lines.push(`Load: ${input.weight} kg`);
   // Strength exercises can also have timed sets, e.g. a weighted hold.
   if (input.durationMin) lines.push(`Duration: ${input.durationMin} min`);
+  if (input.parts?.length) {
+    lines.push('Sequence, done back to back:', ...input.parts.map((part) => `- ${part}`));
+  }
   lines.push(
     bodyWeightKg
       ? `Body weight: ${bodyWeightKg} kg`

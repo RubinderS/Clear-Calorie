@@ -8,6 +8,7 @@ import {
   setEndCue,
   setReps,
   setTempo,
+  buildSequenceSteps,
   buildWorkoutSteps,
   elapsedMs,
   formatClock,
@@ -346,4 +347,78 @@ test('animationSync follows a tempo change and lets timed work run free', () => 
   });
   const timed = startWorkout(buildWorkoutSteps([{durationSec: 60}]), 0);
   assert.deepEqual(animationSync(timed, LEAD_IN_MS + 1).message, {cmd: 'free', playing: true});
+});
+
+const JACKS = {name: 'Jumping jacks', catalogId: 'jumping-jacks', tempoMs: 2_000};
+const SQUATS = {name: 'Squats', catalogId: 'squat', tempoMs: 4_000};
+
+/** Jumping jacks for 45s, squats after a 30s break, then squats again after 60s. */
+function circuit() {
+  return buildSequenceSteps([
+    {durationSec: 45, restSec: 0, part: JACKS},
+    {reps: 12, restSec: 30, part: SQUATS},
+    {reps: 12, restSec: 60, part: SQUATS},
+  ]);
+}
+
+test('buildSequenceSteps adds breaks only where planned and tags each exercise', () => {
+  assert.deepEqual(
+    buildSequenceSteps([
+      {durationSec: 45, restSec: 30, part: JACKS},
+      {reps: 10, restSec: 0, part: SQUATS},
+      {reps: 8, restSec: 45, part: SQUATS},
+    ]),
+    [
+      {kind: 'work', durationMs: 45_000, set: 1, sets: 3, part: JACKS},
+      {kind: 'set', set: 2, sets: 3, reps: 10, part: SQUATS},
+      {kind: 'rest', durationMs: 45_000, nextSet: 3, sets: 3, next: SQUATS},
+      {kind: 'set', set: 3, sets: 3, reps: 8, part: SQUATS},
+    ],
+  );
+});
+
+test('adjustRest moves every later break in a sequence by the same amount', () => {
+  let state = startWorkout(circuit(), 0);
+  state = nextStep(state, 0);
+  state = adjustRest(state, 15_000);
+  assert.deepEqual(
+    state.steps.flatMap((step) =>
+      step.kind === 'rest' ? [step.durationMs] : [],
+    ),
+    [45_000, 75_000],
+  );
+});
+
+test("a sequence uses each exercise's tempo and keeps reps to one exercise", () => {
+  const steps = buildSequenceSteps([
+    {reps: 10, part: JACKS},
+    {reps: 10, part: SQUATS},
+  ]);
+  let state = startWorkout(steps, 0);
+  assert.equal(state.tempoMs, 2_000);
+  state = setReps(state, 15);
+  state = nextStep(state, 0);
+  assert.equal(state.reps, 10);
+  assert.equal(state.tempoMs, 4_000);
+});
+
+test("setTempo during a break applies to the next exercise's sets", () => {
+  let state = startWorkout(circuit(), 0);
+  state = nextStep(state, 0);
+  assert.equal(state.steps[state.index].kind, 'rest');
+  state = setTempo(state, 3_000, 0);
+  state = nextStep(nextStep(state, 0), 0);
+  assert.equal(state.tempoMs, 3_000);
+  state = nextStep(nextStep(state, 0), 0);
+  assert.equal(state.tempoMs, 3_000);
+});
+
+test('a finished sequence records one set per step', () => {
+  let state = startWorkout(circuit(), 0);
+  while (!state.done) state = nextStep(state, LEAD_IN_MS + 45_000);
+  assert.deepEqual(state.completed, [
+    {durationSec: 45},
+    {reps: 12},
+    {reps: 12},
+  ]);
 });

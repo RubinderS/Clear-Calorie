@@ -7,10 +7,25 @@ export type PlannedSet = {reps?: number | null; durationSec?: number | null};
 /** A set as done in the workout. */
 export type CompletedSet = {reps: number} | {durationSec: number};
 
+/** Which exercise of a sequence a step is; its tempo applies to its sets. */
+export type StepPart = {name: string; catalogId: string | null; tempoMs?: number};
+
+/** A step of a sequence: one set of one exercise, with the break before it. */
+export type SequencePlanStep = PlannedSet & {
+  restSec?: number | null;
+  part: StepPart;
+};
+
 export type WorkoutStep =
-  | {kind: 'work'; durationMs: number; set: number; sets: number}
-  | {kind: 'set'; set: number; sets: number; reps: number}
-  | {kind: 'rest'; durationMs: number; nextSet: number; sets: number};
+  | {kind: 'work'; durationMs: number; set: number; sets: number; part?: StepPart}
+  | {kind: 'set'; set: number; sets: number; reps: number; part?: StepPart}
+  | {
+      kind: 'rest';
+      durationMs: number;
+      nextSet: number;
+      sets: number;
+      next?: StepPart;
+    };
 
 export type Timer = {accumulatedMs: number; startedAt: number | null};
 
@@ -47,6 +62,22 @@ export const MAX_TEMPO_MS = 6_000;
 export const TEMPO_STEP_MS = 500;
 export const MAX_REPS = 100;
 
+/** A rep set counts reps; a timed set counts down. */
+function toWorkStep(
+  planned: PlannedSet,
+  set: number,
+  sets: number,
+): Exclude<WorkoutStep, {kind: 'rest'}> {
+  return planned.reps != null
+    ? {kind: 'set', set, sets, reps: clampReps(planned.reps)}
+    : {
+        kind: 'work',
+        durationMs: Math.max(1, planned.durationSec ?? 60) * 1000,
+        set,
+        sets,
+      };
+}
+
 /** Each set in turn, with rests between: rep sets count reps, timed sets count down. */
 export function buildWorkoutSteps(
   planned: readonly PlannedSet[],
@@ -56,20 +87,34 @@ export function buildWorkoutSteps(
   const list = planned.length > 0 ? planned : [{reps: 1}];
   return list
     .map((plannedSet, i): WorkoutStep[] => {
-      const set: WorkoutStep =
-        plannedSet.reps != null
-          ? {kind: 'set', set: i + 1, sets, reps: clampReps(plannedSet.reps)}
-          : {
-              kind: 'work',
-              durationMs: Math.max(1, plannedSet.durationSec ?? 60) * 1000,
-              set: i + 1,
-              sets,
-            };
+      const set = toWorkStep(plannedSet, i + 1, sets);
       return i === 0
         ? [set]
         : [{kind: 'rest', durationMs: restMs, nextSet: i + 1, sets}, set];
     })
     .flat();
+}
+
+/**
+ * A sequence's steps in turn, each tagged with its exercise. A break comes
+ * before a step only where one is planned; `set` counts the steps.
+ */
+export function buildSequenceSteps(
+  planned: readonly SequencePlanStep[],
+): WorkoutStep[] {
+  const sets = planned.length;
+  return planned.flatMap((step, i): WorkoutStep[] => {
+    const work = {...toWorkStep(step, i + 1, sets), part: step.part};
+    const restMs = Math.max(0, step.restSec ?? 0) * 1000;
+    return i > 0 && restMs > 0
+      ? [{kind: 'rest', durationMs: restMs, nextSet: i + 1, sets, next: step.part}, work]
+      : [work];
+  });
+}
+
+/** The exercise a step is, or during a break the one coming next. */
+export function stepPart(step: WorkoutStep): StepPart | undefined {
+  return step.kind === 'rest' ? step.next : step.part;
 }
 
 export function clampTempo(tempoMs: number): number {
@@ -144,7 +189,11 @@ export function startWorkout(
     timer: {accumulatedMs: 0, startedAt: now},
     done: planned.length === 0,
     reps: firstSet?.kind === 'set' ? firstSet.reps : 1,
-    tempoMs: clampTempo(options.tempoMs ?? DEFAULT_TEMPO_MS),
+    tempoMs: clampTempo(
+      options.tempoMs ??
+        (firstSet?.kind === 'set' ? firstSet.part?.tempoMs : undefined) ??
+        DEFAULT_TEMPO_MS,
+    ),
     setsCompleted: 0,
     completed: [],
   };
@@ -166,7 +215,8 @@ function finishedSet(state: WorkoutState, at: number): CompletedSet | null {
 
 /**
  * Reps for the set at `index`. A change made during one set carries on while
- * the plan keeps the same reps, as it did when every set had to match.
+ * the plan keeps the same reps for the same exercise, as it did when every
+ * set had to match.
  */
 function repsFor(state: WorkoutState, index: number): number {
   const step = state.steps[index];
@@ -174,9 +224,19 @@ function repsFor(state: WorkoutState, index: number): number {
   const previous = state.steps
     .slice(0, index)
     .findLast((earlier) => earlier.kind === 'set');
-  return previous?.kind === 'set' && previous.reps === step.reps
+  return previous?.kind === 'set' &&
+    previous.reps === step.reps &&
+    previous.part?.name === step.part?.name
     ? state.reps
     : step.reps;
+}
+
+/** A sequence's exercises each keep their own tempo. */
+function tempoFor(state: WorkoutState, index: number): number {
+  const step = state.steps[index];
+  return step.kind === 'set' && step.part?.tempoMs
+    ? clampTempo(step.part.tempoMs)
+    : state.tempoMs;
 }
 
 /** Moves to the next step with its timer starting at `at`; finishes after the last step. */
@@ -201,6 +261,7 @@ export function nextStep(state: WorkoutState, at: number): WorkoutState {
     ...state,
     index,
     reps: repsFor(state, index),
+    tempoMs: tempoFor(state, index),
     setsCompleted,
     completed,
     timer: {accumulatedMs: 0, startedAt: at},
@@ -325,13 +386,25 @@ export function setTempo(
   const step = state.steps[state.index];
   const elapsed = elapsedMs(state.timer, now);
   const leadIn = leadInMs(state);
+  // In a sequence the change is for this exercise (during a break, the next
+  // one), so its later sets keep it and other exercises keep their own.
+  const part = stepPart(step);
+  const steps = part
+    ? state.steps.map((later, i) =>
+        i >= state.index && later.kind === 'set' && later.part?.name === part.name
+          ? {...later, part: {...later.part, tempoMs: nextTempo}}
+          : later,
+      )
+    : state.steps;
   if (state.done || step.kind !== 'set' || elapsed < leadIn) {
-    return {...state, tempoMs: nextTempo};
+    return {...state, steps, tempoMs: nextTempo};
   }
   const repsIn = Math.min(state.reps, (elapsed - leadIn) / state.tempoMs);
   return {
     ...state,
+    steps,
     tempoMs: nextTempo,
+
     timer: {
       accumulatedMs: leadIn + repsIn * nextTempo,
       startedAt: isRunning(state.timer) ? now : null,

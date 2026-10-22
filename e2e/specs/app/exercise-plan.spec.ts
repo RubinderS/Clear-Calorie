@@ -392,3 +392,76 @@ test('EP-10/11 days are ordered Monday first and collapse', async ({
   }
   await expect(page.getByRole('button', {name: 'Collapse all'})).toBeVisible();
 });
+
+test('EP-15 build a sequence with breaks between its exercises', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  await page.goto('/exercise-plan');
+  await page.getByRole('button', {name: 'Add sequence'}).click();
+  const add = dialog(page, 'Add sequence');
+  await add.getByLabel('Name', {exact: true}).fill('Cardio circuit');
+  const picker = add.getByLabel('Add an exercise to the sequence');
+  const suggestions = add.getByRole('list', {name: 'Built-in exercises'});
+  await picker.fill('jumping');
+  await suggestions.getByRole('listitem').filter({hasText: /^Jumping jack/}).click();
+  await picker.fill('goblet');
+  await suggestions.getByRole('listitem').filter({hasText: /^Goblet squat/}).click();
+  // The user's own exercises can be added by name.
+  await picker.fill('Shadow boxing drill');
+  await picker.press('Enter');
+
+  // Cardio starts timed and strength for reps, with a minute's break between.
+  await expect(add.getByLabel('Step 1 time')).toHaveValue('0:45');
+  await expect(add.getByLabel('Step 2 reps')).toHaveValue('12');
+  await expect(add.getByLabel('Break before step 2', {exact: true})).toHaveValue('60');
+  await expect(add.getByLabel('Break before step 1', {exact: true})).toHaveCount(0);
+
+  // A shorter break is what the next one starts with.
+  await add.getByLabel('Break before step 3', {exact: true}).selectOption('30');
+  await add.getByRole('button', {name: 'Repeat step 2'}).click();
+  await expect(add.getByRole('group', {name: 'Step 3: Goblet squat'})).toBeVisible();
+  await expect(add.getByLabel('Break before step 3', {exact: true})).toHaveValue('30');
+
+  // Breaks stay in place when exercises move, and can be removed and added back.
+  await add.getByRole('button', {name: 'Remove break before step 4'}).click();
+  await expect(add.getByRole('button', {name: 'Add break before step 4'})).toBeVisible();
+  await add.getByRole('button', {name: 'Move step 4 up'}).click();
+  await expect(add.getByRole('group', {name: 'Step 3: Shadow boxing drill'})).toBeVisible();
+  await add.getByLabel('Mon', {exact: true}).check();
+
+  const request = nextApiRequest(page, '/api/exercise-goals');
+  await add.getByRole('button', {name: 'Add sequence'}).click();
+  const sent = await request;
+  expect(sent.postDataJSON()).toEqual({
+    name: 'Cardio circuit',
+    calories: 0,
+    notes: '',
+    days: [1],
+    type: 'SEQUENCE',
+    steps: [
+      {name: 'Jumping jack', catalogId: 'jumping-jack', durationSec: 45, weight: null, restSec: 0},
+      {name: 'Goblet squat', catalogId: 'goblet-squat', reps: 12, weight: null, restSec: 60},
+      {name: 'Shadow boxing drill', catalogId: null, durationSec: 45, weight: null, restSec: 30},
+      {name: 'Goblet squat', catalogId: 'goblet-squat', reps: 12, weight: null, restSec: 0},
+    ],
+  });
+  expect((await sent.response())?.status()).toBe(201);
+  await expect(add).toBeHidden();
+
+  const monday = daySection(page, 1);
+  await expect(monday).toContainText('Cardio circuit');
+  await expect(monday).toContainText('Sequence');
+  await expect(monday).toContainText('Jumping jack, Goblet squat +1 · 4 steps');
+  await expect(monday).toContainText('Break 1 min · 2. Goblet squat · 12 reps');
+  const goal = await db.exerciseGoal.findFirstOrThrow({where: {userId: user.id}});
+  expect(goal).toMatchObject({type: 'SEQUENCE', catalogId: null, setPlan: null, sets: 4});
+
+  // Editing reopens it as a sequence.
+  await monday.getByRole('button', {name: 'Edit Cardio circuit'}).click();
+  const edit = dialog(page, 'Edit sequence');
+  await expect(edit.getByLabel('Name', {exact: true})).toHaveValue('Cardio circuit');
+  await expect(edit.getByLabel('Step 3 time')).toHaveValue('0:45');
+  await expect(edit.getByRole('button', {name: 'Add break before step 4'})).toBeVisible();
+});

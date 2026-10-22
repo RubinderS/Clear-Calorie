@@ -15,6 +15,7 @@ import {
 } from '@/components/exercise-detail-fields';
 import {ExerciseAreaTag, ExerciseHowTo} from '@/components/exercise-animation';
 import {GoalNotes} from '@/components/goal-notes';
+import {SequenceTag} from '@/components/sequence-steps-field';
 import {Button} from '@/components/ui/button';
 import {
   Card,
@@ -31,7 +32,13 @@ import {
   type WorkoutSound,
 } from '@/lib/workout-sound';
 import {dayFocus} from '@/lib/day-focus';
-import {formatExerciseDetail, setsOf, type ExerciseSet} from '@/lib/exercise';
+import {
+  formatExerciseDetail,
+  goalCatalogIds,
+  isSequence,
+  setsOf,
+  type ExerciseSet,
+} from '@/lib/exercise';
 
 export type PlannedExercise = {
   id: string;
@@ -43,6 +50,8 @@ export type PlannedExercise = {
   reps: number | null;
   weight: number | null;
   setPlan: string | null;
+  /** A sequence's steps, as stored. */
+  steps?: string | null;
   tempoMs: number | null;
   notes: string | null;
   /** The built-in exercise it's linked to, which has an animation. */
@@ -151,7 +160,7 @@ export function TodaysExercisePlan({
     if (hasGoals) void loadWorkoutVoice();
   }, [hasGoals]);
   const doneCount = goals.filter((goal) => completedIds.has(goal.id)).length;
-  const focus = dayFocus(goals.map((goal) => goal.catalogId));
+  const focus = dayFocus(goals.flatMap(goalCatalogIds));
   const visibleGoals = hideCompleted
     ? goals.filter((goal) => !completedIds.has(goal.id))
     : goals;
@@ -274,7 +283,11 @@ export function TodaysExercisePlan({
                         >
                           {goal.name}
                         </span>
-                        <ExerciseAreaTag catalogId={goal.catalogId} />
+                        {isSequence(goal) ? (
+                          <SequenceTag />
+                        ) : (
+                          <ExerciseAreaTag catalogId={goal.catalogId} />
+                        )}
                       </span>
                       <span className="block text-xs text-muted-foreground">
                         {formatExerciseDetail(goal)}
@@ -299,8 +312,9 @@ export function TodaysExercisePlan({
                       onClick={() => {
                         // Timed workouts start without another tap, so their
                         // countdown voice and music must be unlocked by this one.
+                        // Strength exercises and sequences have a setup screen.
                         let sound: WorkoutSound | null = null;
-                        if (goal.type === 'STRENGTH') {
+                        if (goal.type !== 'TIME') {
                           unlockAudio();
                         } else {
                           sound = createWorkoutSound();
@@ -375,6 +389,11 @@ function LogReview({
   onCancel: () => void;
 }) {
   const [planned] = useState(() => toWorkValues(goal));
+  const [stepNames] = useState(() =>
+    isSequence(goal)
+      ? setsOf(goal).map((set) => set.name ?? 'Exercise')
+      : undefined,
+  );
   const [values, setValues] = useState(() =>
     initialLogValues(planned, goal.calories, doneWork(planned, result)),
   );
@@ -392,6 +411,7 @@ function LogReview({
         baselineCalories={goal.calories}
         value={values}
         onChange={setValues}
+        stepNames={stepNames}
       />
       <Button type="submit" className="h-12 w-full">
         <Check />

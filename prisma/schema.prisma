@@ -151,6 +151,9 @@ model ExerciseSet {
   reps          Int?
   durationSec   Int?
   weight        Float?
+  // For sequence logs: which exercise this step was
+  name          String?
+  catalogId     String?
 
   exerciseLog ExerciseLog @relation(fields: [exerciseLogId], references: [id], onDelete: Cascade)
 
@@ -199,6 +202,9 @@ model ExerciseGoal {
   notes       String?
   // Built-in exercise (lib/exercise-catalog) this is linked to; set from the name
   catalogId   String?
+  // For type "SEQUENCE": JSON array of steps (one set of one exercise each,
+  // with the break before it), run back to back and logged as one entry
+  steps       String?
   // Bit n set = active on JS getDay() n (0 = Sunday)
   daysMask    Int
   createdAt   DateTime @default(now())

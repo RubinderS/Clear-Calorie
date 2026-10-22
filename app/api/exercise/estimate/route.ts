@@ -17,6 +17,7 @@ const estimateRequestSchema = z.object({
   sets: positiveInt,
   reps: positiveInt,
   weight: z.number().positive().max(10_000).nullish(),
+  parts: z.array(z.string().max(200)).max(60).nullish(),
 });
 
 export async function POST(request: Request) {

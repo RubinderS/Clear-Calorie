@@ -50,22 +50,57 @@ function PlanSummary({change}: {change: StoredPlanChange}) {
     <>
       <p className="font-medium">{name}</p>
       <dl className="mt-1 space-y-0.5 text-sm">
-        {planChangeRows(change).map((row) => (
-          <div key={row.label} className="flex flex-wrap items-baseline gap-x-1.5">
-            <dt className="text-muted-foreground">{row.label}:</dt>
-            <dd className="flex flex-wrap items-baseline gap-x-1.5">
-              {row.before !== undefined && (
-                <>
-                  <span className="text-muted-foreground line-through">{row.before}</span>
-                  <ArrowRight aria-label="to" className="size-3.5 self-center" />
-                </>
-              )}
-              <span className={cn(change.operation === 'remove' && 'text-muted-foreground')}>
-                {row.after}
-              </span>
-            </dd>
-          </div>
-        ))}
+        {planChangeRows(change).map((row) =>
+          row.lines ? (
+            <div key={row.label}>
+              <dt className="text-muted-foreground">
+                {row.label}
+                {row.before !== undefined && ' (changed)'}:
+              </dt>
+              <dd>
+                <ul className="mt-0.5 space-y-0.5 border-l-2 pl-2">
+                  {row.lines.map((line, index) => (
+                    <li
+                      key={index}
+                      className={cn(
+                        line.startsWith('Break') && 'text-muted-foreground',
+                      )}
+                    >
+                      {line}
+                    </li>
+                  ))}
+                </ul>
+              </dd>
+            </div>
+          ) : (
+            <div
+              key={row.label}
+              className="flex flex-wrap items-baseline gap-x-1.5"
+            >
+              <dt className="text-muted-foreground">{row.label}:</dt>
+              <dd className="flex flex-wrap items-baseline gap-x-1.5">
+                {row.before !== undefined && (
+                  <>
+                    <span className="text-muted-foreground line-through">
+                      {row.before}
+                    </span>
+                    <ArrowRight
+                      aria-label="to"
+                      className="size-3.5 self-center"
+                    />
+                  </>
+                )}
+                <span
+                  className={cn(
+                    change.operation === 'remove' && 'text-muted-foreground',
+                  )}
+                >
+                  {row.after}
+                </span>
+              </dd>
+            </div>
+          ),
+        )}
       </dl>
       {change.operation === 'remove' && (
         <p className="mt-2 text-sm text-muted-foreground">
@@ -170,7 +205,11 @@ export function ActionCard({
   const [error, setError] = React.useState<string | null>(null);
   const {icon: Icon, label: kindLabel} = KIND[action.kind] ?? KIND.food;
   const planChange = planChangeOf(action);
-  const label = planChange ? PLAN_LABEL[planChange.operation] : kindLabel;
+  const label = planChange
+    ? planChange.operation === 'add' && 'steps' in planChange.goal
+      ? 'Add sequence to plan'
+      : PLAN_LABEL[planChange.operation]
+    : kindLabel;
   const isPlan = action.kind === 'plan' || action.kind === 'links';
 
   async function decide(decision: 'confirm' | 'dismiss') {

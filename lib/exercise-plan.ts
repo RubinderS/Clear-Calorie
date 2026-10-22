@@ -9,6 +9,7 @@ import {
   normalizeNotes,
   setsOf,
   toPlanFields,
+  toSequenceFields,
   type ExerciseGoalInput,
   type ExerciseSet,
 } from '@/lib/exercise';
@@ -38,11 +39,17 @@ export async function saveExerciseGoal(
 ) {
   const data = {
     name: input.name,
-    catalogId: catalogIdFor(input.name),
     calories: input.calories,
     notes: normalizeNotes(input.notes),
     daysMask: daysToMask(input.days),
-    ...toPlanFields(inputSets(input)),
+    // A sequence's exercises and tempos are kept per step instead.
+    ...('steps' in input
+      ? {...toSequenceFields(input.steps), catalogId: null, tempoMs: null}
+      : {
+          ...toPlanFields(inputSets(input)),
+          catalogId: catalogIdFor(input.name),
+          steps: null,
+        }),
   };
 
   await freezePastPlanDays(userId, timeZone);
@@ -125,6 +132,7 @@ export async function getTodaysPlanStatus(
     reps: goal.reps,
     weight: goal.weight,
     setPlan: goal.setPlan,
+    steps: goal.steps,
     catalogId: goal.catalogId,
     tempoMs: goal.tempoMs,
     notes: goal.notes,

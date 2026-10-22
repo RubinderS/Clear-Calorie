@@ -30,12 +30,14 @@ export type ExerciseDetailValues = {sets: SetValues[]};
 
 const EMPTY_SET: SetValues = {mode: 'reps', reps: '', time: '', weight: ''};
 
-export const EMPTY_EXERCISE_DETAILS: ExerciseDetailValues = {sets: [EMPTY_SET]};
+export const EMPTY_EXERCISE_DETAILS: ExerciseDetailValues = {
+  sets: [EMPTY_SET],
+};
 
 // Minutes alone ("30"), or minutes and seconds ("1:30", "0:45").
 const TIME_PATTERN = '\\d+(:[0-5]\\d)?';
 
-function toInt(value: string) {
+export function toInt(value: string) {
   return new Decimal(Number(value))
     .toDecimalPlaces(0, Decimal.ROUND_HALF_CEIL)
     .toNumber();
@@ -105,15 +107,19 @@ type SetRowsProps = {
   idPrefix: string;
   sets: SetValues[];
   onChange: (sets: SetValues[]) => void;
+  /** Each set's exercise, for a sequence's steps. */
+  labels?: readonly string[];
+  /** Sets can't be added or removed, e.g. a sequence's steps. */
+  fixedCount?: boolean;
 };
 
-const SET_MODES: TogglerOption<SetMode>[] = [
+export const SET_MODES: TogglerOption<SetMode>[] = [
   {value: 'reps', label: 'Reps'},
   {value: 'time', label: 'Time'},
 ];
 
 /** An input with its unit shown inside, so a typed value stays readable. */
-function UnitInput({
+export function UnitInput({
   unit,
   ...props
 }: React.ComponentProps<typeof Input> & {unit: string}) {
@@ -131,22 +137,41 @@ function UnitInput({
 }
 
 /** Each set on its own row, done for reps or for a time, with its weight. */
-function SetRows({idPrefix, sets, onChange}: SetRowsProps) {
+function SetRows({
+  idPrefix,
+  sets,
+  onChange,
+  labels,
+  fixedCount = false,
+}: SetRowsProps) {
   function update(index: number, change: Partial<SetValues>) {
     onChange(sets.map((set, i) => (i === index ? {...set, ...change} : set)));
   }
 
   return (
-    <div role="group" aria-label="Sets" className="space-y-4 sm:space-y-2">
+    <div
+      role="group"
+      aria-label={labels ? 'Steps' : 'Sets'}
+      className="space-y-4 sm:space-y-2"
+    >
       {sets.map((set, index) => {
-        const label = `Set ${index + 1}`;
+        const label = labels ? `Step ${index + 1}` : `Set ${index + 1}`;
         return (
           // On phones the type and remove button share the first line, then
           // the amount and the weight each get a full-width line.
           <div
             key={index}
-            className="grid grid-cols-[1fr_2.25rem] items-center gap-2 sm:grid-cols-[auto_1fr_1fr_2.25rem]"
+            className={
+              fixedCount
+                ? 'grid grid-cols-2 items-center gap-2 sm:grid-cols-[auto_1fr_1fr]'
+                : 'grid grid-cols-[1fr_2.25rem] items-center gap-2 sm:grid-cols-[auto_1fr_1fr_2.25rem]'
+            }
           >
+            {labels?.[index] ? (
+              <p className="col-span-full text-sm font-medium">
+                {index + 1}. {labels[index]}
+              </p>
+            ) : null}
             <Toggler
               name={`${idPrefix}-set-${index}-mode`}
               label={`${label} type`}
@@ -189,32 +214,36 @@ function SetRows({idPrefix, sets, onChange}: SetRowsProps) {
               value={set.weight}
               onChange={(event) => update(index, {weight: event.target.value})}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="col-start-2 row-start-1 h-9 w-9 sm:col-start-auto sm:row-start-auto"
-              aria-label={`Remove set ${index + 1}`}
-              disabled={sets.length === 1}
-              onClick={() => onChange(sets.filter((_, i) => i !== index))}
-            >
-              <X />
-            </Button>
+            {fixedCount ? null : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="col-start-2 row-start-1 h-9 w-9 sm:col-start-auto sm:row-start-auto"
+                aria-label={`Remove set ${index + 1}`}
+                disabled={sets.length === 1}
+                onClick={() => onChange(sets.filter((_, i) => i !== index))}
+              >
+                <X />
+              </Button>
+            )}
           </div>
         );
       })}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="w-full"
-        disabled={sets.length >= MAX_SETS}
-        // A new set starts like the last one, usually the closest match.
-        onClick={() => onChange([...sets, sets[sets.length - 1]])}
-      >
-        <Plus />
-        Add set
-      </Button>
+      {fixedCount ? null : (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          disabled={sets.length >= MAX_SETS}
+          // A new set starts like the last one, usually the closest match.
+          onClick={() => onChange([...sets, sets[sets.length - 1]])}
+        >
+          <Plus />
+          Add set
+        </Button>
+      )}
     </div>
   );
 }
@@ -329,6 +358,8 @@ type ExerciseLogFieldsProps = {
   baselineCalories: number;
   value: ExerciseLogValues;
   onChange: (value: ExerciseLogValues) => void;
+  /** A sequence's exercises, one per step; its steps stay as planned. */
+  stepNames?: readonly string[];
 };
 
 /** What was done, set by set, plus the calories it burned. */
@@ -338,6 +369,7 @@ export function ExerciseLogFields({
   baselineCalories,
   value,
   onChange,
+  stepNames,
 }: ExerciseLogFieldsProps) {
   function changeSets(sets: SetValues[]) {
     const scaled = value.caloriesEdited
@@ -352,7 +384,13 @@ export function ExerciseLogFields({
 
   return (
     <div className="space-y-4">
-      <SetRows idPrefix={idPrefix} sets={value.sets} onChange={changeSets} />
+      <SetRows
+        idPrefix={idPrefix}
+        sets={value.sets}
+        onChange={changeSets}
+        labels={stepNames}
+        fixedCount={stepNames !== undefined}
+      />
       <div className="flex flex-col space-y-2">
         <Label htmlFor={`${idPrefix}-calories`}>Calories burned</Label>
         <Input

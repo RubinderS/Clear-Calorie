@@ -461,3 +461,84 @@ test.describe('WO-11 notes during a workout', () => {
     await expect(workout.getByLabel('Notes')).toHaveValue('Changed');
   });
 });
+
+test('WO-13 a sequence runs its exercises in turn, with breaks that follow a change', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  await page.clock.install();
+  const goal = await seedExerciseGoal(db, user.id, {
+    name: 'Cardio circuit',
+    type: 'SEQUENCE',
+    calories: 60,
+    sets: 3,
+    reps: 10,
+    // Timed steps use the user's own exercise: animating 3D frames under the
+    // fake clock is too slow.
+    steps: JSON.stringify([
+      {name: 'Skipping', durationSec: 30, restSec: 0},
+      {name: 'Goblet squat', catalogId: 'goblet-squat', reps: 10, restSec: 60},
+      {name: 'Skipping', durationSec: 30, restSec: 60},
+    ]),
+  });
+  const {panel, workout} = await startGoal(page, 'Cardio circuit');
+  const c = controls(workout);
+  const skipBreak = workout.getByRole('button', {name: 'Skip break'});
+
+  // The setup lists each step and the breaks between them.
+  await expect(workout.getByRole('table')).toContainText('Goblet squat');
+  await expect(workout.getByText('Break 1 min')).toHaveCount(2);
+  await freezeClock(page);
+  await workout.getByRole('button', {name: 'Start 3 steps'}).click();
+
+  await expect(c.step).toHaveText('Skipping');
+  await expect(c.detail).toHaveText('Step 1 of 3 · 30s');
+  await expect(c.timer).toHaveText('5');
+  await page.clock.runFor(10_000);
+  await expect(c.timer).toHaveText('0:30');
+  await page.clock.runFor(30_000);
+  await expect(c.step).toHaveText('Break');
+  await expect(c.detail).toHaveText('Next: Goblet squat · 10 reps');
+  await expect(c.timer).toHaveText('1:00');
+
+  // A shorter break carries on to the later breaks.
+  await workout.getByRole('button', {name: '−15s'}).click();
+  await expect(c.timer).toHaveText('0:45');
+  await skipBreak.click();
+  await expect(c.step).toHaveText('Goblet squat');
+  await expect(c.detail).toHaveText('Step 2 of 3 · 10 reps');
+  await c.next.click(); // Done
+  await expect(c.step).toHaveText('Break');
+  await expect(c.detail).toHaveText('Next: Skipping · 30s');
+  await expect(c.timer).toHaveText('0:45');
+  await skipBreak.click();
+  await expect(c.detail).toHaveText('Step 3 of 3 · 30s');
+  await expect(c.next).toHaveText('Finish');
+  await c.next.click();
+
+  // Each step is checked under its exercise, and steps can't be added.
+  await expect(workout.getByText('Check what you did, then log it')).toBeVisible();
+  await expect(workout.getByText('2. Goblet squat')).toBeVisible();
+  await expect(workout.getByLabel('Step 2 reps')).toHaveValue('10');
+  await expect(workout.getByLabel('Step 3 time')).toHaveValue('0:30');
+  await expect(workout.getByRole('button', {name: 'Add set'})).toHaveCount(0);
+  const logged = nextApiRequest(page, '/api/exercise-goals/log');
+  await workout.getByRole('button', {name: 'Done', exact: true}).click();
+  expect((await logged).postDataJSON()).toEqual({goalId: goal.id});
+  await expect(card(panel, "Today's plan").getByText('All planned exercises done.')).toBeVisible();
+
+  // One log for the whole sequence, with each step's exercise.
+  const log = await db.exerciseLog.findFirstOrThrow({
+    where: {userId: user.id},
+    include: {exerciseSets: {orderBy: {position: 'asc'}}},
+  });
+  expect(log).toMatchObject({exerciseGoalId: goal.id, name: 'Cardio circuit', calories: 60});
+  expect(
+    log.exerciseSets.map((set) => [set.name, set.catalogId, set.reps, set.durationSec]),
+  ).toEqual([
+    ['Skipping', null, null, 30],
+    ['Goblet squat', 'goblet-squat', 10, null],
+    ['Skipping', null, null, 30],
+  ]);
+});

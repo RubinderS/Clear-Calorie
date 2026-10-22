@@ -7,6 +7,7 @@ import {
   EXERCISE_LOG_INCLUDE,
   exerciseSetsSchema,
   isActiveOn,
+  isSequence,
   setsOf,
   toExerciseFields,
   toSetRows,
@@ -67,7 +68,18 @@ export async function POST(request: Request) {
     }
 
     const goalDate = getTodayDate(timeZone);
-    const sets = exerciseSets ?? plannedSetsWith(setsOf(goal), durationMin);
+    const planned = setsOf(goal);
+    // A sequence's sets are labelled from its steps, never by the client.
+    const sets = (exerciseSets ?? plannedSetsWith(planned, durationMin)).map(
+      (set, index) =>
+        isSequence(goal)
+          ? {
+              ...set,
+              name: planned[index]?.name ?? null,
+              catalogId: planned[index]?.catalogId ?? null,
+            }
+          : set,
+    );
     const fields = toExerciseFields(sets);
     try {
       const entry = await prisma.exerciseLog.create({

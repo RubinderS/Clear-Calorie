@@ -130,7 +130,13 @@ export async function PATCH(request: Request) {
 
     const entry = await prisma.exerciseLog.findFirst({
       where: {id, userId: session.user.id},
-      select: {loggedAt: true},
+      select: {
+        loggedAt: true,
+        exerciseSets: {
+          orderBy: {position: 'asc'},
+          select: {name: true, catalogId: true},
+        },
+      },
     });
     if (!entry) {
       return NextResponse.json({error: 'Entry not found'}, {status: 404});
@@ -144,7 +150,11 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const sets = inputSets(parsed.data);
+    // A sequence's sets keep the exercise each one was.
+    const sets = inputSets(parsed.data).map((set, index) => ({
+      ...set,
+      ...entry.exerciseSets[index],
+    }));
     const fields = toExerciseFields(sets);
     const updated = await prisma.exerciseLog.update({
       where: {id},

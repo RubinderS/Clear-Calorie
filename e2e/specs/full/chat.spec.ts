@@ -136,6 +136,36 @@ test.describe('desktop drawer', () => {
     expect(updated).toMatchObject({sets: 3, reps: 8, weight: 62.5, daysMask: goal.daysMask});
   });
 
+  test('CHAT-UI-11 the coach builds a sequence in one proposal', async ({
+    authedPage: page,
+    db,
+    user,
+  }) => {
+    await page.goto('/dashboard');
+    await page.getByRole('button', {name: 'Ask coach'}).click();
+    await ask(page, '[ai:chat-sequence] Build me a cardio circuit for Mondays');
+
+    const card = page.getByTestId('chat-action');
+    await expect(card).toContainText('Add sequence to plan');
+    await expect(card).toContainText('Cardio circuit');
+    await expect(card.getByRole('listitem')).toHaveText([
+      '1. Jumping jack · 45s',
+      'Break 30s',
+      '2. Goblet squat · 12 reps',
+    ]);
+    await expect(coach(page).reply).toHaveText("I've proposed Cardio circuit for you to confirm.");
+    expect(await db.exerciseGoal.count({where: {userId: user.id}})).toBe(0);
+
+    await card.getByRole('button', {name: 'Confirm'}).click();
+    await expect(card.getByText('Plan updated')).toBeVisible();
+    const goal = await db.exerciseGoal.findFirstOrThrow({where: {userId: user.id}});
+    expect(goal).toMatchObject({name: 'Cardio circuit', type: 'SEQUENCE', calories: 90, daysMask: 2});
+    expect(JSON.parse(goal.steps ?? '[]')).toEqual([
+      {durationSec: 45, weight: null, name: 'Jumping jack', catalogId: 'jumping-jack', restSec: 0},
+      {reps: 12, weight: null, name: 'Goblet squat', catalogId: 'goblet-squat', restSec: 30},
+    ]);
+  });
+
   test('CHAT-UI-10 confirmed links rename exercises to built-in ones', async ({
     authedPage: page,
     db,

@@ -1,8 +1,15 @@
 import {z} from 'zod';
-import {MAX_REPS} from '@/lib/workout';
+import {DEFAULT_TEMPO_MS, MAX_REPS} from '@/lib/workout';
 
 export const EXERCISE_TYPES = ['TIME', 'STRENGTH'] as const;
 export type ExerciseType = (typeof EXERCISE_TYPES)[number];
+
+/** Plan type for several exercises run back to back and logged as one. */
+export const SEQUENCE_TYPE = 'SEQUENCE';
+
+export function isSequence(item: {type: string}): boolean {
+  return item.type === SEQUENCE_TYPE;
+}
 
 export const MAX_SETS = 20;
 // A day, which no single set should take.
@@ -14,21 +21,58 @@ const weightSchema = z.number().positive().nullish();
  * One set, done either for reps or for a time. Sets in a log or plan can
  * differ, e.g. a heavier weight each set or a hold after some reps.
  */
-export const exerciseSetSchema = z
-  .object({
-    reps: z.number().int().min(1).max(MAX_REPS).nullish(),
-    durationSec: z.number().int().min(1).max(MAX_SET_SEC).nullish(),
-    weight: weightSchema,
-  })
-  .refine((set) => (set.reps != null) !== (set.durationSec != null), {
-    message: 'Each set needs either reps or a time',
-  });
+const setFields = {
+  reps: z.number().int().min(1).max(MAX_REPS).nullish(),
+  durationSec: z.number().int().min(1).max(MAX_SET_SEC).nullish(),
+  weight: weightSchema,
+};
+const hasOneAmount = (set: {
+  reps?: number | null;
+  durationSec?: number | null;
+}) => (set.reps != null) !== (set.durationSec != null);
+
+export const exerciseSetSchema = z.object(setFields).refine(hasOneAmount, {
+  message: 'Each set needs either reps or a time',
+});
 export const exerciseSetsSchema = z.array(exerciseSetSchema).min(1).max(MAX_SETS);
 export type ExerciseSet = {
   reps?: number | null;
   durationSec?: number | null;
   weight?: number | null;
+  // Which exercise a set of a sequence was
+  name?: string | null;
+  catalogId?: string | null;
 };
+
+export const DEFAULT_BREAK_SEC = 60;
+export const MAX_BREAK_SEC = 600;
+// Each step is logged as one set, so the log limit applies.
+export const MAX_SEQUENCE_STEPS = MAX_SETS;
+
+/** One set of one exercise in a sequence, with the break before it. */
+export const sequenceStepSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100),
+    catalogId: z.string().trim().min(1).nullish(),
+    ...setFields,
+    restSec: z.number().int().min(0).max(MAX_BREAK_SEC).default(0),
+  })
+  .refine(hasOneAmount, {message: 'Each step needs either reps or a time'});
+export type SequenceStep = z.infer<typeof sequenceStepSchema>;
+
+/** A sequence's steps; nothing comes before the first, so it has no break. */
+export const sequenceStepsSchema = z
+  .array(sequenceStepSchema)
+  .min(1)
+  .max(MAX_SEQUENCE_STEPS)
+  .transform((steps) =>
+    steps.map((step, index) => (index === 0 ? {...step, restSec: 0} : step)),
+  );
+
+export const sequenceInputSchema = z.object({
+  type: z.literal(SEQUENCE_TYPE),
+  steps: sequenceStepsSchema,
+});
 
 /** The older summary form of an exercise, still accepted by the APIs. */
 export const exerciseDetailsSchema = z.discriminatedUnion('type', [
@@ -142,6 +186,47 @@ export function toPlanFields(sets: readonly ExerciseSet[]) {
   };
 }
 
+function cleanStep(step: SequenceStep): SequenceStep {
+  return {
+    ...cleanSet(step),
+    name: step.name,
+    catalogId: step.catalogId ?? null,
+    restSec: step.restSec,
+  };
+}
+
+/** A sequence's steps as sets, each labelled with its exercise. */
+export function stepSets(steps: readonly SequenceStep[]): ExerciseSet[] {
+  return steps.map((step) => ({
+    ...cleanSet(step),
+    name: step.name,
+    catalogId: step.catalogId ?? null,
+  }));
+}
+
+/** Columns for a sequence plan; the summary columns cover all its steps. */
+export function toSequenceFields(steps: readonly SequenceStep[]) {
+  return {
+    ...toExerciseFields(steps),
+    type: SEQUENCE_TYPE,
+    setPlan: null,
+    steps: JSON.stringify(steps.map(cleanStep)),
+  };
+}
+
+/** A sequence's stored steps, or null when it has none or they can't be read. */
+export function parseSequenceSteps(
+  value: string | null | undefined,
+): SequenceStep[] | null {
+  if (!value) return null;
+  try {
+    const parsed = sequenceStepsSchema.safeParse(JSON.parse(value));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 /** A plan's stored sets, or null when it has none or they can't be read. */
 export function parseSetPlan(
   value: string | null | undefined,
@@ -162,6 +247,7 @@ export type ExerciseWithSets = {
   reps?: number | null;
   weight?: number | null;
   setPlan?: string | null;
+  steps?: string | null;
   exerciseSets?: readonly ExerciseSet[];
 };
 
@@ -171,6 +257,8 @@ export type ExerciseWithSets = {
  */
 export function setsOf(item: ExerciseWithSets): ExerciseSet[] {
   if (item.exerciseSets?.length) return [...item.exerciseSets];
+  const steps = parseSequenceSteps(item.steps);
+  if (steps) return stepSets(steps);
   const plan = parseSetPlan(item.setPlan);
   if (plan) return plan;
   if (item.type === 'STRENGTH') {
@@ -186,6 +274,8 @@ export function toSetRows(sets: readonly ExerciseSet[]) {
     reps: set.reps ?? null,
     durationSec: isRepSet(set) ? null : (set.durationSec ?? null),
     weight: set.weight ?? null,
+    name: set.name ?? null,
+    catalogId: set.catalogId ?? null,
   }));
 }
 
@@ -213,8 +303,60 @@ export function formatSetAmount(set: ExerciseSet): string {
     : formatDuration(set.durationSec ?? 0);
 }
 
+function formatStepAmount(set: ExerciseSet): string {
+  const amount = isRepSet(set)
+    ? `${set.reps} reps`
+    : formatDuration(set.durationSec ?? 0);
+  return set.weight ? `${amount} @ ${set.weight}` : amount;
+}
+
+/** A sequence's steps and breaks, one line each, for lists and proposals. */
+export function describeSequence(steps: readonly SequenceStep[]): string[] {
+  return steps.flatMap((step, index) => [
+    ...(step.restSec > 0 ? [`Break ${formatDuration(step.restSec)}`] : []),
+    `${index + 1}. ${step.name} · ${formatStepAmount(step)}`,
+  ]);
+}
+
+/** Rough minutes a sequence takes, counting reps at the default tempo. */
+export function sequenceMinutes(steps: readonly SequenceStep[]): number {
+  const seconds = steps.reduce(
+    (sum, step) =>
+      sum +
+      step.restSec +
+      (step.durationSec ?? (step.reps ?? 0) * (DEFAULT_TEMPO_MS / 1000)),
+    0,
+  );
+  return Math.max(1, Math.round(seconds / 60));
+}
+
+/** The exercises in named sets, e.g. "Jumping jacks, Squats +2 · 6 steps". */
+function namedSetsSummary(sets: readonly ExerciseSet[]): string {
+  const names = [...new Set(sets.map((set) => set.name ?? 'Exercise'))];
+  const shown = names.slice(0, 2).join(', ');
+  const more = names.length > 2 ? ` +${names.length - 2}` : '';
+  const count = `${sets.length} ${sets.length === 1 ? 'step' : 'steps'}`;
+  return `${shown}${more} · ${count}`;
+}
+
+/** The distinct built-in exercises a plan item uses, for naming its day. */
+export function goalCatalogIds(goal: {
+  type: string;
+  catalogId?: string | null;
+  steps?: string | null;
+}): (string | null)[] {
+  if (!isSequence(goal)) return [goal.catalogId ?? null];
+  const steps = parseSequenceSteps(goal.steps) ?? [];
+  return [...new Set(steps.map((step) => step.catalogId ?? null))];
+}
+
 export function formatExerciseDetail(item: ExerciseWithSets): string {
+  const steps = parseSequenceSteps(item.steps);
+  if (steps && !item.exerciseSets?.length) {
+    return `${namedSetsSummary(stepSets(steps))} · ~${sequenceMinutes(steps)} min`;
+  }
   const list = setsOf(item);
+  if (list.some((set) => set.name)) return namedSetsSummary(list);
   if (isUniform(list)) {
     const [set] = list;
     const amount = formatSetAmount(set);
@@ -249,15 +391,26 @@ export const exerciseGoalInputSchema = z
       .min(1)
       .refine((days) => new Set(days).size === days.length),
   })
-  .and(exerciseInputSchema);
+  .and(z.union([sequenceInputSchema, exerciseInputSchema]));
 export type ExerciseGoalInput = z.infer<typeof exerciseGoalInputSchema>;
+
+/** The sets a planned exercise or sequence describes. */
+export function goalInputSets(input: ExerciseGoalInput): ExerciseSet[] {
+  return 'steps' in input ? stepSets(input.steps) : inputSets(input);
+}
 
 /** Loads an exercise log entry's sets and its planned goal's notes. */
 export const EXERCISE_LOG_INCLUDE = {
   exerciseGoal: {select: {notes: true}},
   exerciseSets: {
     orderBy: {position: 'asc'},
-    select: {reps: true, durationSec: true, weight: true},
+    select: {
+      reps: true,
+      durationSec: true,
+      weight: true,
+      name: true,
+      catalogId: true,
+    },
   },
 } as const;
 

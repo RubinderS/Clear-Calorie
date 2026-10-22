@@ -9,6 +9,7 @@ import {
   catalogLinksSchema,
   planChangeRows,
   planChangeSchema,
+  planGoalSets,
   type CurrentGoal,
 } from './plan-change';
 
@@ -48,6 +49,7 @@ function goal(overrides: Partial<CurrentGoal> = {}): CurrentGoal {
     sets: 3,
     reps: 8,
     weight: 60,
+    steps: null,
     setPlan: JSON.stringify([
       {reps: 8, weight: 60},
       {reps: 8, weight: 60},
@@ -82,8 +84,8 @@ test('adds a built-in exercise with uniform sets on the given days', () => {
   assert.ok(change.operation === 'add');
   assert.equal(change.goal.name, 'Barbell back squat');
   assert.deepEqual(change.goal.days, [1, 5]);
-  assert.equal(change.goal.exerciseSets.length, 5);
-  assert.deepEqual(change.goal.exerciseSets[0], {reps: 5, weight: 80});
+  assert.equal(planGoalSets(change.goal).length, 5);
+  assert.deepEqual(planGoalSets(change.goal)[0], {reps: 5, weight: 80});
   assert.ok(planChangeSchema.safeParse(change).success);
   assert.deepEqual(planChangeRows(change, catalog)[0], {label: 'Areas', after: 'Quads, Glutes'});
 });
@@ -95,7 +97,7 @@ test('takes the type from the entry when adding', () => {
     catalog,
   );
   assert.ok(change.operation === 'add');
-  assert.deepEqual(change.goal.exerciseSets, [{durationSec: 1200, weight: null}]);
+  assert.deepEqual(planGoalSets(change.goal), [{durationSec: 1200, weight: null}]);
 });
 
 test('only adds built-in exercises', () => {
@@ -167,7 +169,7 @@ test('updates only the fields given, keeping the rest', () => {
   assert.equal(change.updatedAt, updatedAt.toISOString());
   assert.deepEqual(change.goal.days, [1, 4]);
   assert.deepEqual(
-    change.goal.exerciseSets,
+    planGoalSets(change.goal),
     [1, 2, 3].map(() => ({reps: 8, weight: 62.5})),
   );
   assert.deepEqual(planChangeRows(change), [
@@ -189,11 +191,12 @@ test('changing days alone leaves the sets as they are', () => {
 test('weight 0 clears the load', () => {
   const {change} = buildPlanChange({operation: 'update', exerciseId: 'bench', weight: 0}, [goal()]);
   assert.ok(change.operation === 'update');
-  assert.equal(change.goal.exerciseSets[0].weight, null);
+  assert.equal(planGoalSets(change.goal)[0].weight, null);
 });
 
 test('a plan with different sets is only replaced as a whole', () => {
   const pyramid = goal({
+    steps: null,
     setPlan: JSON.stringify([
       {reps: 10, weight: 50},
       {reps: 8, weight: 60},
@@ -209,7 +212,7 @@ test('a plan with different sets is only replaced as a whole', () => {
     [pyramid],
   );
   assert.ok(change.operation === 'update');
-  assert.equal(change.goal.exerciseSets.length, 3);
+  assert.equal(planGoalSets(change.goal).length, 3);
   // Notes and days changes don't touch the sets.
   const notes = buildPlanChange({operation: 'update', exerciseId: 'bench', notes: 'Pause reps'}, [pyramid]);
   assert.equal(notes.workChanged, false);
@@ -294,5 +297,107 @@ test('refuses links that clash, repeat or change nothing', () => {
   assert.throws(
     () => buildCatalogLinks({links: [{exerciseId: 'bench', catalogId: 'nope'}]}, [goal()], catalog),
     /search_exercise_catalog/,
+  );
+});
+
+const circuitArgs = {
+  operation: 'add' as const,
+  name: 'Cardio circuit',
+  days: ['Monday'],
+  steps: [
+    {catalogId: 'swimming', durationSec: 60, restSec: 30},
+    {catalogId: 'barbell-back-squat', reps: 10},
+    {catalogId: 'bench-press', reps: 8, restSec: 0},
+  ],
+};
+
+test('adds a sequence of built-in exercises in one change', () => {
+  const {change, workChanged} = buildPlanChange(circuitArgs, [], catalog);
+  assert.equal(workChanged, true);
+  assert.ok(change.operation === 'add' && 'steps' in change.goal);
+  assert.deepEqual(
+    change.goal.steps.map((step) => [step.name, step.restSec]),
+    [
+      ['Swimming', 0],
+      ['Barbell back squat', 60],
+      ['Bench press', 0],
+    ],
+  );
+  assert.equal(planGoalSets(change.goal).length, 3);
+  assert.ok(planChangeSchema.safeParse(change).success);
+  const steps = planChangeRows(change, catalog).find((row) => row.label === 'Steps');
+  assert.deepEqual(steps?.lines, [
+    '1. Swimming · 1 min',
+    'Break 1 min',
+    '2. Barbell back squat · 10 reps',
+    '3. Bench press · 8 reps',
+  ]);
+});
+
+test('a sequence needs a name, days and built-in steps with reps or a time', () => {
+  const fails = (args: object) =>
+    assert.throws(() => buildPlanChange({...circuitArgs, ...args}, [], catalog), ToolInputError);
+  fails({name: undefined});
+  fails({days: undefined});
+  fails({steps: [{catalogId: 'made-up', reps: 10}]});
+  fails({steps: [{catalogId: 'old-row', reps: 10}]});
+  fails({steps: [{catalogId: 'swimming'}]});
+  fails({steps: [{catalogId: 'swimming', reps: 10, durationSec: 60}]});
+});
+
+function sequenceGoal(): CurrentGoal {
+  const {change} = buildPlanChange(circuitArgs, [], catalog);
+  assert.ok(change.operation === 'add' && 'steps' in change.goal);
+  return goal({
+    id: 'circuit',
+    name: 'Cardio circuit',
+    type: 'SEQUENCE',
+    setPlan: null,
+    steps: JSON.stringify(change.goal.steps),
+    daysMask: daysToMask([1]),
+  });
+}
+
+test('updates a sequence as a whole and only through its steps', () => {
+  const current = sequenceGoal();
+  const {change, workChanged} = buildPlanChange(
+    {
+      operation: 'update',
+      exerciseId: 'circuit',
+      steps: [{catalogId: 'swimming', durationSec: 120}],
+    },
+    [current],
+    catalog,
+  );
+  assert.equal(workChanged, true);
+  assert.ok(change.operation === 'update' && 'steps' in change.goal);
+  assert.equal(change.goal.steps.length, 1);
+  assert.ok(planChangeSchema.safeParse(change).success);
+
+  const days = buildPlanChange(
+    {operation: 'update', exerciseId: 'circuit', days: ['Friday']},
+    [current],
+    catalog,
+  );
+  assert.equal(days.workChanged, false);
+  assert.ok(days.change.operation === 'update' && 'steps' in days.change.goal);
+  assert.equal(days.change.goal.steps.length, 3);
+
+  assert.throws(
+    () => buildPlanChange({operation: 'update', exerciseId: 'circuit', reps: 12}, [current], catalog),
+    ToolInputError,
+  );
+  assert.throws(
+    () =>
+      buildPlanChange(
+        {operation: 'update', exerciseId: 'bench', steps: [{catalogId: 'swimming', durationSec: 60}]},
+        [goal()],
+        catalog,
+      ),
+    ToolInputError,
+  );
+  assert.throws(
+    () => buildCatalogLinks({links: [{exerciseId: 'circuit', catalogId: 'swimming'}]}, [current], catalog),
+    ToolInputError,
   );
 });

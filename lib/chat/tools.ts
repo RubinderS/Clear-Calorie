@@ -9,9 +9,12 @@ import {METRIC_ORDER, rollingAverages} from '@/lib/body-metrics';
 import {
   EXERCISE_LOG_INCLUDE,
   WEEKDAYS,
+  describeSequence,
   exerciseDetailsSchema,
   formatExerciseDetail,
   isActiveOn,
+  isSequence,
+  parseSequenceSteps,
   isSameExerciseName,
   toExerciseFields,
 } from '@/lib/exercise';
@@ -51,6 +54,7 @@ import {
   catalogLinksArgsSchema,
   planChangeArgsSchema,
   planChangeRows,
+  planGoalSets,
   type PlanGoal,
 } from './plan-change';
 import {toActionView, type ChatActionKind, type ChatActionView} from './view';
@@ -313,7 +317,7 @@ export const TOOLS = {
 
   get_exercise_plan: defineTool({
     description:
-      "The user's weekly exercise plan (each exercise with its id, weekdays, sets/reps/weight or duration, calories and notes) and which of today's planned exercises are done. Exercises linked to the built-in list have a catalogId and the body areas they work; ones without are the user's own.",
+      "The user's weekly exercise plan (each exercise with its id, weekdays, sets/reps/weight or duration, calories and notes) and which of today's planned exercises are done. Exercises linked to the built-in list have a catalogId and the body areas they work; ones without are the user's own. Type SEQUENCE items are several exercises done back to back, listed in steps with their breaks.",
     status: 'Checking your exercise plan',
     schema: z.object({}),
     parameters: {type: 'object', properties: {}},
@@ -339,6 +343,9 @@ export const TOOLS = {
             type: goal.type,
             days: weekdayNames(goal.daysMask),
             detail: formatExerciseDetail(goal),
+            steps: isSequence(goal)
+              ? describeSequence(parseSequenceSteps(goal.steps) ?? [])
+              : undefined,
             calories: goal.calories || undefined,
             notes: goal.notes ?? undefined,
           })),
@@ -641,7 +648,7 @@ export const TOOLS = {
 
   propose_exercise_plan_change: defineTool({
     description:
-      "Propose adding, changing or removing one exercise in the user's weekly exercise plan. Shows the user a card with the change to confirm. Use only when the user asks to change their plan or agrees to a suggested change. Call get_exercise_plan first for the exercise ids and current values. One call per exercise. For update, pass only the fields that change. Only built-in exercises can be added: call search_exercise_catalog and pass its catalogId; never invent exercises. To link several existing exercises to built-in ones, use propose_exercise_catalog_links instead.",
+      "Propose adding, changing or removing one exercise in the user's weekly exercise plan. Shows the user a card with the change to confirm. Use only when the user asks to change their plan or agrees to a suggested change. Call get_exercise_plan first for the exercise ids and current values. One call per exercise. For update, pass only the fields that change. Only built-in exercises can be added: call search_exercise_catalog and pass its catalogId; never invent exercises. To add or change a sequence (several built-in exercises done back to back with breaks, started and ticked off as one, e.g. a cardio circuit), make one call with name and steps instead of catalogId and sets. To link several existing exercises to built-in ones, use propose_exercise_catalog_links instead.",
     status: 'Preparing the plan change',
     schema: planChangeArgsSchema,
     parameters: {
@@ -658,6 +665,23 @@ export const TOOLS = {
         durationMin: {type: 'integer', description: 'Minutes, for TIME'},
         calories: {type: 'integer', description: 'Only if the user gave it; otherwise the app estimates it'},
         notes: {type: 'string', description: 'Replaces the notes; empty to clear'},
+        name: {type: 'string', description: 'For a sequence: its name, e.g. "Cardio circuit"; required to add one'},
+        steps: {
+          type: 'array',
+          description:
+            'For a sequence: every step in order, each one set of one built-in exercise. Repeat a step for more sets; there are no rounds. For update, the full new list',
+          items: {
+            type: 'object',
+            properties: {
+              catalogId: {type: 'string', description: 'The built-in exercise id from search_exercise_catalog'},
+              reps: {type: 'integer', description: 'Reps for this step; give reps or durationSec'},
+              durationSec: {type: 'integer', description: 'Seconds for this step, e.g. 45 for timed cardio'},
+              weight: {type: 'number', description: 'Load in kg; omit for none'},
+              restSec: {type: 'integer', description: 'Break before this step in seconds; defaults to 60, 0 for none. Ignored on the first step'},
+            },
+            required: ['catalogId'],
+          },
+        },
       },
       required: ['operation'],
     },
@@ -769,7 +793,11 @@ async function estimatePlanCalories(userId: string, goal: PlanGoal) {
     select: {weight: true},
   });
   return estimateExercise(
-    {name: goal.name, ...toExerciseFields(goal.exerciseSets)},
+    {
+      name: goal.name,
+      ...toExerciseFields(planGoalSets(goal)),
+      parts: 'steps' in goal ? describeSequence(goal.steps) : null,
+    },
     latestWeight?.weight ?? null,
   );
 }

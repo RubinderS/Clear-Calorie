@@ -142,6 +142,12 @@ function handleChat(res: ServerResponse, messages: ChatMessage[]) {
         textChunks(result.error ?? `I've proposed a change to ${result.proposed?.name} for you to confirm.`),
       );
     }
+    if (scenario === 'chat-sequence') {
+      return respondStream(
+        res,
+        textChunks(result.error ?? `I've proposed ${result.proposed?.name} for you to confirm.`),
+      );
+    }
     const text =
       scenario === 'chat-propose'
         ? `I've proposed ${result.proposed?.name ?? 'nothing'} for you to confirm.`
@@ -159,6 +165,22 @@ function handleChat(res: ServerResponse, messages: ChatMessage[]) {
     return respondStream(
       res,
       toolCallChunks('call_food', 'propose_food_log', {description: 'mock toast'}),
+    );
+  }
+  // Builds a whole sequence in one proposal.
+  if (scenario === 'chat-sequence') {
+    return respondStream(
+      res,
+      toolCallChunks('call_sequence', 'propose_exercise_plan_change', {
+        operation: 'add',
+        name: 'Cardio circuit',
+        days: ['Monday'],
+        calories: 90,
+        steps: [
+          {catalogId: 'jumping-jack', durationSec: 45},
+          {catalogId: 'goblet-squat', reps: 12, restSec: 30},
+        ],
+      }),
     );
   }
   if (scenario === 'chat-plan' || scenario === 'chat-links') {

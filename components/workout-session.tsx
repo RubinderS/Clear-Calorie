@@ -1,6 +1,14 @@
 'use client';
 
-import {useCallback, useEffect, useId, useRef, useState, type ReactNode} from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   Check,
   Loader2,
@@ -23,9 +31,12 @@ import {
   formatExerciseDetail,
   formatSetAmount,
   isRepSet,
+  isSequence,
   isUniform,
+  parseSequenceSteps,
   setsOf,
   type ExerciseSet,
+  type SequenceStep,
 } from '@/lib/exercise';
 import {exerciseCatalog} from '@/lib/exercise-catalog';
 import {
@@ -38,6 +49,7 @@ import {
   TEMPO_STEP_MS,
   adjustRest,
   animationSync,
+  buildSequenceSteps,
   buildWorkoutSteps,
   clampReps,
   clampTempo,
@@ -53,6 +65,7 @@ import {
   setReps,
   setTempo,
   startWorkout,
+  stepPart,
   tickWorkout,
   togglePause,
   type AnimationSync,
@@ -128,14 +141,16 @@ function savePrefs(prefs: WorkoutPrefs) {
 const savedTempos = new Map<string, number>();
 
 /** A built-in exercise's own rep time, to the stepper's step, else the app default. */
-function defaultTempo(goal: PlannedExercise): number {
-  const cycleMs = exerciseCatalog.get(goal.catalogId)?.cycleMs;
-  return cycleMs ? Math.round(cycleMs / TEMPO_STEP_MS) * TEMPO_STEP_MS : DEFAULT_TEMPO_MS;
+function defaultTempo(catalogId: string | null | undefined): number {
+  const cycleMs = exerciseCatalog.get(catalogId)?.cycleMs;
+  return cycleMs
+    ? Math.round(cycleMs / TEMPO_STEP_MS) * TEMPO_STEP_MS
+    : DEFAULT_TEMPO_MS;
 }
 
 function loadTempo(goal: PlannedExercise): number {
   return clampTempo(
-    savedTempos.get(goal.id) ?? goal.tempoMs ?? defaultTempo(goal),
+    savedTempos.get(goal.id) ?? goal.tempoMs ?? defaultTempo(goal.catalogId),
   );
 }
 
@@ -339,7 +354,8 @@ export function WorkoutSession({
   // A spoken workout waits here until every voice clip has loaded, so the
   // timer never runs ahead of a count that can't be said yet.
   const [waiting, setWaiting] = useState<Pending | null>(() => {
-    if (goal.type === 'STRENGTH') return null;
+    // Strength exercises and sequences start from a setup screen.
+    if (goal.type !== 'TIME') return null;
     // Timed work has no setup screen, so it starts with the saved choices.
     const prefs = loadPrefs();
     return {
@@ -378,6 +394,8 @@ export function WorkoutSession({
           onComplete={onComplete}
           onCancel={onCancel}
         />
+      ) : isSequence(goal) ? (
+        <SequenceSetup goal={goal} onStart={setWaiting} onCancel={onCancel} />
       ) : (
         <StrengthSetup goal={goal} onStart={setWaiting} onCancel={onCancel} />
       )}
@@ -411,20 +429,22 @@ function LoadingVoice({onCancel}: {onCancel: () => void}) {
  * Just the controls for the user's own exercises.
  */
 function WithAnimation({
-  goal,
+  catalogId,
   sync,
   children,
 }: {
-  goal: PlannedExercise;
+  catalogId: string | null | undefined;
   sync: {key: string; message: AnimationSync};
   children: ReactNode;
 }) {
-  const entry = exerciseCatalog.get(goal.catalogId);
+  const entry = exerciseCatalog.get(catalogId);
   if (!entry) return children;
   return (
     <div className="flex flex-col gap-6 md:grid md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] md:items-center md:gap-8">
       <div className="space-y-2">
         <ExerciseAnimation
+          // A sequence moves on to other exercises, each with its own scene.
+          key={entry.id}
           entry={entry}
           sync={sync}
           className="mx-auto max-w-sm md:max-w-none"
@@ -481,10 +501,15 @@ function StrengthSetup({
   // Previews a rep at the chosen tempo, so changing it shows the pace.
   return (
     <WithAnimation
-      goal={goal}
+      catalogId={goal.catalogId}
       sync={{
         key: `preview:${tempoMs}`,
-        message: {cmd: 'sync', repMs: tempoMs, repElapsedMs: 0, playing: true},
+        message: {
+          cmd: 'sync',
+          repMs: tempoMs,
+          repElapsedMs: 0,
+          playing: true,
+        },
       }}
     >
       <div className="space-y-4">
@@ -510,6 +535,82 @@ function StrengthSetup({
         <Button className="h-12 w-full" onClick={start}>
           <Play />
           Start {planned.length} {planned.length === 1 ? 'set' : 'sets'}
+        </Button>
+        <Button variant="ghost" size="sm" className="w-full" onClick={onCancel}>
+          <X />
+          Cancel
+        </Button>
+      </div>
+    </WithAnimation>
+  );
+}
+
+/** The sequence's steps in order, each with its own exercise's tempo. */
+function sequencePlan(steps: readonly SequenceStep[]) {
+  return steps.map((step) => ({
+    ...step,
+    part: {
+      name: step.name,
+      catalogId: step.catalogId ?? null,
+      tempoMs: defaultTempo(step.catalogId),
+    },
+  }));
+}
+
+function SequenceSetup({
+  goal,
+  onStart,
+  onCancel,
+}: {
+  goal: PlannedExercise;
+  onStart: (pending: Pending) => void;
+  onCancel: () => void;
+}) {
+  const [prefs, setPrefs] = useState(loadPrefs);
+  const [steps] = useState(() => parseSequenceSteps(goal.steps) ?? []);
+
+  function start() {
+    savePrefs(prefs);
+    // Made in the tap, not once the voice loads: iOS only unlocks audio here.
+    const sound = createWorkoutSound();
+    onStart({
+      voice: prefs.cues === 'voice',
+      make: (startedAt) => ({
+        ...prefs,
+        initial: startWorkout(
+          buildSequenceSteps(sequencePlan(steps)),
+          startedAt,
+        ),
+        sound,
+      }),
+    });
+  }
+
+  useEffect(() => {
+    if (prefs.music) void preloadWorkoutMusic().catch(() => {});
+  }, [prefs.music]);
+
+  // Previews the first exercise, which the sequence starts with.
+  return (
+    <WithAnimation
+      catalogId={steps[0]?.catalogId}
+      sync={{key: 'preview', message: {cmd: 'free', playing: true}}}
+    >
+      <div className="space-y-4">
+        <SoundControls
+          cues={prefs.cues}
+          onCuesChange={(cues) => setPrefs({...prefs, cues})}
+          music={prefs.music}
+          onMusicToggle={() => setPrefs({...prefs, music: !prefs.music})}
+        />
+        <SequencePlanTable steps={steps} lastWeek={goal.lastWeekSets} />
+        <Button
+          className="h-12 w-full"
+          disabled={steps.length === 0}
+          onClick={start}
+        >
+          <Play />
+          Start {steps.length} {steps.length === 1 ? 'step' : 'steps'}
         </Button>
         <Button variant="ghost" size="sm" className="w-full" onClick={onCancel}>
           <X />
@@ -613,6 +714,71 @@ function SetPlanTable({
   );
 }
 
+/** A sequence's steps with the breaks between, beside last week's when logged. */
+function SequencePlanTable({
+  steps,
+  lastWeek,
+}: {
+  steps: readonly SequenceStep[];
+  lastWeek?: readonly ExerciseSet[] | null;
+}) {
+  const previous = lastWeek?.length ? lastWeek : null;
+  return (
+    <div className="rounded-xl border border-border/50 bg-muted/30 px-4 py-3">
+      <table className="w-full text-sm tabular-nums">
+        <thead>
+          <tr className="text-xs text-muted-foreground">
+            <th scope="col" className="pb-1.5 pr-2 text-left font-medium">
+              #
+            </th>
+            <th scope="col" className="pb-1.5 text-left font-medium">
+              Exercise
+            </th>
+            <th scope="col" className="pb-1.5 text-right font-medium">
+              Target
+            </th>
+            {previous ? (
+              <th scope="col" className="pb-1.5 pl-2 text-right font-medium">
+                Last week
+              </th>
+            ) : null}
+          </tr>
+        </thead>
+        <tbody>
+          {steps.map((step, index) => (
+            <Fragment key={index}>
+              {step.restSec > 0 ? (
+                <tr className="border-t border-border/40 text-xs text-muted-foreground">
+                  <td colSpan={previous ? 4 : 3} className="py-1 text-center">
+                    Break {formatDuration(step.restSec)}
+                  </td>
+                </tr>
+              ) : null}
+              <tr className="border-t border-border/40">
+                <th
+                  scope="row"
+                  className="py-1.5 pr-2 text-left font-medium text-muted-foreground"
+                >
+                  {index + 1}
+                </th>
+                <td className="py-1.5 text-left">{step.name}</td>
+                <td className="py-1.5 text-right font-semibold">
+                  <SetPair set={step} />
+                </td>
+                {previous ? (
+                  <td className="py-1.5 pl-2 text-right text-muted-foreground">
+                    <SetPair set={previous[index]} />
+                  </td>
+                ) : null}
+              </tr>
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /** A set's reps (or time) and weight, e.g. "10 × 20 kg"; "—" if missing. */
 function SetPair({set}: {set: ExerciseSet | undefined}) {
   if (!set) return '—';
@@ -629,7 +795,8 @@ function SetPair({set}: {set: ExerciseSet | undefined}) {
 }
 
 function stepLabel(step: WorkoutStep): string {
-  if (step.kind === 'rest') return 'Rest';
+  if (step.kind === 'rest') return step.next ? 'Break' : 'Rest';
+  if (step.part) return step.part.name;
   // A single timed set is the whole workout.
   if (step.kind === 'work' && step.sets === 1) return 'Workout';
   return `Set ${step.set} of ${step.sets}`;
@@ -640,17 +807,27 @@ function stepDetail(
   state: WorkoutState,
   goal: PlannedExercise,
 ): string {
-  if (step.kind === 'rest') return `Next: set ${step.nextSet} of ${step.sets}`;
-  if (step.kind === 'work' && step.sets === 1) {
+  if (step.kind === 'rest') {
+    if (!step.next) return `Next: set ${step.nextSet} of ${step.sets}`;
+    const following = state.steps[state.index + 1];
+    return following && following.kind !== 'rest'
+      ? `Next: ${step.next.name} · ${stepAmount(following, following.kind === 'set' ? following.reps : 0)}`
+      : `Next: ${step.next.name}`;
+  }
+  if (step.kind === 'work' && step.sets === 1 && !step.part) {
     return formatExerciseDetail(goal);
   }
-  const amount =
-    step.kind === 'set'
-      ? `${state.reps} reps`
-      : formatDuration(Math.round(step.durationMs / 1000));
+  const amount = stepAmount(step, state.reps);
   const sets = setsOf(goal);
   const {weight} = sets[step.set - 1] ?? sets[sets.length - 1];
-  return weight ? `${amount} @ ${weight}` : amount;
+  const detail = weight ? `${amount} @ ${weight}` : amount;
+  return step.part ? `Step ${step.set} of ${step.sets} · ${detail}` : detail;
+}
+
+function stepAmount(step: Exclude<WorkoutStep, {kind: 'rest'}>, reps: number) {
+  return step.kind === 'set'
+    ? `${reps} reps`
+    : formatDuration(Math.round(step.durationMs / 1000));
 }
 
 function ActiveWorkout({
@@ -766,9 +943,15 @@ function ActiveWorkout({
   }, [state.done, state.completed, onComplete]);
 
   function changeTempo(tempoMs: number) {
-    saveTempo(goal.id, tempoMs);
+    // A sequence's tempos are per exercise, so they last for this run only.
+    if (!isSequence(goal)) saveTempo(goal.id, tempoMs);
     advance((current, time) => setTempo(current, tempoMs, time));
   }
+
+  const following = state.steps[state.index + 1];
+  // During a break, tempo is shown for the exercise coming next.
+  const restTempo =
+    (following?.kind === 'set' && following.part?.tempoMs) || state.tempoMs;
 
   const cue = currentCue(state, now)?.cue;
   const isLastStep = state.index === state.steps.length - 1;
@@ -835,8 +1018,8 @@ function ActiveWorkout({
       {step.kind === 'rest' && (
         <div className="w-full space-y-3">
           {/* Rest is when tempo usually gets tuned, ready for the next set. */}
-          {state.steps[state.index + 1]?.kind === 'set' && (
-            <TempoStepper tempoMs={state.tempoMs} onChange={changeTempo} />
+          {following?.kind === 'set' && (
+            <TempoStepper tempoMs={restTempo} onChange={changeTempo} />
           )}
           <div className="grid grid-cols-2 gap-3">
             <Button
@@ -877,7 +1060,9 @@ function ActiveWorkout({
         <Button className="h-12" onClick={() => advance(nextStep)}>
           {step.kind === 'rest' ? <SkipForward /> : <Check />}
           {step.kind === 'rest'
-            ? 'Skip rest'
+            ? step.next
+              ? 'Skip break'
+              : 'Skip rest'
             : !isLastStep
               ? 'Done'
               : 'Finish'}
@@ -899,7 +1084,10 @@ function ActiveWorkout({
     </div>
   );
   return (
-    <WithAnimation goal={goal} sync={animationSync(state, now)}>
+    <WithAnimation
+      catalogId={stepPart(step)?.catalogId ?? goal.catalogId}
+      sync={animationSync(state, now)}
+    >
       {controls}
     </WithAnimation>
   );

@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {
   ChevronDown,
+  ListOrdered,
   Loader2,
   Pencil,
   Plus,
@@ -31,16 +32,29 @@ import {
 } from '@/components/exercise-detail-fields';
 import {ExerciseAreaTag, ExerciseAreas, ExerciseHowTo} from '@/components/exercise-animation';
 import {ExerciseNameInput} from '@/components/exercise-name-input';
+import {
+  SequenceStepsField,
+  SequenceTag,
+  toSequenceEstimate,
+  toStepDrafts,
+  toStepsPayload,
+  type StepDraft,
+} from '@/components/sequence-steps-field';
 import {dayFocus} from '@/lib/day-focus';
 import {Decimal} from '@/lib/decimal';
 import {catalogIdFor, exerciseCatalog} from '@/lib/exercise-catalog';
 import {cn} from '@/lib/utils';
 import {
   EXERCISE_NOTES_MAX,
+  SEQUENCE_TYPE,
   WEEKDAYS,
+  describeSequence,
+  goalCatalogIds,
   isActiveOn,
+  isSequence,
   formatExerciseDetail,
   maskToDays,
+  parseSequenceSteps,
 } from '@/lib/exercise';
 
 type ExerciseGoalsFormProps = {
@@ -55,9 +69,15 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [collapsedDays, setCollapsedDays] = useState<number[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // A sequence is several exercises done back to back and ticked off as one.
+  const [kind, setKind] = useState<'exercise' | 'sequence'>('exercise');
+  const [steps, setSteps] = useState<StepDraft[]>([]);
   const [name, setName] = useState('');
   // The built-in exercise this name links to, if any.
-  const builtIn = exerciseCatalog.get(catalogIdFor(name));
+  const builtIn =
+    kind === 'exercise' ? exerciseCatalog.get(catalogIdFor(name)) : undefined;
+  const sequence = kind === 'sequence';
+  const noun = sequence ? 'sequence' : 'exercise';
   const [calories, setCalories] = useState('');
   const [notes, setNotes] = useState('');
   const [details, setDetails] = useState(EMPTY_EXERCISE_DETAILS);
@@ -79,9 +99,16 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   const allDaysSelected = days.length === WEEKDAYS.length;
   const someDaysSelected = days.length > 0 && !allDaysSelected;
 
+  function openDialog(next: 'exercise' | 'sequence') {
+    setKind(next);
+    setDialogOpen(true);
+  }
+
   function closeDialog() {
     setDialogOpen(false);
     setEditingId(null);
+    setKind('exercise');
+    setSteps([]);
     setName('');
     setCalories('');
     setNotes('');
@@ -95,6 +122,8 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   function startEdit(goal: ExerciseGoal) {
     setDialogOpen(true);
     setEditingId(goal.id);
+    setKind(isSequence(goal) ? 'sequence' : 'exercise');
+    setSteps(toStepDrafts(parseSequenceSteps(goal.steps) ?? []));
     setName(goal.name);
     setCalories(goal.calories > 0 ? String(goal.calories) : '');
     setNotes(goal.notes ?? '');
@@ -118,7 +147,9 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           name: exerciseName,
-          ...toEstimateDetails(details),
+          ...(sequence
+            ? toSequenceEstimate(steps)
+            : toEstimateDetails(details)),
         }),
       });
       const payload = await response.json().catch(() => null);
@@ -162,6 +193,10 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (sequence && steps.length === 0) {
+      setError('Add at least one exercise to the sequence.');
+      return;
+    }
     if (days.length === 0) {
       setError('Select at least one day.');
       return;
@@ -182,7 +217,9 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
           : 0,
         notes,
         days,
-        ...toDetailsPayload(details),
+        ...(sequence
+          ? {type: SEQUENCE_TYPE, steps: toStepsPayload(steps)}
+          : toDetailsPayload(details)),
       }),
     });
 
@@ -190,7 +227,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      setError(payload?.error ?? 'Failed to save exercise goal');
+      setError(payload?.error ?? `Failed to save ${noun}`);
       return;
     }
 
@@ -208,14 +245,25 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
             them off on the exercise page
           </CardDescription>
         </div>
-        <Button
-          type="button"
-          onClick={() => setDialogOpen(true)}
-          className="shrink-0"
-        >
-          <Plus aria-hidden="true" />
-          Add exercise
-        </Button>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => openDialog('sequence')}
+            className="flex-1 sm:flex-none"
+          >
+            <ListOrdered aria-hidden="true" />
+            Add sequence
+          </Button>
+          <Button
+            type="button"
+            onClick={() => openDialog('exercise')}
+            className="flex-1 sm:flex-none"
+          >
+            <Plus aria-hidden="true" />
+            Add exercise
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {goals.length === 0 ? (
@@ -240,7 +288,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
               const dayGoals = goals.filter((goal) =>
                 isActiveOn(goal.daysMask, day),
               );
-              const focus = dayFocus(dayGoals.map((goal) => goal.catalogId));
+              const focus = dayFocus(dayGoals.flatMap(goalCatalogIds));
               const collapsed = collapsedDays.includes(day);
               return (
                 <section key={day}>
@@ -294,13 +342,24 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
                                 <span className="truncate font-medium">
                                   {goal.name}
                                 </span>
-                                <ExerciseAreaTag catalogId={goal.catalogId} />
+                                {isSequence(goal) ? (
+                                  <SequenceTag />
+                                ) : (
+                                  <ExerciseAreaTag catalogId={goal.catalogId} />
+                                )}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatExerciseDetail(goal)}
                                 {goal.calories > 0 &&
                                   ` · ${goal.calories} kcal`}
                               </p>
+                              {isSequence(goal) && (
+                                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                                  {describeSequence(
+                                    parseSequenceSteps(goal.steps) ?? [],
+                                  ).join(' · ')}
+                                </p>
+                              )}
                               {goal.notes && (
                                 <p className="mt-1 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">
                                   {goal.notes}
@@ -346,37 +405,65 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
       <Dialog
         open={dialogOpen}
         onClose={closeDialog}
-        label={editingId ? 'Edit exercise' : 'Add exercise'}
+        label={`${editingId ? 'Edit' : 'Add'} ${noun}`}
       >
         <form onSubmit={handleSubmit} className="space-y-4 p-6">
           <div className="pr-8">
             <h2 className="text-lg font-semibold">
-              {editingId ? 'Edit exercise' : 'Add exercise'}
+              {editingId ? 'Edit' : 'Add'} {noun}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Choose the exercise and the days you plan to do it.
+              {sequence
+                ? 'Exercises done back to back, with a break between each. Started and ticked off as one.'
+                : 'Choose the exercise and the days you plan to do it.'}
             </p>
           </div>
-          <div className="flex flex-col space-y-2">
-            {/* Built-in exercises show how they're done and what they work while choosing one. */}
-            <div className="flex min-h-8 items-center justify-between gap-2">
-              <Label htmlFor="exerciseGoalName">Exercise</Label>
-              <ExerciseHowTo catalogId={catalogIdFor(name)} className="-my-1" />
-            </div>
-            <ExerciseNameInput
-              id="exerciseGoalName"
-              value={name}
-              onChange={setName}
-              maxLength={100}
-              required
-            />
-            {builtIn && <ExerciseAreas entry={builtIn} />}
-          </div>
-          <ExerciseDetailFields
-            idPrefix="exerciseGoal"
-            value={details}
-            onChange={setDetails}
-          />
+          {sequence ? (
+            <>
+              <div className="flex flex-col space-y-2">
+                <Label htmlFor="exerciseGoalName">Name</Label>
+                <Input
+                  id="exerciseGoalName"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="e.g. Cardio circuit"
+                  maxLength={100}
+                  required
+                />
+              </div>
+              <SequenceStepsField
+                idPrefix="exerciseGoalSequence"
+                value={steps}
+                onChange={setSteps}
+              />
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col space-y-2">
+                {/* Built-in exercises show how they're done and what they work while choosing one. */}
+                <div className="flex min-h-8 items-center justify-between gap-2">
+                  <Label htmlFor="exerciseGoalName">Exercise</Label>
+                  <ExerciseHowTo
+                    catalogId={catalogIdFor(name)}
+                    className="-my-1"
+                  />
+                </div>
+                <ExerciseNameInput
+                  id="exerciseGoalName"
+                  value={name}
+                  onChange={setName}
+                  maxLength={100}
+                  required
+                />
+                {builtIn && <ExerciseAreas entry={builtIn} />}
+              </div>
+              <ExerciseDetailFields
+                idPrefix="exerciseGoal"
+                value={details}
+                onChange={setDetails}
+              />
+            </>
+          )}
           <div className="flex flex-col space-y-2">
             <Label htmlFor="exerciseGoalCalories">
               Calories burned{' '}
@@ -505,9 +592,7 @@ export function ExerciseGoalsForm({goals, aiEnabled}: ExerciseGoalsFormProps) {
             <Button type="submit" disabled={loading} className="flex-1">
               {loading
                 ? 'Saving...'
-                : editingId
-                  ? 'Update exercise'
-                  : 'Add exercise'}
+                : `${editingId ? 'Update' : 'Add'} ${noun}`}
             </Button>
           </div>
         </form>

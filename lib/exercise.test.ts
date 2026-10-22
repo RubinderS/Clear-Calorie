@@ -4,6 +4,12 @@ import {
   EVERYDAY_MASK,
   countPlannedOn,
   daysToMask,
+  describeSequence,
+  exerciseGoalInputSchema,
+  goalCatalogIds,
+  parseSequenceSteps,
+  toSequenceFields,
+  toSetRows,
   exerciseDetailsSchema,
   exerciseInputSchema,
   exerciseSetSchema,
@@ -229,4 +235,81 @@ test('details schema enforces per-type required fields', () => {
     reps: null,
     weight: null,
   });
+});
+
+const CIRCUIT = [
+  {name: 'Jumping jacks', catalogId: 'jumping-jacks', durationSec: 45, restSec: 0},
+  {name: 'Squats', catalogId: 'squat', reps: 15, restSec: 60},
+  {name: 'Squats', catalogId: 'squat', reps: 15, weight: 10, restSec: 30},
+];
+
+test('a sequence input needs steps with reps or a time, and the first has no break', () => {
+  const parsed = exerciseGoalInputSchema.parse({
+    name: 'Cardio circuit',
+    days: [1],
+    type: 'SEQUENCE',
+    steps: [{...CIRCUIT[0], restSec: 90}, CIRCUIT[1]],
+  });
+  assert.ok('steps' in parsed);
+  assert.deepEqual(
+    parsed.steps.map((step) => step.restSec),
+    [0, 60],
+  );
+  const invalid = (steps: unknown) =>
+    !exerciseGoalInputSchema.safeParse({name: 'C', days: [1], type: 'SEQUENCE', steps}).success;
+  assert.ok(invalid([]));
+  assert.ok(invalid([{name: 'Squats', reps: 10, durationSec: 30}]));
+  assert.ok(invalid([{name: 'Squats'}]));
+});
+
+test('sequence fields keep every step and summarize them like sets', () => {
+  const fields = toSequenceFields(CIRCUIT);
+  assert.equal(fields.type, 'SEQUENCE');
+  assert.equal(fields.setPlan, null);
+  assert.equal(fields.sets, 3);
+  assert.equal(fields.durationMin, 1);
+  const steps = parseSequenceSteps(fields.steps);
+  assert.deepEqual(steps?.[2], {
+    reps: 15,
+    weight: 10,
+    name: 'Squats',
+    catalogId: 'squat',
+    restSec: 30,
+  });
+  const goal = {type: 'SEQUENCE', steps: fields.steps};
+  assert.deepEqual(setsOf(goal)[0], {
+    durationSec: 45,
+    weight: null,
+    name: 'Jumping jacks',
+    catalogId: 'jumping-jacks',
+  });
+  assert.equal(formatExerciseDetail(goal), 'Jumping jacks, Squats · 3 steps · ~4 min');
+  assert.deepEqual(goalCatalogIds(goal), ['jumping-jacks', 'squat']);
+  assert.deepEqual(goalCatalogIds({type: 'TIME', catalogId: 'swimming'}), ['swimming']);
+});
+
+test('describeSequence lists steps with the breaks before them', () => {
+  assert.deepEqual(describeSequence(CIRCUIT), [
+    '1. Jumping jacks · 45s',
+    'Break 1 min',
+    '2. Squats · 15 reps',
+    'Break 30s',
+    '3. Squats · 15 reps @ 10',
+  ]);
+});
+
+test('logged sets keep the exercise each step was', () => {
+  const rows = toSetRows(setsOf({type: 'SEQUENCE', steps: JSON.stringify(CIRCUIT)}));
+  assert.deepEqual(
+    rows.map((row) => [row.position, row.name, row.catalogId]),
+    [
+      [1, 'Jumping jacks', 'jumping-jacks'],
+      [2, 'Squats', 'squat'],
+      [3, 'Squats', 'squat'],
+    ],
+  );
+  assert.equal(
+    formatExerciseDetail({type: 'STRENGTH', exerciseSets: rows}),
+    'Jumping jacks, Squats · 3 steps',
+  );
 });
