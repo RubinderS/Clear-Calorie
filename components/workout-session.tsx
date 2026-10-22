@@ -810,9 +810,10 @@ function stepDetail(
   if (step.kind === 'rest') {
     if (!step.next) return `Next: set ${step.nextSet} of ${step.sets}`;
     const following = state.steps[state.index + 1];
+    const next = `Next: Step ${step.nextSet} of ${step.sets} · ${step.next.name}`;
     return following && following.kind !== 'rest'
-      ? `Next: ${step.next.name} · ${stepAmount(following, following.kind === 'set' ? following.reps : 0)}`
-      : `Next: ${step.next.name}`;
+      ? `${next} · ${stepAmount(following, following.kind === 'set' ? following.reps : 0)}`
+      : next;
   }
   if (step.kind === 'work' && step.sets === 1 && !step.part) {
     return formatExerciseDetail(goal);
