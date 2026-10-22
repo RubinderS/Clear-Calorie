@@ -60,7 +60,7 @@ export function dayFocus(
   // leaving out finishers when it also works something else.
   const votes = new Map<string, number>();
   const accessoryVotes = new Map<string, number>();
-  const patterns = new Set<Pattern>();
+  const patterns = new Map<Pattern, number>();
   for (const entry of entries) {
     const groups = new Set(entry.areas.primary.map((area) => FOCUS_GROUPS[area]));
     const main = [...groups].filter((group) => !ACCESSORY_GROUPS.has(group));
@@ -72,7 +72,8 @@ export function dayFocus(
       const primary = entry.areas.primary.filter(
         (area) => !ACCESSORY_GROUPS.has(FOCUS_GROUPS[area]),
       );
-      patterns.add(patternOf(primary));
+      const pattern = patternOf(primary);
+      patterns.set(pattern, (patterns.get(pattern) ?? 0) + 1);
     }
   }
 
@@ -82,8 +83,15 @@ export function dayFocus(
   const [group, count] = topGroup(votes);
   if (count > total / 2) return `${group} day`;
 
-  if (patterns.size === 1 && patterns.has('push')) return 'Push day';
-  if (patterns.size === 1 && patterns.has('pull')) return 'Pull day';
+  // A stray move from another pattern, like a lateral raise on a back day,
+  // doesn't make it an upper body day. Within a mostly push or pull day, a
+  // group that clearly leads, as back does over the biceps, names it.
+  const [pattern, patternCount] = topGroup(patterns);
+  if (pattern !== 'lower' && patternCount > total / 2) {
+    const leaders = [...votes.values()].filter((votesFor) => votesFor === count);
+    if (leaders.length === 1) return `${group} day`;
+    return pattern === 'push' ? 'Push day' : 'Pull day';
+  }
   if (!patterns.has('lower')) return 'Upper body day';
   return 'Full body day';
 }

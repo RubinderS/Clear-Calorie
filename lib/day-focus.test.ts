@@ -63,13 +63,31 @@ test('gives an exercise its whole vote for the main group it works alongside a f
   assert.equal(dayFocus(['crunch-thrust', 'crunch-thrust', 'press'], catalog), 'Leg day');
 });
 
+test('names a mostly push or pull day after the group that leads it', () => {
+  assert.equal(dayFocus(['pull-up', 'band-face-pull', 'dumbbell-curl']), 'Back day');
+  assert.equal(
+    dayFocus([
+      'jumping-jack',
+      'pull-up',
+      'barbell-bent-over-row',
+      'one-arm-dumbbell-row',
+      'band-face-pull',
+      'dumbbell-lateral-raise',
+      'incline-dumbbell-curl',
+      'hammer-curl',
+      'jumping-jack',
+      'dumbbell-wrist-curl',
+    ]),
+    'Back day',
+  );
+});
+
 test('falls back to push, pull, upper body and full body splits', () => {
   assert.equal(
     dayFocus(['barbell-bench-press', 'dumbbell-shoulder-press', 'dumbbell-lateral-raise', 'push-up']),
     'Push day',
   );
   assert.equal(dayFocus(['pull-up', 'dumbbell-curl']), 'Pull day');
-  assert.equal(dayFocus(['pull-up', 'band-face-pull', 'dumbbell-curl']), 'Pull day');
   assert.equal(dayFocus(['barbell-bench-press', 'pull-up']), 'Upper body day');
   assert.equal(dayFocus(['barbell-bench-press', 'dumbbell-curl']), 'Upper body day');
   assert.equal(dayFocus(['barbell-bench-press', 'barbell-squat']), 'Full body day');
