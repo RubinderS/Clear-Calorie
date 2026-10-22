@@ -14,7 +14,9 @@ the shared movements in `3d/moves/` for the body position: `stance.ts` for squat
 hinges and standing facing the camera, `standing.ts` for standing arm work (curls,
 bands), `hinge.ts` for Romanian deadlifts, `bench.ts` for lying on a flat bench or
 sitting back on an incline, `hanging.ts` for hanging from a bar, `prone.ts` for
-push-up position.
+push-up position, `on-the-spot.ts` for standing cardio that works one leg at a time
+(high knees, butt kicks). For moves that alternate sides, `alternate` in `rig.ts` splits
+the rep into a left half and a right half.
 
 **Keep the pose module to what's particular to the exercise.** A pose never imports
 another pose (a test checks): if two exercises need the same movement, move it into

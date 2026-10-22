@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {lerp} from '@/lib/exercise-animation';
-import {FOOT, RIG, X, Y, Z, bodyFrame, flatFoot, frontalSwing, legTo, toesOut, v, type Body, type Side} from '../rig';
+import {FOOT, RIG, X, Y, Z, armTo, bodyFrame, flatFoot, frontalSwing, legTo, openPaw, toesOut, v, type Body, type Side} from '../rig';
 import type {Skeleton} from '../skeleton';
 
 /**
@@ -74,4 +74,26 @@ export function frontStance(spread: number, hop = 0): Pick<Skeleton, 'legs' | 'f
     return contact;
   };
   return {body, legs, feet: {left: foot('left'), right: foot('right')}};
+}
+
+/** A jack's arms: their swing from hanging down at the start and its range up to overhead, and the forearms' extra turn in, in degrees. */
+export const JACK_ARMS = {startDeg: 8, rangeDeg: 157, forearmExtraDeg: 7} as const;
+
+/**
+ * Both arms of a body facing +z swung out to the sides and up, as in a
+ * jack: 0 = hanging by the hips, 1 = overhead.
+ */
+export function jackArms(body: Body, progress: number): Pick<Skeleton, 'arms' | 'paws'> {
+  const upper = JACK_ARMS.startDeg + JACK_ARMS.rangeDeg * progress;
+  const lower = upper + JACK_ARMS.forearmExtraDeg * progress;
+  const arm = (side: Side) => {
+    const shoulder = body.shoulderOf(side);
+    const wrist = shoulder.clone()
+      .addScaledVector(frontalSwing(body, side, upper), RIG.upperArm)
+      .addScaledVector(frontalSwing(body, side, lower), RIG.forearm);
+    // The forearm swings further round than the upper arm, so the elbow trails behind on the arc.
+    return armTo(shoulder, wrist, frontalSwing(body, side, upper - 90));
+  };
+  const arms = {left: arm('left'), right: arm('right')};
+  return {arms, paws: {left: openPaw(arms.left, body.forward), right: openPaw(arms.right, body.forward)}};
 }

@@ -18,7 +18,8 @@ Where things live:
     squat and hinge leg chain, and standing facing the camera), `standing.ts` (standing
     tall with the elbows by the sides: curls and band work), `hinge.ts` (the Romanian
     deadlift), `bench.ts` (lying on a flat bench, sitting back on an incline),
-    `hanging.ts` (from a bar) and `prone.ts` (push-up position).
+    `hanging.ts` (from a bar), `prone.ts` (push-up position) and `on-the-spot.ts`
+    (standing cardio, one leg at a time, arms pumping).
   - `rig.ts`: the helpers poses are built from: segment lengths, 3D two-bone IK, the
     body's frame, heads, feet and gripping paws.
   - `specs.ts`: one entry per exercise: its pose, its equipment and the scene's shape.

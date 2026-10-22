@@ -124,6 +124,23 @@ export function frontalSwing(body: Body, side: Side, deg: number): THREE.Vector3
   return body.right.clone().multiplyScalar(SIDE_SIGN[side] * Math.sin(rad)).addScaledVector(body.up, -Math.cos(rad));
 }
 
+/** A direction in the side plane of a body facing +x: `deg` forward of straight down. */
+export function sideSwing(deg: number): THREE.Vector3 {
+  const rad = THREE.MathUtils.degToRad(deg);
+  return new THREE.Vector3(Math.sin(rad), -Math.cos(rad), 0);
+}
+
+/**
+ * A rep that works the left side, then the right: which side is working at
+ * `progress`, how far through its half it is (`t`, 0 to 1), and how far it
+ * is from rest (`amount`: 0, up to 1 halfway through its half, back to 0).
+ */
+export function alternate(progress: number): {side: Side; t: number; amount: number} {
+  const side: Side = progress < 0.5 ? 'left' : 'right';
+  const t = THREE.MathUtils.clamp(side === 'left' ? progress * 2 : progress * 2 - 1, 0, 1);
+  return {side, t, amount: 1 - Math.abs(2 * t - 1)};
+}
+
 /** An arm from `shoulder` with the wrist at `wrist`, the elbow bent towards `pole`. */
 export function armTo(shoulder: THREE.Vector3, wrist: THREE.Vector3, pole: THREE.Vector3): Arm3D {
   const {joint, end} = solveTwoBone(shoulder, wrist, RIG.upperArm, RIG.forearm, pole);
@@ -206,6 +223,21 @@ export function pitchedFoot(ankle: THREE.Vector3, toes: THREE.Vector3, pitch: nu
 export function openPaw(arm: Arm3D, up: THREE.Vector3): Contact3D {
   const forward = arm.wrist.clone().sub(arm.elbow).normalize();
   return {at: arm.wrist.clone(), forward, up: across(up, forward)};
+}
+
+/**
+ * An arm of a body facing +x, swung `swing` degrees forward of hanging down
+ * and `out` across for each unit along, the elbow folding the forearm `bend`
+ * degrees further forward; the paw open, its back facing out.
+ */
+export function swungArm(body: Body, side: Side, swing: number, bend: number, out = 0.12): {arm: Arm3D; paw: Contact3D} {
+  const shoulder = body.shoulderOf(side);
+  const outward = body.right.clone().multiplyScalar(SIDE_SIGN[side]);
+  const elbow = shoulder.clone().addScaledVector(sideSwing(swing).addScaledVector(outward, out).normalize(), RIG.upperArm);
+  const wrist = elbow.addScaledVector(sideSwing(swing + bend), RIG.forearm);
+  // The elbow folds the forearm forward, so it sits behind the upper arm.
+  const arm = armTo(shoulder, wrist, sideSwing(swing - 90));
+  return {arm, paw: openPaw(arm, outward)};
 }
 
 /**

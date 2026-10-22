@@ -1,0 +1,47 @@
+{
+  "id": "standing-hamstring-curl",
+  "name": "Standing hamstring curl",
+  "view": "side",
+  "equipment": [],
+  "phases": [
+    {
+      "name": "left curl",
+      "durationMs": 450,
+      "from": 0,
+      "to": 0.25,
+      "cue": "Curl your left heel up behind you, pulling your elbows back"
+    },
+    {
+      "name": "left lower",
+      "durationMs": 450,
+      "from": 0.25,
+      "to": 0.5,
+      "cue": "Lower the foot and reach your arms forward"
+    },
+    {
+      "name": "right curl",
+      "durationMs": 450,
+      "from": 0.5,
+      "to": 0.75,
+      "cue": "Curl your right heel up, squeezing your shoulder blades"
+    },
+    {
+      "name": "right lower",
+      "durationMs": 450,
+      "from": 0.75,
+      "to": 1,
+      "cue": "Lower the foot and reach forward again"
+    }
+  ],
+  "formTips": [
+    "Keep the working thigh pointing down as the heel comes up",
+    "Squeeze the back of your thigh at the top",
+    "Pull your elbows back past your sides and squeeze your shoulder blades",
+    "Lean forward slightly with a flat back"
+  ],
+  "commonMistakes": [
+    "Swinging the knee forward instead of curling the heel",
+    "Rounding the back",
+    "Letting the arms flap instead of pulling back"
+  ]
+}

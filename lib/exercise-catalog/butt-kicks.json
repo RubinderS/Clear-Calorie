@@ -1,0 +1,47 @@
+{
+  "id": "butt-kicks",
+  "name": "Butt kicks",
+  "view": "side",
+  "equipment": [],
+  "phases": [
+    {
+      "name": "left up",
+      "durationMs": 200,
+      "from": 0,
+      "to": 0.25,
+      "cue": "Kick your left heel up towards your glutes"
+    },
+    {
+      "name": "left down",
+      "durationMs": 200,
+      "from": 0.25,
+      "to": 0.5,
+      "cue": "Land softly on the ball of your foot"
+    },
+    {
+      "name": "right up",
+      "durationMs": 200,
+      "from": 0.5,
+      "to": 0.75,
+      "cue": "Kick your right heel up, arms pumping"
+    },
+    {
+      "name": "right down",
+      "durationMs": 200,
+      "from": 0.75,
+      "to": 1,
+      "cue": "Land softly and keep the rhythm quick"
+    }
+  ],
+  "formTips": [
+    "Keep your thighs pointing down and bring the heels up behind you",
+    "Stay tall with your chest up",
+    "Pump your arms as if jogging",
+    "Stay light on the balls of your feet"
+  ],
+  "commonMistakes": [
+    "Swinging the knees forward instead of kicking the heels back",
+    "Leaning forward at the waist",
+    "Landing heavily on your heels"
+  ]
+}

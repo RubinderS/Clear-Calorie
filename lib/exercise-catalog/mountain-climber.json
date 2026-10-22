@@ -1,0 +1,47 @@
+{
+  "id": "mountain-climber",
+  "name": "Mountain climber",
+  "view": "side",
+  "equipment": [],
+  "phases": [
+    {
+      "name": "left drive",
+      "durationMs": 220,
+      "from": 0,
+      "to": 0.25,
+      "cue": "Drive your left knee in towards your chest"
+    },
+    {
+      "name": "left back",
+      "durationMs": 220,
+      "from": 0.25,
+      "to": 0.5,
+      "cue": "Step it back to the plank"
+    },
+    {
+      "name": "right drive",
+      "durationMs": 220,
+      "from": 0.5,
+      "to": 0.75,
+      "cue": "Drive your right knee in towards your chest"
+    },
+    {
+      "name": "right back",
+      "durationMs": 220,
+      "from": 0.75,
+      "to": 1,
+      "cue": "Step it back, hips level"
+    }
+  ],
+  "formTips": [
+    "Keep your hands under your shoulders and arms long",
+    "Hold a straight line from your head to your heels",
+    "Drive each knee in under your chest",
+    "Keep your hips level as the legs switch"
+  ],
+  "commonMistakes": [
+    "Hips piking up high",
+    "Shoulders drifting back behind the hands",
+    "Bouncing the hips up and down"
+  ]
+}

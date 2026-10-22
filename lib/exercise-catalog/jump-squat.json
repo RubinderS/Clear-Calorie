@@ -1,0 +1,47 @@
+{
+  "id": "jump-squat",
+  "name": "Jump squat",
+  "view": "side",
+  "equipment": [],
+  "phases": [
+    {
+      "name": "down",
+      "durationMs": 800,
+      "from": 0,
+      "to": 1,
+      "cue": "Sink into a squat, arms swinging back"
+    },
+    {
+      "name": "drive",
+      "durationMs": 350,
+      "from": 1,
+      "to": 0,
+      "cue": "Drive up through your feet"
+    },
+    {
+      "name": "jump",
+      "durationMs": 400,
+      "from": 0,
+      "to": 0,
+      "cue": "Jump, swinging your arms up"
+    },
+    {
+      "name": "land",
+      "durationMs": 250,
+      "from": 0,
+      "to": 0,
+      "cue": "Land softly and sink into the next squat"
+    }
+  ],
+  "formTips": [
+    "Squat until your thighs are about level",
+    "Keep your knees out over your toes",
+    "Swing your arms to drive the jump",
+    "Land softly on the balls of your feet, knees bent"
+  ],
+  "commonMistakes": [
+    "Landing with locked knees",
+    "Knees caving in on the jump or landing",
+    "Rounding the back at the bottom"
+  ]
+}

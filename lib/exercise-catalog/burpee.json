@@ -1,0 +1,68 @@
+{
+  "id": "burpee",
+  "name": "Burpee",
+  "view": "side",
+  "equipment": [],
+  "phases": [
+    {
+      "name": "squat",
+      "durationMs": 600,
+      "from": 0.2,
+      "to": 0.45,
+      "cue": "Squat down and plant your hands"
+    },
+    {
+      "name": "jump back",
+      "durationMs": 350,
+      "from": 0.45,
+      "to": 1,
+      "cue": "Jump your feet back to a plank"
+    },
+    {
+      "name": "plank",
+      "durationMs": 250,
+      "from": 1,
+      "to": 1,
+      "cue": "Hold a straight plank"
+    },
+    {
+      "name": "jump in",
+      "durationMs": 350,
+      "from": 1,
+      "to": 0.45,
+      "cue": "Jump your feet in to your hands"
+    },
+    {
+      "name": "stand",
+      "durationMs": 500,
+      "from": 0.45,
+      "to": 0.2,
+      "cue": "Stand up tall"
+    },
+    {
+      "name": "jump",
+      "durationMs": 300,
+      "from": 0.2,
+      "to": 0,
+      "cue": "Jump, reaching overhead"
+    },
+    {
+      "name": "land",
+      "durationMs": 300,
+      "from": 0,
+      "to": 0.2,
+      "cue": "Land softly"
+    }
+  ],
+  "formTips": [
+    "Plant your hands just in front of your feet",
+    "Land in a straight plank, hips in line with your shoulders",
+    "Jump your feet in close to your hands",
+    "Land softly with your knees bent"
+  ],
+  "commonMistakes": [
+    "Letting the hips sag in the plank",
+    "Landing the feet far from the hands",
+    "Rounding the back to reach the floor"
+  ]
+}

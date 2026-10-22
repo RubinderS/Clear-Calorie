@@ -1,0 +1,61 @@
+{
+  "id": "running-man",
+  "name": "Running man",
+  "view": "side",
+  "equipment": [],
+  "phases": [
+    {
+      "name": "left knee",
+      "durationMs": 300,
+      "from": 0,
+      "to": 0.1667,
+      "cue": "Drive your left knee up, right arm forward"
+    },
+    {
+      "name": "left back",
+      "durationMs": 300,
+      "from": 0.1667,
+      "to": 0.3333,
+      "cue": "Step your left foot back, left arm forward"
+    },
+    {
+      "name": "left in",
+      "durationMs": 300,
+      "from": 0.3333,
+      "to": 0.5,
+      "cue": "Bring your left foot back under you"
+    },
+    {
+      "name": "right knee",
+      "durationMs": 300,
+      "from": 0.5,
+      "to": 0.6667,
+      "cue": "Drive your right knee up, left arm forward"
+    },
+    {
+      "name": "right back",
+      "durationMs": 300,
+      "from": 0.6667,
+      "to": 0.8333,
+      "cue": "Step your right foot back, right arm forward"
+    },
+    {
+      "name": "right in",
+      "durationMs": 300,
+      "from": 0.8333,
+      "to": 1,
+      "cue": "Bring your right foot back under you"
+    }
+  ],
+  "formTips": [
+    "Swing your arms opposite to your legs, like a sprinter",
+    "Drive the knee up to about hip height",
+    "Tap the back foot down on its toes",
+    "Keep your chest up and core braced"
+  ],
+  "commonMistakes": [
+    "Hunching over as the knee comes up",
+    "Swinging the arm on the same side as the knee",
+    "Stamping the back foot down flat"
+  ]
+}

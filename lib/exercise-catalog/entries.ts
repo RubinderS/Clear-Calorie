@@ -6,6 +6,8 @@ import barbellBenchPress from './barbell-bench-press.json';
 import barbellBentOverRow from './barbell-bent-over-row.json';
 import barbellSquat from './barbell-squat.json';
 import bulgarianSplitSquat from './bulgarian-split-squat.json';
+import burpee from './burpee.json';
+import buttKicks from './butt-kicks.json';
 import chinUp from './chin-up.json';
 import closeGripPushUp from './close-grip-push-up.json';
 import dumbbellCalfRaise from './dumbbell-calf-raise.json';
@@ -19,15 +21,22 @@ import dumbbellWristCurl from './dumbbell-wrist-curl.json';
 import gobletSquat from './goblet-squat.json';
 import hammerCurl from './hammer-curl.json';
 import hangingKneeRaise from './hanging-knee-raise.json';
+import highKnees from './high-knees.json';
 import inclineDumbbellCurl from './incline-dumbbell-curl.json';
 import inclineDumbbellPress from './incline-dumbbell-press.json';
+import jumpSquat from './jump-squat.json';
 import jumpingJack from './jumping-jack.json';
+import lowJack from './low-jack.json';
+import mountainClimber from './mountain-climber.json';
 import oneArmDumbbellRow from './one-arm-dumbbell-row.json';
 import plank from './plank.json';
 import pullUp from './pull-up.json';
 import pushUp from './push-up.json';
 import romanianDeadlift from './romanian-deadlift.json';
+import runningMan from './running-man.json';
+import shadowBoxing from './shadow-boxing.json';
 import slidingLegCurl from './sliding-leg-curl.json';
+import standingHamstringCurl from './standing-hamstring-curl.json';
 
 /**
  * Every built-in exercise. To add one, follow docs/exercise-animations.md:
@@ -221,5 +230,60 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     type: 'STRENGTH',
     aliases: ['wrist curl', 'seated wrist curl', 'seated dumbbell wrist curl'],
     areas: {primary: ['forearms'], secondary: []},
+  },
+  {
+    config: highKnees,
+    // Cardio from here on: done for time unless counted in reps.
+    type: 'TIME',
+    aliases: ['high knee', 'high knee run', 'high knee running', 'running in place', 'jogging in place'],
+    areas: {primary: ['cardio', 'full-body'], secondary: ['quads', 'core', 'calves']},
+  },
+  {
+    config: buttKicks,
+    type: 'TIME',
+    aliases: ['butt kick', 'butt kickers', 'heel flicks', 'heel kicks', 'glute kicks'],
+    areas: {primary: ['cardio'], secondary: ['hamstrings', 'calves']},
+  },
+  {
+    config: runningMan,
+    type: 'TIME',
+    aliases: ['running man march', 'standing running man', 'knee drive step back'],
+    areas: {primary: ['cardio'], secondary: ['quads', 'glutes', 'core']},
+  },
+  {
+    config: standingHamstringCurl,
+    type: 'TIME',
+    aliases: ['cardio hamstring curl', 'standing leg curl', 'hamstring curl with row'],
+    areas: {primary: ['cardio', 'hamstrings'], secondary: ['glutes', 'back']},
+  },
+  {
+    config: lowJack,
+    type: 'TIME',
+    aliases: ['low impact jack', 'low impact jumping jack', 'step jack', 'step out jack', 'no jump jumping jack'],
+    areas: {primary: ['cardio'], secondary: ['shoulders', 'glutes', 'calves']},
+  },
+  {
+    config: mountainClimber,
+    type: 'TIME',
+    aliases: ['climbers', 'mountain climbers', 'running plank'],
+    areas: {primary: ['cardio', 'core'], secondary: ['shoulders', 'quads']},
+  },
+  {
+    config: burpee,
+    type: 'STRENGTH',
+    aliases: ['burpees', 'squat thrust jump', 'full burpee'],
+    areas: {primary: ['full-body', 'cardio'], secondary: ['chest', 'quads', 'shoulders', 'core']},
+  },
+  {
+    config: jumpSquat,
+    type: 'STRENGTH',
+    aliases: ['squat jump', 'jumping squat', 'plyo squat', 'bodyweight jump squat'],
+    areas: {primary: ['quads', 'glutes', 'cardio'], secondary: ['hamstrings', 'calves', 'core']},
+  },
+  {
+    config: shadowBoxing,
+    type: 'TIME',
+    aliases: ['shadowboxing', 'shadow box', 'boxing', 'jab cross', 'air boxing'],
+    areas: {primary: ['cardio', 'shoulders'], secondary: ['core', 'triceps']},
   },
 ];

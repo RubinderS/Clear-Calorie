@@ -35,9 +35,19 @@ import * as pullUp from '@/components/exercise-animations/3d/poses/pull-up';
 import * as pushUp from '@/components/exercise-animations/3d/poses/push-up';
 import * as rdl from '@/components/exercise-animations/3d/poses/romanian-deadlift';
 import * as legCurl from '@/components/exercise-animations/3d/poses/sliding-leg-curl';
+import * as burpee from '@/components/exercise-animations/3d/poses/burpee';
+import * as buttKicks from '@/components/exercise-animations/3d/poses/butt-kicks';
+import * as hamstringCurl from '@/components/exercise-animations/3d/poses/standing-hamstring-curl';
+import * as highKnees from '@/components/exercise-animations/3d/poses/high-knees';
+import * as jumpSquat from '@/components/exercise-animations/3d/poses/jump-squat';
+import * as lowJack from '@/components/exercise-animations/3d/poses/low-jack';
+import * as climber from '@/components/exercise-animations/3d/poses/mountain-climber';
+import * as runningMan from '@/components/exercise-animations/3d/poses/running-man';
+import * as boxing from '@/components/exercise-animations/3d/poses/shadow-boxing';
 import * as benchMoves from '@/components/exercise-animations/3d/moves/bench';
 import * as hanging from '@/components/exercise-animations/3d/moves/hanging';
 import * as hinge from '@/components/exercise-animations/3d/moves/hinge';
+import * as onTheSpot from '@/components/exercise-animations/3d/moves/on-the-spot';
 import * as prone from '@/components/exercise-animations/3d/moves/prone';
 import * as stance from '@/components/exercise-animations/3d/moves/stance';
 import * as standing from '@/components/exercise-animations/3d/moves/standing';
@@ -156,6 +166,11 @@ const backAndUp = unit(-1, 1, 0);
 /** Neutral grip: palms facing in, so each palm is on the outside of its handle. */
 const neutral = (s: Skeleton, side: Side) => ({palm: outward(s, side), over: forearm(s, side)});
 const backAndDown = unit(-1, -1, 0);
+/** Arms swinging in the side plane fold the forearm forward, so the elbow sits behind the upper arm: the upper arm turned back a right angle. */
+const elbowBehind = (s: Skeleton, side: Side) =>
+  s.arms[side].elbow.clone().sub(s.arms[side].shoulder).applyAxisAngle(Z, -Math.PI / 2);
+/** On the spot, the body stays still while the legs take turns. */
+const bodyStill = (s: Skeleton) => [s.hip, s.shoulder, s.head];
 
 const EXPECT: Record<string, Expect> = {
   'jumping-jack': {
@@ -287,6 +302,25 @@ const EXPECT: Record<string, Expect> = {
     elbow: () => backAndDown,
     // Palms forward, as at the bottom of a curl.
     grip: (s, side) => ({palm: X.clone().negate(), over: forearm(s, side)}),
+  },
+  'high-knees': {elbow: elbowBehind, planted: bodyStill},
+  'butt-kicks': {elbow: elbowBehind, planted: bodyStill},
+  'running-man': {elbow: elbowBehind, planted: bodyStill},
+  'standing-hamstring-curl': {elbow: elbowBehind, planted: bodyStill},
+  'low-jack': {
+    // As in the jumping jack, the elbow trails on the hip's side.
+    elbow: (s, side) => s.legs[side].hip.clone().sub(s.arms[side].shoulder),
+  },
+  'mountain-climber': {
+    elbow: () => X.clone().negate(),
+    planted: (s) => [...bodyStill(s), ...SIDES.flatMap((side) => [s.arms[side].wrist, s.paws[side].at])],
+  },
+  burpee: {elbow: elbowBehind},
+  'jump-squat': {elbow: elbowBehind},
+  'shadow-boxing': {
+    // Elbows down, tucked under the punches.
+    elbow: () => Y.clone().negate(),
+    planted: (s) => [...plantedFeet(s), s.hip],
   },
 };
 const NATIVE = Object.keys(EXPECT);
@@ -1204,4 +1238,145 @@ test('sliding leg curl: shoulders down, heels sliding on the floor; hips rise as
   assert.ok(end.hip.y > start.hip.y + 0.4, 'hips rise');
   // Hips always off the floor.
   assert.ok(start.hip.y - SIZES.torso.radius * SIZES.torso.depth > 0);
+});
+
+// Cardio.
+
+/** Halfway through each side's half of an alternating rep: the working side at its peak, and the other. */
+const PEAKS = [[0.25, 'left', 'right'], [0.75, 'right', 'left']] as const;
+const standingFlat = (s: Skeleton, side: Side) =>
+  same(s.legs[side].ankle, onTheSpot.ANKLES[side]) && close(s.feet[side].at.y, FOOT.height, 1e-9);
+
+test('high knees: one knee at a time drives up to hip height; the other foot stays flat; the arms pump against the legs', () => {
+  for (const [t, up, down] of PEAKS) {
+    const s = highKnees.highKneesPose(t);
+    assert.ok(Math.abs(s.legs[up].knee.y - s.legs[up].hip.y) < 0.1, `${up} thigh about level`);
+    assert.ok(standingFlat(s, down), `${down} foot flat`);
+    assert.ok(s.arms[up].wrist.x < s.arms[down].wrist.x, 'the arm on the lifted side swings back');
+  }
+  for (const t of [0, 0.5, 1]) for (const side of SIDES) assert.ok(standingFlat(highKnees.highKneesPose(t), side));
+});
+
+test('butt kicks: the heel comes up behind to the glutes while the thigh stays pointing down', () => {
+  for (const [t, up, down] of PEAKS) {
+    const s = buttKicks.buttKicksPose(t);
+    const {hip, knee, ankle} = s.legs[up];
+    assert.ok(ankle.y > hip.y - 0.25 && ankle.x < hip.x, `${up} heel up behind`);
+    assert.ok(Math.abs(knee.x - hip.x) < 0.15 && knee.y < hip.y - 0.5, `${up} thigh down`);
+    assert.ok(standingFlat(s, down), `${down} foot flat`);
+  }
+});
+
+test('running man: the knee drives up, then the foot steps back onto its toes; the arms swing opposite', () => {
+  for (const [start, side, other] of [[0, 'left', 'right'], [0.5, 'right', 'left']] as const) {
+    const up = runningMan.runningManPose(start + 1 / 6);
+    assert.ok(up.legs[side].knee.y > up.legs[side].hip.y - 0.12, `${side} knee up`);
+    assert.ok(up.arms[other].wrist.x > up.arms[side].wrist.x, 'the other arm forward with the knee');
+    const back = runningMan.runningManPose(start + 1 / 3);
+    assert.ok(back.legs[side].ankle.x < -0.4 && back.feet[side].at.y < 0.2, `${side} foot back on its toes`);
+    assert.ok(back.arms[side].wrist.x > back.arms[other].wrist.x, 'the same arm forward with the foot back');
+    assert.ok(standingFlat(back, other), `${other} foot flat`);
+  }
+});
+
+test('standing hamstring curl: the heel curls up behind as the arms row back; the knee stays under the hip', () => {
+  const rest = hamstringCurl.hamstringCurlPose(0);
+  for (const side of SIDES) {
+    assert.ok(rest.arms[side].wrist.x > rest.arms[side].shoulder.x + 0.8, 'arms reach forward');
+  }
+  for (const [t, up, down] of PEAKS) {
+    const s = hamstringCurl.hamstringCurlPose(t);
+    const {hip, knee, ankle} = s.legs[up];
+    assert.ok(ankle.y > knee.y - 0.15 && ankle.x < knee.x, `${up} shin about level behind`);
+    assert.ok(Math.abs(knee.x - hip.x) < 0.2, `${up} knee under the hip`);
+    assert.ok(standingFlat(s, down), `${down} foot flat`);
+    for (const side of SIDES) assert.ok(s.arms[side].elbow.x < s.shoulder.x - 0.2, 'elbows back past the body');
+  }
+});
+
+test('low jack: one foot steps out at a time, never both off the floor; the arms sweep overhead with each step', () => {
+  for (const t of steps) {
+    const s = lowJack.lowJackPose(t);
+    const lifted = SIDES.filter((side) => s.legs[side].ankle.y > FOOT.ankle + 1e-9);
+    assert.ok(lifted.length <= 1, `both feet up at ${t}`);
+  }
+  for (const [t, out, planted] of PEAKS) {
+    const s = lowJack.lowJackPose(t);
+    assert.ok(same(s.legs[out].ankle, lowJack.ankleOf(out, true, 1)), `${out} foot stepped out`);
+    assert.ok(same(s.legs[planted].ankle, lowJack.ankleOf(planted, false, 1)), `${planted} foot planted`);
+    for (const side of SIDES) assert.ok(s.arms[side].wrist.y > s.head.y + 0.3, 'hands overhead');
+  }
+  const together = lowJack.lowJackPose(0);
+  assert.ok(together.feet.left.at.distanceTo(together.feet.right.at) < 0.4, 'feet together between steps');
+});
+
+test('mountain climber: a straight high plank; each knee drives in under the chest while the other toes stay planted', () => {
+  for (const side of SIDES) {
+    const toes = climber.mountainClimberPose(0).legs[side].ankle;
+    const line = climber.BODY.hipOf(side).sub(toes).normalize();
+    assert.ok(line.dot(climber.BODY.up) > 0.9999, 'heels to head in one line');
+  }
+  for (const [t, up, down] of PEAKS) {
+    const s = climber.mountainClimberPose(t);
+    assert.ok(s.legs[up].knee.x > s.hip.x + 0.35, `${up} knee under the chest`);
+    assert.ok(same(s.legs[down].ankle, prone.ANKLES[down]), `${down} toes planted`);
+  }
+});
+
+test('burpee: hands planted from the squat to the plank and back; a straight plank; up tall with the arms overhead', () => {
+  for (const t of steps.filter((t) => t >= burpee.KEY.squat)) {
+    const s = burpee.burpeePose(t);
+    for (const side of SIDES) assert.ok(s.arms[side].wrist.distanceTo(burpee.handOf(side)) < 1e-6, `${side} hand off its place at ${t}`);
+  }
+  for (const t of steps.filter((t) => t <= burpee.KEY.squat)) {
+    const s = burpee.burpeePose(t);
+    for (const side of SIDES) assert.ok(same(s.legs[side].ankle, burpee.ANKLES[side]), `${side} foot moved at ${t}`);
+  }
+  // The plank: toes, hips and shoulders in a line, the shoulders over the hands.
+  const plank = burpee.burpeePose(1);
+  const toes = between(plank.legs.left.ankle, plank.legs.right.ankle);
+  assert.ok(plank.hip.clone().sub(toes).normalize().dot(up(plank)) > 0.9999, 'straight plank');
+  assert.ok(Math.abs(plank.shoulder.x - burpee.HANDS.x) < 0.05, 'shoulders over the hands');
+  // The squat: hips low, hands down ahead of the feet.
+  const squat = burpee.burpeePose(burpee.KEY.squat);
+  assert.ok(squat.hip.y < 0.5, `hips low: ${squat.hip.y.toFixed(2)}`);
+  const top = burpee.burpeePose(0);
+  for (const side of SIDES) assert.ok(top.arms[side].wrist.y > top.head.y, 'arms overhead');
+  assert.ok(burpee.burpeePose(burpee.KEY.stand).hip.y > 1.2, 'standing tall');
+  // Off the floor only on the jump.
+  for (const frame of framesOf('burpee')) {
+    const hop = burpee.hopAt(frame);
+    assert.ok(['jump', 'land'].includes(frame.phase.name) || hop === 0, `hop in ${frame.phase.name}`);
+  }
+});
+
+test('jump squat: thighs about level at the bottom, arms back; off the floor only on the jump, arms swinging up', () => {
+  const bottom = jumpSquat.jumpSquatPose(1);
+  assert.ok(Math.abs(bottom.legs.left.knee.y - bottom.legs.left.hip.y) < 0.1, 'thighs about level');
+  for (const side of SIDES) assert.ok(bottom.arms[side].wrist.x < bottom.hip.x, 'arms swung back');
+  for (const frame of framesOf('jump-squat')) {
+    const s = SPECS['jump-squat'].pose(frame);
+    const hop = jumpSquat.hopAt(frame);
+    assert.ok(frame.phase.name === 'jump' || hop === 0);
+    for (const side of SIDES) assert.ok(close(s.feet[side].at.y, FOOT.height + hop, 1e-9), `${side} foot off the floor`);
+  }
+  const air = jumpSquat.jumpSquatPose(0, jumpSquat.HOP);
+  for (const side of SIDES) assert.ok(air.arms[side].wrist.y > air.arms[side].shoulder.y, 'arms up at the top');
+});
+
+test('shadow boxing: hands up by the chin; the jab and the cross reach out at shoulder height while the other hand guards', () => {
+  const guard = boxing.shadowBoxingPose(0);
+  for (const side of SIDES) {
+    const {shoulder, wrist} = guard.arms[side];
+    assert.ok(wrist.y > shoulder.y && wrist.x > shoulder.x, `${side} hand up in front`);
+  }
+  for (const [t, punch, guarding] of PEAKS) {
+    const s = boxing.shadowBoxingPose(t);
+    const {shoulder, elbow, wrist} = s.arms[punch];
+    assert.ok(jointAngle(shoulder, elbow, wrist) > 150, `${punch} arm nearly straight`);
+    assert.ok(Math.abs(wrist.y - shoulder.y) < 0.15 && wrist.x > shoulder.x + 1, `${punch} punch at shoulder height`);
+    assert.ok(s.arms[guarding].wrist.y > s.arms[guarding].shoulder.y, `${guarding} hand stays up`);
+  }
+  // The hips and shoulders turn into the cross.
+  assert.ok(boxing.shadowBoxingPose(0.75).arms.right.shoulder.x > guard.arms.right.shoulder.x + 0.1);
 });

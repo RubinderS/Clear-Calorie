@@ -10,6 +10,8 @@ import * as bench from './poses/barbell-bench-press';
 import * as row from './poses/barbell-bent-over-row';
 import * as barbellSquat from './poses/barbell-squat';
 import * as splitSquat from './poses/bulgarian-split-squat';
+import * as burpee from './poses/burpee';
+import * as buttKicks from './poses/butt-kicks';
 import * as chinUp from './poses/chin-up';
 import * as closeGrip from './poses/close-grip-push-up';
 import * as calfRaise from './poses/dumbbell-calf-raise';
@@ -23,15 +25,22 @@ import * as wristCurl from './poses/dumbbell-wrist-curl';
 import * as goblet from './poses/goblet-squat';
 import * as hammer from './poses/hammer-curl';
 import * as kneeRaise from './poses/hanging-knee-raise';
+import * as highKnees from './poses/high-knees';
 import * as inclineCurl from './poses/incline-dumbbell-curl';
 import * as inclinePress from './poses/incline-dumbbell-press';
+import * as jumpSquat from './poses/jump-squat';
 import * as jumpingJack from './poses/jumping-jack';
+import * as lowJack from './poses/low-jack';
+import * as mountainClimber from './poses/mountain-climber';
 import * as oneArmRow from './poses/one-arm-dumbbell-row';
 import * as plank from './poses/plank';
 import * as pullUp from './poses/pull-up';
 import * as pushUp from './poses/push-up';
 import * as rdl from './poses/romanian-deadlift';
+import * as runningMan from './poses/running-man';
+import * as shadowBoxing from './poses/shadow-boxing';
 import * as legCurl from './poses/sliding-leg-curl';
+import * as hamstringCurl from './poses/standing-hamstring-curl';
 import {X, Y, Z, type Body} from './rig';
 import {scene3D, type Spec3D} from './scene-3d';
 
@@ -141,6 +150,14 @@ export const SPECS: Record<string, Spec3D> = {
     },
     camera: {aspect: 378 / 368},
   },
+  'burpee': {
+    pose: burpee.pose,
+    camera: {aspect: 440 / 300},
+  },
+  'butt-kicks': {
+    pose: buttKicks.pose,
+    camera: {aspect: 308 / 400},
+  },
   'chin-up': {
     pose: chinUp.pose,
     equipment: bar(hanging.BAR, Z, hanging.BAR_LENGTH),
@@ -222,6 +239,10 @@ export const SPECS: Record<string, Spec3D> = {
     camera: {aspect: 228 / 421},
     floor: false,
   },
+  'high-knees': {
+    pose: highKnees.pose,
+    camera: {aspect: 330 / 400},
+  },
   'incline-dumbbell-curl': {
     pose: inclineCurl.pose,
     equipment: inclineWithDumbbells(inclineCurl.BODY, inclineCurl.SEAT),
@@ -232,9 +253,21 @@ export const SPECS: Record<string, Spec3D> = {
     equipment: inclineWithDumbbells(inclinePress.BODY, inclinePress.SEAT),
     camera: {aspect: 409 / 330},
   },
+  'jump-squat': {
+    pose: jumpSquat.pose,
+    camera: {aspect: 358 / 420},
+  },
   'jumping-jack': {
     pose: jumpingJack.pose,
     camera: {aspect: 308 / 406},
+  },
+  'low-jack': {
+    pose: lowJack.pose,
+    camera: {aspect: 340 / 400},
+  },
+  'mountain-climber': {
+    pose: mountainClimber.pose,
+    camera: {aspect: 418 / 230},
   },
   'one-arm-dumbbell-row': {
     pose: oneArmRow.pose,
@@ -266,6 +299,14 @@ export const SPECS: Record<string, Spec3D> = {
     equipment: barbellInPaws(),
     camera: {aspect: 361 / 397},
   },
+  'running-man': {
+    pose: runningMan.pose,
+    camera: {aspect: 340 / 400},
+  },
+  'shadow-boxing': {
+    pose: shadowBoxing.pose,
+    camera: {aspect: 400 / 380},
+  },
   'sliding-leg-curl': {
     pose: legCurl.pose,
     equipment: (kit, parent) => {
@@ -278,6 +319,10 @@ export const SPECS: Record<string, Spec3D> = {
       };
     },
     camera: {aspect: 459 / 187},
+  },
+  'standing-hamstring-curl': {
+    pose: hamstringCurl.pose,
+    camera: {aspect: 360 / 400},
   },
 };
 

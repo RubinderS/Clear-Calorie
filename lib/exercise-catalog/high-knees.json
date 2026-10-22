@@ -1,0 +1,47 @@
+{
+  "id": "high-knees",
+  "name": "High knees",
+  "view": "side",
+  "equipment": [],
+  "phases": [
+    {
+      "name": "left up",
+      "durationMs": 200,
+      "from": 0,
+      "to": 0.25,
+      "cue": "Drive your left knee up to hip height"
+    },
+    {
+      "name": "left down",
+      "durationMs": 200,
+      "from": 0.25,
+      "to": 0.5,
+      "cue": "Land softly on the ball of your foot"
+    },
+    {
+      "name": "right up",
+      "durationMs": 200,
+      "from": 0.5,
+      "to": 0.75,
+      "cue": "Drive your right knee up, opposite arm forward"
+    },
+    {
+      "name": "right down",
+      "durationMs": 200,
+      "from": 0.75,
+      "to": 1,
+      "cue": "Land softly and keep the rhythm quick"
+    }
+  ],
+  "formTips": [
+    "Bring each knee up to about hip height",
+    "Stay tall with your chest up and core braced",
+    "Pump your arms, opposite arm to knee",
+    "Land lightly on the balls of your feet"
+  ],
+  "commonMistakes": [
+    "Leaning back to get the knees higher",
+    "Knees only coming up halfway",
+    "Landing heavily on your heels"
+  ]
+}
