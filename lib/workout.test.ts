@@ -317,7 +317,11 @@ test('setEndCue stays quiet when catching up into the next set', () => {
 
 test('animationSync starts each rep on its beat and holds the pose otherwise', () => {
   const state = strength(2, 3);
-  assert.deepEqual(animationSync(state, LEAD_IN_MS - 1).message, {cmd: 'pose'});
+  // Moving through the count-in, a beat ahead, so a rep starts on "go".
+  assert.deepEqual(animationSync(state, LEAD_IN_MS - 500), {
+    key: 'sync:0:-1:2000:true',
+    message: {cmd: 'sync', repMs: 2_000, repElapsedMs: 1_500, playing: true},
+  });
   assert.deepEqual(animationSync(state, LEAD_IN_MS + 2_500), {
     key: 'sync:0:1:2000:true',
     message: {cmd: 'sync', repMs: 2_000, repElapsedMs: 500, playing: true},
@@ -347,6 +351,7 @@ test('animationSync follows a tempo change and lets timed work run free', () => 
     playing: true,
   });
   const timed = startWorkout(buildWorkoutSteps([{durationSec: 60}]), 0);
+  assert.deepEqual(animationSync(timed, 0).message, {cmd: 'free', playing: true});
   assert.deepEqual(animationSync(timed, LEAD_IN_MS + 1).message, {cmd: 'free', playing: true});
 });
 

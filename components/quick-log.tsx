@@ -223,8 +223,9 @@ function ExercisePanel({
     }
   }, [showCustom, hasPlan]);
 
+  // A workout in progress has the panel to itself; custom logging waits.
   return (
-    <div className="space-y-4">
+    <div className="group space-y-4">
       {hasPlan && (
         <TodaysExercisePlan
           goals={goals}
@@ -241,7 +242,7 @@ function ExercisePanel({
         />
       )}
       {showCustom ? (
-        <div ref={customRef}>
+        <div ref={customRef} className="group-has-data-workout:hidden">
           <ExerciseForm
             plannedNames={goals.map((goal) => goal.name)}
             onLogCreated={onLogCreated}
@@ -249,7 +250,7 @@ function ExercisePanel({
           />
         </div>
       ) : (
-        <div className="px-6 pb-6">
+        <div className="px-6 pb-6 group-has-data-workout:hidden">
           <Button
             variant="outline"
             className="h-11 w-full"

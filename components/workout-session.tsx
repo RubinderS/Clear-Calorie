@@ -86,6 +86,7 @@ import {
   type SoundMode,
   type WorkoutSound,
 } from '@/lib/workout-sound';
+import {cn} from '@/lib/utils';
 
 /** Reps of each set done, in order. */
 export type WorkoutResult = {sets: CompletedSet[]};
@@ -240,6 +241,8 @@ type StepperProps = {
   onIncrement: () => void;
   canDecrement: boolean;
   canIncrement: boolean;
+  /** On phones, the label above the buttons, to fit beside the timer. */
+  stacked?: boolean;
 };
 
 function Stepper({
@@ -249,30 +252,51 @@ function Stepper({
   onIncrement,
   canDecrement,
   canIncrement,
+  stacked,
 }: StepperProps) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/30 py-2 pl-4 pr-2">
-      <span className="text-sm font-medium">{label}</span>
-      <div className="flex items-center gap-1">
+    <div
+      className={cn(
+        'flex items-center justify-between rounded-xl border border-border/50 bg-muted/30 py-1.5 pl-4 pr-2 md:py-2',
+        stacked && 'max-md:flex-col max-md:gap-1 max-md:p-2',
+      )}
+    >
+      <span
+        className={cn(
+          'text-sm font-medium',
+          stacked && 'max-md:text-xs max-md:text-muted-foreground',
+        )}
+      >
+        {label}
+      </span>
+      <div
+        className={cn('flex items-center gap-1', stacked && 'max-md:w-full')}
+      >
         <Button
           type="button"
           variant="outline"
           size="icon"
-          className="h-9 w-9"
+          className={cn('h-9 w-9', stacked && 'max-md:size-8')}
           aria-label={`Decrease ${label.toLowerCase()}`}
           disabled={!canDecrement}
           onClick={onDecrement}
         >
           <Minus />
         </Button>
-        <span className="w-20 text-center text-sm font-semibold tabular-nums">
+        <span
+          className={cn(
+            'w-20 whitespace-nowrap text-center text-sm font-semibold tabular-nums',
+            // Beside the timer there's no room for a fixed width.
+            stacked && 'max-md:w-auto max-md:min-w-0 max-md:flex-1',
+          )}
+        >
           {value}
         </span>
         <Button
           type="button"
           variant="outline"
           size="icon"
-          className="h-9 w-9"
+          className={cn('h-9 w-9', stacked && 'max-md:size-8')}
           aria-label={`Increase ${label.toLowerCase()}`}
           disabled={!canIncrement}
           onClick={onIncrement}
@@ -287,9 +311,11 @@ function Stepper({
 function TempoStepper({
   tempoMs,
   onChange,
+  stacked,
 }: {
   tempoMs: number;
   onChange: (tempoMs: number) => void;
+  stacked?: boolean;
 }) {
   return (
     <Stepper
@@ -299,6 +325,7 @@ function TempoStepper({
       onIncrement={() => onChange(tempoMs + TEMPO_STEP_MS)}
       canDecrement={tempoMs > MIN_TEMPO_MS}
       canIncrement={tempoMs < MAX_TEMPO_MS}
+      stacked={stacked}
     />
   );
 }
@@ -306,9 +333,11 @@ function TempoStepper({
 function RepsStepper({
   reps,
   onChange,
+  stacked,
 }: {
   reps: number;
   onChange: (reps: number) => void;
+  stacked?: boolean;
 }) {
   return (
     <Stepper
@@ -318,6 +347,7 @@ function RepsStepper({
       onIncrement={() => onChange(reps + 1)}
       canDecrement={reps > 1}
       canIncrement={reps < MAX_REPS}
+      stacked={stacked}
     />
   );
 }
@@ -431,16 +461,19 @@ function LoadingVoice({onCancel}: {onCancel: () => void}) {
 function WithAnimation({
   catalogId,
   sync,
+  // Small enough above the controls on phones; as big as fits beside them on desktop.
+  maxHeightClassName = '[&>*]:max-h-[min(30vh,15rem)] md:[&>*]:max-h-[min(70vh,30rem)]',
   children,
 }: {
   catalogId: string | null | undefined;
   sync: {key: string; message: AnimationSync};
+  maxHeightClassName?: string;
   children: ReactNode;
 }) {
   const entry = exerciseCatalog.get(catalogId);
   if (!entry) return children;
   return (
-    <div className="flex flex-col gap-6 md:grid md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] md:items-center md:gap-8">
+    <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] md:items-center md:gap-8">
       <div className="space-y-2">
         <ExerciseAnimation
           // A sequence moves on to other exercises, each with its own scene.
@@ -448,8 +481,7 @@ function WithAnimation({
           entry={entry}
           sync={sync}
           className="mx-auto max-w-sm md:max-w-none"
-          // Small enough above the controls on phones; as big as fits beside them on desktop.
-          maxHeightClassName="[&>*]:max-h-[min(30vh,15rem)] md:[&>*]:max-h-[min(70vh,30rem)]"
+          maxHeightClassName={maxHeightClassName}
         />
         <ExerciseAreas entry={entry} className="text-center" />
       </div>
@@ -637,7 +669,7 @@ function SoundControls({
   trackName?: string;
 }) {
   return (
-    <div className="grid w-full gap-2 sm:grid-cols-2">
+    <div className="grid w-full grid-cols-2 gap-2">
       <Toggler
         name={useId()}
         label="Cues"
@@ -650,9 +682,12 @@ function SoundControls({
         variant={music ? 'default' : 'outline'}
         aria-pressed={music}
         onClick={onMusicToggle}
+        className="min-w-0"
       >
         <Music />
-        {trackName ? `Music: ${trackName}` : `Music ${music ? 'on' : 'off'}`}
+        <span className="truncate">
+          {trackName ? `Music: ${trackName}` : `Music ${music ? 'on' : 'off'}`}
+        </span>
       </Button>
     </div>
   );
@@ -983,76 +1018,94 @@ function ActiveWorkout({
     caption = `of ${state.reps} reps`;
   }
 
+  // Tighter on phones, so the animation and every control fit on one screen.
   const controls = (
-    <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center gap-3 md:gap-6">
       <div className="text-center" aria-live="polite">
-        <p className="text-lg font-semibold">{stepLabel(step)}</p>
+        <p className="text-base font-semibold md:text-lg">{stepLabel(step)}</p>
         <p className="text-sm text-muted-foreground">
           {stepDetail(step, state, goal)}
         </p>
       </div>
 
-      <ProgressRing
-        value={progress}
-        strokeWidth={5}
-        className="size-52"
-        indicatorClassName={
-          step.kind === 'rest' ? 'text-sky-500' : 'text-primary'
-        }
-      >
-        <span
-          role="timer"
-          className="text-5xl font-semibold tabular-nums tracking-tight"
+      {/* On phones, tempo and reps sit beside the timer rather than below it. */}
+      <div className="flex w-full items-center justify-center gap-3 md:flex-col md:gap-6">
+        <ProgressRing
+          value={progress}
+          strokeWidth={5}
+          className="size-32 min-[380px]:size-36 md:size-52"
+          indicatorClassName={
+            step.kind === 'rest' ? 'text-sky-500' : 'text-primary'
+          }
         >
-          {display}
-        </span>
-        <span className="mt-1 h-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {running ? caption : 'Paused'}
-        </span>
-      </ProgressRing>
+          <span
+            role="timer"
+            className="text-4xl font-semibold tabular-nums tracking-tight md:text-5xl"
+          >
+            {display}
+          </span>
+          <span className="mt-1 h-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {running ? caption : 'Paused'}
+          </span>
+        </ProgressRing>
+        {(inSet || step.kind === 'rest') && (
+          <div className="min-w-0 flex-1 md:w-full md:flex-none">
+            {inSet && (
+              <div className="w-full space-y-2">
+                <TempoStepper
+                  tempoMs={state.tempoMs}
+                  onChange={changeTempo}
+                  stacked
+                />
+                <RepsStepper
+                  reps={state.reps}
+                  onChange={(reps) =>
+                    advance((current) => setReps(current, reps))
+                  }
+                  stacked
+                />
+              </div>
+            )}
 
-      {inSet && (
-        <div className="w-full space-y-2">
-          <TempoStepper tempoMs={state.tempoMs} onChange={changeTempo} />
-          <RepsStepper
-            reps={state.reps}
-            onChange={(reps) => advance((current) => setReps(current, reps))}
-          />
-        </div>
-      )}
-
-      {step.kind === 'rest' && (
-        <div className="w-full space-y-3">
-          {/* Rest is when tempo usually gets tuned, ready for the next set. */}
-          {following?.kind === 'set' && (
-            <TempoStepper tempoMs={restTempo} onChange={changeTempo} />
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              variant="outline"
-              // Cutting a rest past its end would start the next set in the past.
-              disabled={remainingMs(state, now) <= REST_ADJUST_MS}
-              onClick={() =>
-                advance((current, time) =>
-                  remainingMs(current, time) > REST_ADJUST_MS
-                    ? adjustRest(current, -REST_ADJUST_MS)
-                    : current,
-                )
-              }
-            >
-              −{REST_ADJUST_MS / 1000}s
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() =>
-                advance((current) => adjustRest(current, REST_ADJUST_MS))
-              }
-            >
-              +{REST_ADJUST_MS / 1000}s
-            </Button>
+            {step.kind === 'rest' && (
+              <div className="w-full space-y-2 md:space-y-3">
+                {/* Rest is when tempo usually gets tuned, ready for the next set. */}
+                {following?.kind === 'set' && (
+                  <TempoStepper
+                    tempoMs={restTempo}
+                    onChange={changeTempo}
+                    stacked
+                  />
+                )}
+                <div className="grid grid-cols-2 gap-2 md:gap-3">
+                  <Button
+                    variant="outline"
+                    // Cutting a rest past its end would start the next set in the past.
+                    disabled={remainingMs(state, now) <= REST_ADJUST_MS}
+                    onClick={() =>
+                      advance((current, time) =>
+                        remainingMs(current, time) > REST_ADJUST_MS
+                          ? adjustRest(current, -REST_ADJUST_MS)
+                          : current,
+                      )
+                    }
+                  >
+                    −{REST_ADJUST_MS / 1000}s
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      advance((current) => adjustRest(current, REST_ADJUST_MS))
+                    }
+                  >
+                    +{REST_ADJUST_MS / 1000}s
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="grid w-full grid-cols-2 gap-3">
         <Button
@@ -1093,6 +1146,8 @@ function ActiveWorkout({
     <WithAnimation
       catalogId={stepPart(step)?.catalogId ?? goal.catalogId}
       sync={animationSync(state, now)}
+      // On phones the animation gets whatever height the controls leave.
+      maxHeightClassName="[&>*]:max-h-[clamp(4rem,calc(100dvh_-_32rem),24rem)] md:[&>*]:max-h-[min(70vh,30rem)]"
     >
       {controls}
     </WithAnimation>

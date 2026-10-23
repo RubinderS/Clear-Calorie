@@ -436,7 +436,8 @@ export function formatClock(ms: number): string {
  * What an exercise animation should show during a workout. In a set, each
  * rep's movement starts on its beat ("go" starts rep 1) and lasts one tempo;
  * `key` changes when a new rep starts, the tempo changes or the timer pauses
- * or resumes, so the player resyncs at most once per rep.
+ * or resumes, so the player resyncs at most once per rep. It already moves
+ * during the count-in, timed so a rep starts on "go".
  */
 export type AnimationSync =
   | {cmd: 'sync'; repMs: number; repElapsedMs: number; playing: boolean}
@@ -450,13 +451,14 @@ export function animationSync(
   const step = state.steps[state.index];
   const elapsed = elapsedMs(state.timer, now);
   const playing = isRunning(state.timer);
-  if (state.done || step.kind === 'rest' || elapsed < leadInMs(state)) {
+  if (state.done || step.kind === 'rest') {
     return {key: `pose:${state.index}`, message: {cmd: 'pose'}};
   }
   // Timed work has no reps, so the animation keeps its own tempo.
   if (step.kind === 'work') {
     return {key: `free:${state.index}:${playing}`, message: {cmd: 'free', playing}};
   }
+  // Negative during the count-in, so those beats count down to rep 0.
   const intoReps = elapsed - leadInMs(state);
   const rep = Math.floor(intoReps / state.tempoMs);
   if (rep >= state.reps) {

@@ -164,11 +164,12 @@ export function TodaysExercisePlan({
   if (workout) {
     return (
       <Card data-workout>
-        <CardHeader className="pr-14">
+        {/* Less padding on phones, so the whole workout fits on screen. */}
+        <CardHeader className="pr-14 max-md:p-4 max-md:pr-14">
           <CardTitle className="truncate">{workout.goal.name}</CardTitle>
           <CardDescription>Workout in progress</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="max-md:px-4 max-md:pb-4">
           <WorkoutSession
             goal={workout.goal}
             sound={workout.sound}
