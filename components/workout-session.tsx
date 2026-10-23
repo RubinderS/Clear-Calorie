@@ -463,11 +463,15 @@ function WithAnimation({
   sync,
   // Small enough above the controls on phones; as big as fits beside them on desktop.
   maxHeightClassName = '[&>*]:max-h-[min(30vh,15rem)] md:[&>*]:max-h-[min(70vh,30rem)]',
+  dimmed,
+  areasClassName,
   children,
 }: {
   catalogId: string | null | undefined;
   sync: {key: string; message: AnimationSync};
   maxHeightClassName?: string;
+  dimmed?: boolean;
+  areasClassName?: string;
   children: ReactNode;
 }) {
   const entry = exerciseCatalog.get(catalogId);
@@ -482,8 +486,9 @@ function WithAnimation({
           sync={sync}
           className="mx-auto max-w-sm md:max-w-none"
           maxHeightClassName={maxHeightClassName}
+          dimmed={dimmed}
         />
-        <ExerciseAreas entry={entry} className="text-center" />
+        <ExerciseAreas entry={entry} className={cn('text-center', areasClassName)} />
       </div>
       {children}
     </div>
@@ -534,6 +539,7 @@ function StrengthSetup({
   return (
     <WithAnimation
       catalogId={goal.catalogId}
+      dimmed
       sync={{
         key: `preview:${tempoMs}`,
         message: {
@@ -626,6 +632,7 @@ function SequenceSetup({
   return (
     <WithAnimation
       catalogId={steps[0]?.catalogId}
+      dimmed
       sync={{key: 'preview', message: {cmd: 'free', playing: true}}}
     >
       <div className="space-y-4">
@@ -1022,8 +1029,8 @@ function ActiveWorkout({
   const controls = (
     <div className="flex flex-col items-center gap-3 md:gap-6">
       <div className="text-center" aria-live="polite">
-        <p className="text-base font-semibold md:text-lg">{stepLabel(step)}</p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xl font-semibold md:text-lg">{stepLabel(step)}</p>
+        <p className="text-base text-muted-foreground md:text-sm">
           {stepDetail(step, state, goal)}
         </p>
       </div>
@@ -1146,6 +1153,9 @@ function ActiveWorkout({
     <WithAnimation
       catalogId={stepPart(step)?.catalogId ?? goal.catalogId}
       sync={animationSync(state, now)}
+      dimmed={step.kind === 'rest' && !state.done}
+      // Phones need the room for the animation and controls.
+      areasClassName="max-md:hidden"
       // On phones the animation gets whatever height the controls leave.
       maxHeightClassName="[&>*]:max-h-[clamp(4rem,calc(100dvh_-_32rem),24rem)] md:[&>*]:max-h-[min(70vh,30rem)]"
     >

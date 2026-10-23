@@ -355,6 +355,21 @@ test('animationSync follows a tempo change and lets timed work run free', () => 
   assert.deepEqual(animationSync(timed, LEAD_IN_MS + 1).message, {cmd: 'free', playing: true});
 });
 
+test('animationSync previews the next exercise during a sequence break', () => {
+  const state = startWorkout(
+    buildSequenceSteps([
+      {durationSec: 45, restSec: 0, part: {name: 'Jacks', catalogId: 'jumping-jacks', tempoMs: 2_000}},
+      {reps: 12, restSec: 30, part: {name: 'Squats', catalogId: 'squat', tempoMs: 4_000}},
+    ]),
+    0,
+  );
+  const breaking = nextStep(state, 1_000);
+  assert.equal(breaking.steps[breaking.index].kind, 'rest');
+  assert.deepEqual(animationSync(breaking, 1_000).message, {cmd: 'free', playing: true});
+  const paused = togglePause(breaking, 2_000);
+  assert.deepEqual(animationSync(paused, 3_000).message, {cmd: 'free', playing: false});
+});
+
 const JACKS = {name: 'Jumping jacks', catalogId: 'jumping-jacks', tempoMs: 2_000};
 const SQUATS = {name: 'Squats', catalogId: 'squat', tempoMs: 4_000};
 

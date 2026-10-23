@@ -76,12 +76,15 @@ export function ExerciseAnimation({
   sync,
   className,
   maxHeightClassName = '[&>*]:max-h-[min(55vh,26rem)]',
+  dimmed = false,
 }: {
   entry: CatalogEntry;
   sync?: {key: string; message: AnimationSync} | null;
   className?: string;
   /** Caps the scene's height, so a tall one (standing, arms up) fits its place. */
   maxHeightClassName?: string;
+  /** Grays the scene out, as during a rest. */
+  dimmed?: boolean;
 }) {
   const Scene = sceneFor(entry.id);
   const container = useRef<HTMLElement>(null);
@@ -131,7 +134,13 @@ export function ExerciseAnimation({
   return (
     <figure ref={container} className={cn('space-y-2', className)}>
       {/* Each scene's viewBox sets its height; reserve about one until it loads. */}
-      <div className={cn('w-full [&>*]:mx-auto [&>*]:block', maxHeightClassName)}>
+      <div
+        className={cn(
+          'w-full transition-[filter,opacity] duration-300 [&>*]:mx-auto [&>*]:block',
+          dimmed && 'opacity-85 grayscale-25',
+          maxHeightClassName,
+        )}
+      >
         <Suspense fallback={<div className="aspect-680/400 w-full" />}>
           <Scene frame={frame} />
         </Suspense>

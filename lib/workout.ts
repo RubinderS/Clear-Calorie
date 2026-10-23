@@ -451,6 +451,10 @@ export function animationSync(
   const step = state.steps[state.index];
   const elapsed = elapsedMs(state.timer, now);
   const playing = isRunning(state.timer);
+  // A sequence's break shows the exercise coming next moving, as a preview.
+  if (!state.done && step.kind === 'rest' && step.next) {
+    return {key: `free:${state.index}:${playing}`, message: {cmd: 'free', playing}};
+  }
   if (state.done || step.kind === 'rest') {
     return {key: `pose:${state.index}`, message: {cmd: 'pose'}};
   }
