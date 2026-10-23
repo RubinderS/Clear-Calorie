@@ -289,8 +289,9 @@ export function TodaysExercisePlan({
                       <span className="block text-xs text-muted-foreground">
                         {formatExerciseDetail(goal)}
                       </span>
+                      {/* Hidden on phones, where the rows are already busy. */}
                       {goal.notes && (
-                        <span className="mt-0.5 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">
+                        <span className="mt-0.5 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground max-md:hidden">
                           {goal.notes}
                         </span>
                       )}
