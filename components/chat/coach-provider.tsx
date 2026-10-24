@@ -68,6 +68,22 @@ function useVisualViewport(active: boolean) {
   return viewport;
 }
 
+/**
+ * Whether a vertical drag of `deltaY` px (positive is the finger moving down)
+ * that starts on `target` would scroll one of its scrollable ancestors.
+ */
+function canScrollVertically(target: EventTarget | null, deltaY: number) {
+  let node = target instanceof Element ? target : null;
+  for (; node && node !== document.body; node = node.parentElement) {
+    const {overflowY} = getComputedStyle(node);
+    if (overflowY !== 'auto' && overflowY !== 'scroll') continue;
+    const atTop = node.scrollTop <= 0;
+    const atBottom = node.scrollTop + node.clientHeight >= node.scrollHeight - 1;
+    if (deltaY > 0 ? !atTop : !atBottom) return true;
+  }
+  return false;
+}
+
 const hasCoachParam = () =>
   new URLSearchParams(window.location.search).get(COACH_PARAM) === '1';
 
@@ -201,6 +217,9 @@ export function CoachProvider({
 
   // Lock the page behind the sheet. iOS ignores overflow: hidden for touch
   // scrolling, so pin the body in place and restore the scroll on close.
+  // A pinned body still pans with the keyboard open, or when a drag starts
+  // outside the messages or runs past their end, so also cancel any drag
+  // that wouldn't scroll something inside the sheet.
   React.useEffect(() => {
     if (!sheetOpen) return;
     const {body, documentElement: root} = document;
@@ -215,7 +234,28 @@ export function CoachProvider({
     body.style.position = 'fixed';
     body.style.top = `-${scrollY}px`;
     body.style.width = '100%';
+
+    let startX = 0;
+    let startY = 0;
+    const handleTouchStart = (event: TouchEvent) => {
+      startX = event.touches[0].clientX;
+      startY = event.touches[0].clientY;
+    };
+    const handleTouchMove = (event: TouchEvent) => {
+      const deltaX = event.touches[0].clientX - startX;
+      const deltaY = event.touches[0].clientY - startY;
+      // Leave sideways swipes alone, such as swiping back to close the sheet.
+      if (Math.abs(deltaX) > Math.abs(deltaY)) return;
+      if (event.cancelable && !canScrollVertically(event.target, deltaY)) {
+        event.preventDefault();
+      }
+    };
+    document.addEventListener('touchstart', handleTouchStart, {passive: true});
+    document.addEventListener('touchmove', handleTouchMove, {passive: false});
+
     return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
       root.style.overflow = previous.rootOverflow;
       body.style.position = previous.position;
       body.style.top = previous.top;
