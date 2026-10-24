@@ -23,7 +23,7 @@ import type {Contact3D, Skeleton} from '../skeleton';
 /**
  * Face down on the floor, the head towards +x, the toes planted either side
  * of the origin. The straight body pivots about the toes. The push-ups and
- * the plank share it.
+ * the plank share it, and the chest-supported row lies at an incline.
  */
 
 /** The planted ankles, hip-width so the straight legs line up with the hips. */

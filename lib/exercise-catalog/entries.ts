@@ -8,6 +8,7 @@ import barbellSquat from './barbell-squat.json';
 import bulgarianSplitSquat from './bulgarian-split-squat.json';
 import burpee from './burpee.json';
 import buttKicks from './butt-kicks.json';
+import chestSupportedDumbbellRow from './chest-supported-dumbbell-row.json';
 import chinUp from './chin-up.json';
 import closeGripPushUp from './close-grip-push-up.json';
 import dumbbellCalfRaise from './dumbbell-calf-raise.json';
@@ -144,6 +145,12 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     config: oneArmDumbbellRow,
     type: 'STRENGTH',
     aliases: ['single-arm dumbbell row', 'dumbbell row', 'one-arm row', 'single-arm row'],
+    areas: {primary: ['back'], secondary: ['biceps', 'shoulders', 'forearms']},
+  },
+  {
+    config: chestSupportedDumbbellRow,
+    type: 'STRENGTH',
+    aliases: ['chest-supported row', 'incline dumbbell row', 'incline bench dumbbell row', 'prone incline dumbbell row'],
     areas: {primary: ['back'], secondary: ['biceps', 'shoulders', 'forearms']},
   },
   {

@@ -102,32 +102,48 @@ export function flatBench(
   return {object: group};
 }
 
+/** An incline bench's back pad: along the torso from just below the hips to past the head, and its width. */
+const BACK_PAD = {start: -0.12, end: 1.72, width: 0.55};
+
 /**
- * An incline bench: a seat, a back pad behind the torso and the frame.
- * `hip` is the rabbit's hips in the corner; `along` runs up the pad and
- * `back` out of it towards the rabbit's back, both in the x-y plane.
+ * An incline bench: a pad along the torso, a seat and the frame. `hip` is
+ * the rabbit's hips at the pad's low end; `along` runs up the pad and
+ * `back` from the torso into it (out of the back sitting back on it, out of
+ * the chest lying face down on it), both in the x-y plane. `pad` runs
+ * `start` to `end` along the torso; without a `seat` the frame stands under
+ * the pad's low end.
  */
 export function inclineBench(
   kit: Kit,
-  {hip, along, back, seat}: {hip: THREE.Vector3; along: THREE.Vector3; back: THREE.Vector3; seat: {left: number; right: number; top: number; bottom: number}},
+  {hip, along, back, seat, pad = BACK_PAD}: {
+    hip: THREE.Vector3;
+    along: THREE.Vector3;
+    back: THREE.Vector3;
+    seat?: {left: number; right: number; top: number; bottom: number};
+    pad?: {start: number; end: number; width: number};
+  },
 ) {
   const group = new THREE.Group();
   const width = 0.55;
-  // The pad runs from just below the hips to past the head, a torso's half-width behind the body.
-  const padStart = -0.12;
-  const padEnd = 1.72;
+  // The pad sits a torso's half-width off the line of the body.
   const padThickness = 0.14;
   const padCentre = hip.clone()
-    .addScaledVector(along, (padStart + padEnd) / 2)
+    .addScaledVector(along, (pad.start + pad.end) / 2)
     .addScaledVector(back, 0.26 + padThickness / 2);
-  const pad = box(kit, [padEnd - padStart, padThickness, width], COLOURS.pad);
-  pad.position.copy(padCentre);
-  pad.rotation.z = Math.atan2(along.y, along.x);
-  const seatBox = box(kit, [seat.right - seat.left, seat.top - seat.bottom, width], COLOURS.pad);
-  seatBox.position.set((seat.left + seat.right) / 2, (seat.top + seat.bottom) / 2, 0);
-  group.add(pad, seatBox);
-  const brace = hip.clone().addScaledVector(along, 1.3).addScaledVector(back, 0.4);
-  for (const [x, height] of [[brace.x, brace.y], [(seat.left + seat.right) / 2, seat.bottom]]) {
+  const padBox = box(kit, [pad.end - pad.start, padThickness, pad.width], COLOURS.pad);
+  padBox.position.copy(padCentre);
+  padBox.rotation.z = Math.atan2(along.y, along.x);
+  group.add(padBox);
+  // Posts up to the pad's underside near its top, and to the seat or the pad's low end.
+  const under = (at: number) => hip.clone().addScaledVector(along, at).addScaledVector(back, 0.26 + padThickness);
+  const brace = under(pad.end - 0.42);
+  const low = seat ? new THREE.Vector3((seat.left + seat.right) / 2, seat.bottom, 0) : under(pad.start + 0.25);
+  if (seat) {
+    const seatBox = box(kit, [seat.right - seat.left, seat.top - seat.bottom, width], COLOURS.pad);
+    seatBox.position.set((seat.left + seat.right) / 2, (seat.top + seat.bottom) / 2, 0);
+    group.add(seatBox);
+  }
+  for (const [x, height] of [[brace.x, brace.y], [low.x, low.y]]) {
     const post = box(kit, [0.1, height, 0.1], COLOURS.frame);
     post.position.set(x, height / 2, 0);
     const foot = box(kit, [0.12, 0.06, width * 0.9], COLOURS.frame);

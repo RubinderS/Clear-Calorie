@@ -23,6 +23,7 @@ export const EXERCISE_ANIMATIONS: Record<
   'bulgarian-split-squat': () => scene3D('bulgarian-split-squat'),
   'burpee': () => scene3D('burpee'),
   'butt-kicks': () => scene3D('butt-kicks'),
+  'chest-supported-dumbbell-row': () => scene3D('chest-supported-dumbbell-row'),
   'chin-up': () => scene3D('chin-up'),
   'close-grip-push-up': () => scene3D('close-grip-push-up'),
   'dumbbell-calf-raise': () => scene3D('dumbbell-calf-raise'),

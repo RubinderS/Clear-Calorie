@@ -15,6 +15,7 @@ import * as bench from '@/components/exercise-animations/3d/poses/barbell-bench-
 import * as row from '@/components/exercise-animations/3d/poses/barbell-bent-over-row';
 import * as squat from '@/components/exercise-animations/3d/poses/barbell-squat';
 import * as splitSquat from '@/components/exercise-animations/3d/poses/bulgarian-split-squat';
+import * as chestRow from '@/components/exercise-animations/3d/poses/chest-supported-dumbbell-row';
 import * as chinUp from '@/components/exercise-animations/3d/poses/chin-up';
 import * as closeGrip from '@/components/exercise-animations/3d/poses/close-grip-push-up';
 import * as calfRaise from '@/components/exercise-animations/3d/poses/dumbbell-calf-raise';
@@ -262,6 +263,12 @@ const EXPECT: Record<string, Expect> = {
     elbow: (_, side) => (side === 'left' ? backAndUp : X.clone().negate()),
     planted: (s) => [...standingStill(s), s.legs.right.knee, s.arms.right.wrist],
     grip: (s, side) => (side === 'left' ? neutral(s, side) : null),
+  },
+  'chest-supported-dumbbell-row': {
+    elbow: () => backAndUp,
+    // Chest on the pad and toes on the floor: only the arms move.
+    planted: standingStill,
+    grip: neutral,
   },
   'pull-up': {
     elbow: (s, side) => outward(s, side),
@@ -1109,6 +1116,37 @@ test('one-arm row: knee, shin and hand on the bench, foot on the floor; the elbo
     assert.ok(oneArmRow.oneArmRowPose(t).arms.left.elbow.x <= start.shoulder.x, `elbow forward at ${t}`);
   }
   assert.ok(outOfBack(top, top.arms.left.elbow) > 0.23, 'elbow above the back');
+});
+
+test('chest-supported row: chest on the inclined pad, toes on the floor; arms hang straight down, then the elbows drive back past the back', () => {
+  const start = chestRow.chestSupportedRowPose(0);
+  const incline = THREE.MathUtils.radToDeg(Math.atan2(start.shoulder.y - start.hip.y, start.shoulder.x - start.hip.x));
+  assert.ok(close(incline, chestRow.INCLINE_DEG, 1e-9) && incline >= 30 && incline <= 45, `incline at ${incline.toFixed(1)}°`);
+  // Heels to head in one line, down to the toes on the floor.
+  for (const side of SIDES) {
+    const {hip, knee, ankle} = start.legs[side];
+    assert.ok(jointAngle(hip, knee, ankle) > 179, `${side} leg straight`);
+    assert.ok(close(ankle.y, FOOT.ankle, 1e-9), `${side} toes on the floor`);
+  }
+  // The pad runs from the hips to the upper chest, narrower than the shoulders, so the arms hang past it.
+  assert.ok(chestRow.PAD.start <= 0 && chestRow.PAD.end > 0.8 * RIG.torso && chestRow.PAD.end < RIG.torso, 'pad under the chest');
+  assert.ok(chestRow.PAD.width / 2 < SHOULDER_HALF, 'pad narrower than the shoulders');
+  assert.ok(elbowAngle(start) > 150, `arms long: ${elbowAngle(start).toFixed(1)}°`);
+  for (const side of SIDES) {
+    assert.ok(close(start.paws[side].at.x, start.arms[side].shoulder.x, 1e-9), `${side} hand hanging under the shoulder`);
+  }
+  const top = chestRow.chestSupportedRowPose(1);
+  assert.ok(elbowAngle(top) < 90, `elbows bent at the top: ${elbowAngle(top).toFixed(1)}°`);
+  for (const t of steps) {
+    const s = chestRow.chestSupportedRowPose(t);
+    assertMirrored(s, `at ${t}`);
+    for (const side of SIDES) assert.ok(s.arms[side].elbow.x <= s.shoulder.x + 1e-9, `elbow forward at ${t}`);
+    assert.ok(same(between(s.paws.left.at, s.paws.right.at), chestRow.dumbbellsAt(t)));
+  }
+  // At the top the elbows are past the back, and the dumbbells beside the lower ribs.
+  assert.ok(outOfBack(top, top.arms.left.elbow) > 0.23, 'elbow above the back');
+  const ribs = chestRow.DUMBBELLS.top.clone().sub(top.hip).dot(up(top));
+  assert.ok(ribs > 0.4 && ribs < 0.8, `dumbbells ${ribs.toFixed(2)} up the torso`);
 });
 
 // Hanging.

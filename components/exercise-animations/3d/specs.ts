@@ -12,6 +12,7 @@ import * as barbellSquat from './poses/barbell-squat';
 import * as splitSquat from './poses/bulgarian-split-squat';
 import * as burpee from './poses/burpee';
 import * as buttKicks from './poses/butt-kicks';
+import * as chestSupportedRow from './poses/chest-supported-dumbbell-row';
 import * as chinUp from './poses/chin-up';
 import * as closeGrip from './poses/close-grip-push-up';
 import * as calfRaise from './poses/dumbbell-calf-raise';
@@ -157,6 +158,16 @@ export const SPECS: Record<string, Spec3D> = {
   'butt-kicks': {
     pose: buttKicks.pose,
     camera: {aspect: 308 / 400},
+  },
+  'chest-supported-dumbbell-row': {
+    pose: chestSupportedRow.pose,
+    equipment: (kit, parent) => {
+      // Face down on the incline pad, the toes on the floor behind it: no seat in the way of the legs.
+      const {hip, up, forward} = chestSupportedRow.BODY;
+      parent.add(inclineBench(kit, {hip, along: up, back: forward, pad: chestSupportedRow.PAD}).object);
+      return dumbbellsInGrips()(kit, parent);
+    },
+    camera: {aspect: 420 / 330},
   },
   'chin-up': {
     pose: chinUp.pose,

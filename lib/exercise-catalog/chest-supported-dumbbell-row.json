@@ -1,0 +1,25 @@
+{
+  "id": "chest-supported-dumbbell-row",
+  "name": "Chest-supported dumbbell row",
+  "view": "side",
+  "equipment": ["dumbbells", "bench"],
+  "phases": [
+    {"name": "row", "durationMs": 1000, "from": 0, "to": 1, "cue": "Drive your elbows back, dumbbells to your ribs"},
+    {"name": "squeeze", "durationMs": 400, "from": 1, "to": 1, "cue": "Squeeze your shoulder blades together"},
+    {"name": "lower", "durationMs": 1800, "from": 1, "to": 0, "cue": "Lower until your arms are long"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Chest on the pad, arms hanging straight down"}
+  ],
+  "formTips": [
+    "Set the bench to about 30–45° and lie face down with your chest on the pad",
+    "Keep your toes on the floor and your chest on the pad for the whole set",
+    "Let the dumbbells hang straight down under your shoulders, palms facing in",
+    "Drive your elbows back past your body and pull the dumbbells towards your lower ribs",
+    "Lower slowly until your arms are long and your shoulder blades stretch apart"
+  ],
+  "commonMistakes": [
+    "Lifting your chest off the pad to heave the weight up",
+    "Shrugging your shoulders up to your ears",
+    "Flaring the elbows straight out to the sides",
+    "Cutting the range short instead of letting the arms hang long"
+  ]
+}
