@@ -68,11 +68,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/docker-entrypoint.sh ./docker-ent
 COPY --from=builder --chown=nextjs:nodejs /app/migrate-mongo-config.js ./migrate-mongo-config.js
 COPY --from=builder --chown=nextjs:nodejs /app/migrations ./migrations
 COPY --from=migrate-cli /migrate-cli/node_modules ./migrate-cli/node_modules
-# One-time import of a database from the SQLite versions of this image
-COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate-sqlite-to-mongo.mjs ./scripts/migrate-sqlite-to-mongo.mjs
 
-# The volume holds MongoDB's files (data/db) and, on upgrade, the old SQLite
-# file; pre-created so a named volume inherits this ownership.
+# The volume holds MongoDB's files (data/db); pre-created so a named volume
+# inherits this ownership.
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 
 RUN chmod +x docker-entrypoint.sh

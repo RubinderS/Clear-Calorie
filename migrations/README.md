@@ -24,7 +24,7 @@ You don't need one for:
 - Rewrite large collections with `bulkWrite` in batches of about 1000.
 - Write `down` when it's cheap. Otherwise throw `new Error('irreversible')` and rely on a `mongodump` backup taken before upgrading.
 - Adding a unique index over existing data: dedupe in a migration. The index itself goes in `lib/models`, and `syncIndexes` builds it after the migrations have run.
-- When a migration changes the data shape, update `lib/models`, `lib/data/types.ts` and the transform in `scripts/migrate-sqlite-to-mongo.mjs` in the same change. The SQLite import produces the shape from before the first migration, and `migrate-mongo up` takes it from there.
+- When a migration changes the data shape, update `lib/models` and `lib/data/types.ts` in the same change.
 
 ```js
 // migrations/20270101000000-example.js

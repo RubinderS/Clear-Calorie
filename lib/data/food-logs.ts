@@ -31,7 +31,7 @@ export async function listFoodLogs(
     where({
       userId,
       loggedAt: inRange(loggedAt),
-      // Case-insensitive, like SQLite's LIKE was.
+      // Case-insensitive substring match.
       name: nameContains
         ? {$regex: escapeRegExp(nameContains), $options: 'i'}
         : undefined,

@@ -9,7 +9,5 @@ README.md
 .next
 .git
 .github
-prisma/*.db
-prisma/*.db-journal
 # Python voice generator; the app only needs its output in public/audio/voice
 scripts/voice

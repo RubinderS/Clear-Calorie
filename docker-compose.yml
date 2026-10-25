@@ -41,8 +41,7 @@ services:
       # Memory for the bundled MongoDB's cache, in GB (default 0.25)
       # MONGO_CACHE_SIZE_GB: '0.5'
     volumes:
-      # MongoDB's files live in data/db here. A Clear-Calorie.db left by the
-      # SQLite versions of the image is imported once on first start and kept.
+      # MongoDB's files live in data/db here.
       - ~/clearcalorie:/app/data
     restart: unless-stopped
     # Time for the app and then MongoDB to shut down cleanly

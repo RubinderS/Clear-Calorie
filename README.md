@@ -156,7 +156,6 @@ tools return to the configured AI service.
 - `npm run db:migrate:status` / `db:migrate:down` / `db:migrate:create -- <name>` — Inspect, undo the last, or add a migration
 - `npm run db:seed` — Seed the database with the demo user
 - `npm run db:reset` — Empty the database, migrate, and seed
-- `npm run db:migrate-from-sqlite -- --sqlite <file.db> --mongo <url>` — Copy a database from the SQLite versions (add `--dry-run` to only check it)
 - `npm run reports:generate` — Write any due weekly reports now
 
 ## Docker
@@ -174,13 +173,6 @@ MongoDB instead, set `DATABASE_URL`; the bundled one then never starts.
 MongoDB 5+ needs a CPU with AVX (x86) or ARMv8.2 (ARM). On older hardware,
 such as a Raspberry Pi 4, use an external MongoDB 4.4 via `DATABASE_URL`.
 
-### Upgrading from the SQLite image
-
-Pull the new image and start it with the same volume. On first start it finds
-`Clear-Calorie.db` there, copies everything into MongoDB (ids are kept, so
-sessions stay signed in), verifies the copy, and writes
-`.sqlite-imported` so it doesn't run again. The `.db` file is kept as a backup.
-
 ## Numeric Calculations
 
 Health totals, net calories, goal percentages, remaining amounts, chart bounds,
@@ -197,6 +189,6 @@ this prevents arithmetic rounding artifacts, not arbitrary-precision storage.
   - `lib/models/` — Mongoose schemas and indexes
   - `lib/data/` — All database queries, returning plain records
 - `migrations/` — Data migrations (migrate-mongo)
-- `scripts/` — Seed, reset, weekly reports and the SQLite import
+- `scripts/` — Seed, reset and weekly reports
 - `public/` — Static assets
 - `types/` — TypeScript declarations

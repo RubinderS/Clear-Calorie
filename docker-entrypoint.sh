@@ -1,7 +1,6 @@
 #!/bin/bash
-# Starts the bundled MongoDB unless DATABASE_URL points elsewhere, imports a
-# database left by the SQLite versions of this image once, applies data
-# migrations, then runs the app. On stop, the app exits before MongoDB.
+# Starts the bundled MongoDB unless DATABASE_URL points elsewhere, applies
+# data migrations, then runs the app. On stop, the app exits before MongoDB.
 set -euo pipefail
 
 if [ -z "${NEXTAUTH_SECRET:-}" ]; then
@@ -11,8 +10,6 @@ if [ -z "${NEXTAUTH_SECRET:-}" ]; then
 fi
 
 DATA_DIR=/app/data
-SQLITE_FILE="$DATA_DIR/Clear-Calorie.db"
-IMPORTED_MARKER="$DATA_DIR/.sqlite-imported"
 
 mongod_pid=""
 app_pid=""
@@ -62,17 +59,6 @@ if [ -z "${DATABASE_URL:-}" ]; then
     stop
     exit 1
   fi
-fi
-
-# Upgrading from the SQLite image: copy its data over once. The script refuses
-# to write into a database that already has data, so a failure here stops the
-# container rather than mixing the two.
-if [ -f "$SQLITE_FILE" ] && [ ! -f "$IMPORTED_MARKER" ]; then
-  echo "Found $SQLITE_FILE from an earlier version; importing it into MongoDB..."
-  node --no-warnings /app/scripts/migrate-sqlite-to-mongo.mjs \
-    --sqlite "$SQLITE_FILE" --mongo "$DATABASE_URL"
-  date -u +%FT%TZ > "$IMPORTED_MARKER"
-  echo "Import done. $SQLITE_FILE is kept as a backup and won't be imported again."
 fi
 
 echo "Applying database migrations..."
