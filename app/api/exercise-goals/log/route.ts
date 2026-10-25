@@ -1,10 +1,8 @@
 import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
-import {Prisma} from '@prisma/client';
 import {authOptions} from '@/lib/auth-options';
 import {
-  EXERCISE_LOG_INCLUDE,
   exerciseSetsSchema,
   isActiveOn,
   isSequence,
@@ -13,7 +11,13 @@ import {
   toSetRows,
   type ExerciseSet,
 } from '@/lib/exercise';
-import {prisma} from '@/lib/prisma';
+import {isUniqueViolation} from '@/lib/data/errors';
+import {findExerciseGoal} from '@/lib/data/exercise-goals';
+import {
+  createExerciseLog,
+  deleteGoalTick,
+  findGoalTick,
+} from '@/lib/data/exercise-logs';
 import {getTodayDate, getTodayWeekday, getUserTimeZone} from '@/lib/timezone';
 
 // Details override the goal's when the user changed them before logging, e.g.
@@ -51,9 +55,7 @@ export async function POST(request: Request) {
     }
     const {goalId, exerciseSets, durationMin} = parsed.data;
 
-    const goal = await prisma.exerciseGoal.findFirst({
-      where: {id: goalId, userId},
-    });
+    const goal = await findExerciseGoal(userId, goalId);
     if (!goal) {
       return NextResponse.json({error: 'Goal not found'}, {status: 404});
     }
@@ -81,29 +83,20 @@ export async function POST(request: Request) {
     );
     const fields = toExerciseFields(sets);
     try {
-      const entry = await prisma.exerciseLog.create({
-        data: {
-          userId,
-          exerciseGoalId: goalId,
-          goalDate,
-          name: goal.name,
-          catalogId: goal.catalogId,
-          ...fields,
-          durationMin: fields.durationMin ?? 0,
-          exerciseSets: {create: toSetRows(sets)},
-        },
-        include: EXERCISE_LOG_INCLUDE,
+      const entry = await createExerciseLog({
+        userId,
+        exerciseGoalId: goalId,
+        goalDate,
+        name: goal.name,
+        catalogId: goal.catalogId,
+        ...fields,
+        durationMin: fields.durationMin ?? 0,
+        exerciseSets: toSetRows(sets),
       });
       return NextResponse.json(entry, {status: 201});
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const existing = await prisma.exerciseLog.findUnique({
-          where: {exerciseGoalId_goalDate: {exerciseGoalId: goalId, goalDate}},
-          include: EXERCISE_LOG_INCLUDE,
-        });
+      if (isUniqueViolation(error)) {
+        const existing = await findGoalTick(goalId, goalDate);
         return NextResponse.json(existing);
       }
       throw error;
@@ -128,15 +121,13 @@ export async function DELETE(request: Request) {
     return NextResponse.json({error: 'Goal ID is required'}, {status: 400});
   }
 
-  const result = await prisma.exerciseLog.deleteMany({
-    where: {
-      userId: session.user.id,
-      exerciseGoalId: goalId,
-      goalDate: getTodayDate(await getUserTimeZone()),
-    },
-  });
+  const deleted = await deleteGoalTick(
+    session.user.id,
+    goalId,
+    getTodayDate(await getUserTimeZone()),
+  );
 
-  if (result.count === 0) {
+  if (!deleted) {
     return NextResponse.json({error: 'Entry not found'}, {status: 404});
   }
 

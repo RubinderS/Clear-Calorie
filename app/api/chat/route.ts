@@ -5,7 +5,7 @@ import {authOptions} from '@/lib/auth-options';
 import {isAiEnabled} from '@/lib/ai';
 import {threadTitle} from '@/lib/chat/helpers';
 import {runChat, type ChatEvent} from '@/lib/chat/run';
-import {prisma} from '@/lib/prisma';
+import {createChatMessage, createChatThread, findChatThread} from '@/lib/data/chat';
 import {chatRateLimit, rateLimitByKey} from '@/lib/rate-limit';
 import {getUserTimeZone} from '@/lib/timezone';
 
@@ -47,21 +47,13 @@ export async function POST(request: Request) {
   }
 
   const thread = threadId
-    ? await prisma.chatThread.findFirst({
-        where: {id: threadId, userId},
-        select: {id: true, title: true},
-      })
-    : await prisma.chatThread.create({
-        data: {userId, title: threadTitle(message)},
-        select: {id: true, title: true},
-      });
+    ? await findChatThread(userId, threadId)
+    : await createChatThread(userId, threadTitle(message));
   if (!thread) {
     return NextResponse.json({error: 'Chat not found'}, {status: 404});
   }
 
-  await prisma.chatMessage.create({
-    data: {threadId: thread.id, role: 'user', content: message},
-  });
+  await createChatMessage({threadId: thread.id, role: 'user', content: message});
 
   const timeZone = await getUserTimeZone();
   const encoder = new TextEncoder();

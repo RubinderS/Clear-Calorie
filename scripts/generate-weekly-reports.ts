@@ -6,7 +6,8 @@
 //   npm run reports:generate -- --email you@example.com --week 2026-10-05 [--timezone Australia/Sydney]
 //     One user and week. --timezone overrides the user's saved timezone.
 import {parseArgs} from 'node:util';
-import {prisma} from '@/lib/prisma';
+import {disconnectDb} from '@/lib/data/connection';
+import {findUserByEmail} from '@/lib/data/users';
 import {generateDueWeeklyReports, generateWeeklyReport} from '@/lib/weekly-report';
 import {isAiEnabled} from '@/lib/ai';
 
@@ -35,10 +36,7 @@ async function main() {
     throw new Error(`${values.week} is not a Monday`);
   }
 
-  const user = await prisma.user.findUnique({
-    where: {email: values.email.trim().toLowerCase()},
-    select: {id: true, timeZone: true},
-  });
+  const user = await findUserByEmail(values.email.trim().toLowerCase());
   if (!user) throw new Error(`No user with email ${values.email}`);
 
   const timeZone = values.timezone ?? user.timeZone;
@@ -53,4 +51,4 @@ main()
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(() => disconnectDb());

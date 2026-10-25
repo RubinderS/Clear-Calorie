@@ -13,15 +13,16 @@ npx playwright test --list        # every case, by ID
 
 ## How it runs
 
-`playwright.config.ts` starts three servers. Each app server has every env var set explicitly, so the real keys in `.env` / `.env.local` never apply. An empty string switches a feature off.
+`playwright.config.ts` starts four servers. Each app server has every env var set explicitly, so the real keys in `.env` / `.env.local` never apply. An empty string switches a feature off.
 
 | Server | Port | Database | Features |
 |---|---|---|---|
+| `mongo` | 3198 | — | In-memory MongoDB (`mongodb-memory-server`); the first run downloads `mongod` |
 | `mock` | 3199 | — | Fake OpenAI-compatible `/v1/chat/completions` and Resend `/emails` |
-| `app` | 3100 | `prisma/e2e.db` | AI, email verification and rate limiting all off |
-| `full` | 3101 | `prisma/e2e-full.db` | AI and email verification on, both served by the mock |
+| `app` | 3100 | `e2e` | AI, email verification and rate limiting all off |
+| `full` | 3101 | `e2e-full` | AI and email verification on, both served by the mock |
 
-Each database is recreated from the migrations on every run (`e2e/scripts/prepare-db.ts`). Your `prisma/dev.db` is never touched.
+Each database is dropped, migrated and indexed on every run (`e2e/scripts/prepare-db.ts`). Your own MongoDB is never touched.
 
 | Project | Specs | Server |
 |---|---|---|
@@ -42,7 +43,7 @@ Rate limiting needs a real Upstash database. Set `E2E_UPSTASH_REDIS_REST_URL` an
   - `user` is a fresh verified user per test, so tests run in parallel without sharing data.
   - `authedPage` is a page already signed in as that user.
   - `api` / `apiAs(user, {timeZone})` are signed-in request contexts.
-  - `db` is Prisma on the project's database.
+  - `db` is the project's database, with a Prisma-style API over the Mongoose models (`fixtures/test-db.ts`): `db.foodLog.count({where})`, `findUnique`, `findMany({where, select, orderBy})`, `create`, `update`, `delete`. Filters support equality, `in` and `not`.
   - `mock` reads the mock server's logs.
 - Use `fixtures/db.ts` to seed rows the API can't create, such as past dates, tokens and plan snapshots. Use `fixtures/dates.ts` for timezone-aware dates.
 - Uncaught page errors and hydration warnings fail the test. Opt out with `test.use({allowPageErrors: true})`.

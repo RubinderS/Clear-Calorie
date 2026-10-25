@@ -1,4 +1,4 @@
-import {prisma} from '@/lib/prisma';
+import {findUserById, updateUser} from '@/lib/data/users';
 
 const LAST_SEEN_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -11,10 +11,7 @@ export async function recordUserVisit(
   userId: string,
   detectedTimeZone: string | null,
 ) {
-  const user = await prisma.user.findUnique({
-    where: {id: userId},
-    select: {timeZone: true, lastSeenAt: true},
-  });
+  const user = await findUserById(userId);
   if (!user) return;
 
   const now = new Date();
@@ -30,5 +27,5 @@ export async function recordUserVisit(
   }
   if (Object.keys(data).length === 0) return;
 
-  await prisma.user.update({where: {id: userId}, data});
+  await updateUser(userId, data);
 }

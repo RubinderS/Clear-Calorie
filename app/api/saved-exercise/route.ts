@@ -1,11 +1,16 @@
 import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
-import {Prisma} from '@prisma/client';
 import {authOptions} from '@/lib/auth-options';
 import {exerciseInputSchema, inputSets, toPlanFields} from '@/lib/exercise';
 import {catalogIdFor} from '@/lib/exercise-catalog';
-import {prisma} from '@/lib/prisma';
+import {isUniqueViolation} from '@/lib/data/errors';
+import {
+  deleteSavedExercise,
+  findSavedExerciseByName,
+  listSavedExercises,
+  upsertSavedExercise,
+} from '@/lib/data/saved-items';
 
 const savedExerciseSchema = z
   .object({
@@ -22,10 +27,7 @@ export async function GET() {
   }
 
   try {
-    const items = await prisma.savedExerciseItem.findMany({
-      where: {userId: session.user.id},
-      orderBy: {name: 'asc'},
-    });
+    const items = await listSavedExercises(session.user.id);
     return NextResponse.json(items);
   } catch {
     return NextResponse.json(
@@ -59,14 +61,7 @@ export async function POST(request: Request) {
       durationMin: fields.durationMin ?? 0,
     };
 
-    const existing = await prisma.savedExerciseItem.findUnique({
-      where: {
-        userId_name: {
-          userId: session.user.id,
-          name: data.name,
-        },
-      },
-    });
+    const existing = await findSavedExerciseByName(session.user.id, data.name);
 
     if (existing && existing.id !== id) {
       return NextResponse.json(
@@ -75,26 +70,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const item = await prisma.savedExerciseItem.upsert({
-      where: {
-        userId_name: {
-          userId: session.user.id,
-          name: data.name,
-        },
-      },
-      update: data,
-      create: {
-        ...data,
-        userId: session.user.id,
-      },
-    });
+    const item = await upsertSavedExercise(session.user.id, data);
 
     return NextResponse.json(item, {status: 201});
   } catch (err) {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === 'P2002'
-    ) {
+    if (isUniqueViolation(err)) {
       return NextResponse.json(
         {error: 'An item with this name already exists'},
         {status: 400},
@@ -121,9 +101,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({error: 'Missing id'}, {status: 400});
     }
 
-    await prisma.savedExerciseItem.deleteMany({
-      where: {id, userId: session.user.id},
-    });
+    await deleteSavedExercise(session.user.id, id);
 
     return NextResponse.json({success: true});
   } catch {

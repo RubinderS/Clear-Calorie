@@ -34,8 +34,16 @@ services:
       # set to off to disable the job
       # WEEKLY_REPORTS: 'off'
       #
-      # Only to move the database off the mounted volume
-      # DATABASE_URL: file:/app/data/Clear-Calorie.db
+      # The image runs its own MongoDB, stored in the mounted volume. Set this
+      # only to use an external one instead (the bundled one then never starts):
+      # DATABASE_URL: mongodb://user:password@db.example.com:27017/clearcalorie
+      #
+      # Memory for the bundled MongoDB's cache, in GB (default 0.25)
+      # MONGO_CACHE_SIZE_GB: '0.5'
     volumes:
+      # MongoDB's files live in data/db here. A Clear-Calorie.db left by the
+      # SQLite versions of the image is imported once on first start and kept.
       - ~/clearcalorie:/app/data
     restart: unless-stopped
+    # Time for the app and then MongoDB to shut down cleanly
+    stop_grace_period: 30s

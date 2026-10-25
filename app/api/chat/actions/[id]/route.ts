@@ -17,7 +17,12 @@ import {
   saveExerciseGoal,
 } from '@/lib/exercise-plan';
 import {createFoodLog, foodSchema} from '@/lib/food';
-import {prisma} from '@/lib/prisma';
+import {
+  findChatAction,
+  reopenChatAction,
+  resolveChatAction,
+  setChatActionResult,
+} from '@/lib/data/chat';
 import {getTodayDate, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {createWeightLog, weightSchema} from '@/lib/weight';
 
@@ -98,7 +103,7 @@ export async function POST(
   const confirm = parsed.data.decision === 'confirm';
 
   const {id} = await params;
-  const action = await prisma.chatAction.findFirst({where: {id, userId}});
+  const action = await findChatAction(userId, id);
   if (!action) {
     return NextResponse.json({error: 'Not found'}, {status: 404});
   }
@@ -119,11 +124,12 @@ export async function POST(
   }
 
   // Claim the action first so a double tap can't log the entry twice.
-  const claimed = await prisma.chatAction.updateMany({
-    where: {id, userId, status: 'pending'},
-    data: {status: confirm ? 'confirmed' : 'dismissed', resolvedAt: new Date()},
-  });
-  if (claimed.count === 0) {
+  const claimed = await resolveChatAction(
+    userId,
+    id,
+    confirm ? 'confirmed' : 'dismissed',
+  );
+  if (!claimed) {
     return NextResponse.json(
       {error: 'This entry was already handled'},
       {status: 409},
@@ -143,10 +149,7 @@ export async function POST(
     );
   } catch (error) {
     // Put it back so the user can try again or dismiss it.
-    await prisma.chatAction.update({
-      where: {id},
-      data: {status: 'pending', resolvedAt: null},
-    });
+    await reopenChatAction(id);
     if (error instanceof ExerciseGoalNotFoundError) {
       return NextResponse.json(
         {error: 'This exercise was changed or removed since. Ask the coach again.'},
@@ -167,8 +170,6 @@ export async function POST(
 
   // The entry exists now, so the action stays confirmed even if this fails;
   // putting it back to pending would let it be logged twice.
-  await prisma.chatAction
-    .update({where: {id}, data: {resultId}})
-    .catch((error) => console.error('Failed to link chat action to entry:', error));
+  await setChatActionResult(id, resultId).catch((error) => console.error('Failed to link chat action to entry:', error));
   return NextResponse.json({status: 'confirmed', resultId});
 }

@@ -12,7 +12,7 @@ import {
   deleteExerciseGoal,
   saveExerciseGoal,
 } from '@/lib/exercise-plan';
-import {prisma} from '@/lib/prisma';
+import {listExerciseGoals, updateExerciseGoal} from '@/lib/data/exercise-goals';
 import {getUserTimeZone} from '@/lib/timezone';
 import {MAX_TEMPO_MS, MIN_TEMPO_MS} from '@/lib/workout';
 
@@ -34,10 +34,7 @@ export async function GET() {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401});
   }
 
-  const goals = await prisma.exerciseGoal.findMany({
-    where: {userId: session.user.id},
-    orderBy: {createdAt: 'asc'},
-  });
+  const goals = await listExerciseGoals(session.user.id);
 
   return NextResponse.json(goals);
 }
@@ -92,14 +89,11 @@ export async function PATCH(request: Request) {
     }
 
     const {id, tempoMs, notes} = parsed.data;
-    const result = await prisma.exerciseGoal.updateMany({
-      where: {id, userId: session.user.id},
-      data: {
-        tempoMs,
-        ...(notes !== undefined && {notes: normalizeNotes(notes)}),
-      },
+    const goal = await updateExerciseGoal(session.user.id, id, {
+      tempoMs,
+      ...(notes !== undefined && {notes: normalizeNotes(notes)}),
     });
-    if (result.count === 0) {
+    if (!goal) {
       return NextResponse.json({error: 'Goal not found'}, {status: 404});
     }
 

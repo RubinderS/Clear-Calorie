@@ -8,7 +8,7 @@ import {
   nutritionFields,
   refineSaturatedFat,
 } from '@/lib/food';
-import {prisma} from '@/lib/prisma';
+import {deleteFoodLog, findFoodLog, listFoodLogs, updateFoodLog} from '@/lib/data/food-logs';
 import {getDateRange, getTodayRange, getUserTimeZone} from '@/lib/timezone';
 
 export async function GET(request: Request) {
@@ -25,12 +25,8 @@ export async function GET(request: Request) {
     return NextResponse.json({error: 'Invalid date'}, {status: 400});
   }
 
-  const entries = await prisma.foodLog.findMany({
-    where: {
-      userId: session.user.id,
-      loggedAt: {gte: range.start, lte: range.end},
-    },
-    orderBy: {loggedAt: 'desc'},
+  const entries = await listFoodLogs(session.user.id, {
+    loggedAt: {gte: range.start, lte: range.end},
   });
 
   return NextResponse.json(entries);
@@ -69,11 +65,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({error: 'Entry ID is required'}, {status: 400});
   }
 
-  const result = await prisma.foodLog.deleteMany({
-    where: {id: entryId, userId: session.user.id},
-  });
-
-  if (result.count === 0) {
+  if (!(await deleteFoodLog(session.user.id, entryId))) {
     return NextResponse.json({error: 'Entry not found'}, {status: 404});
   }
 
@@ -98,10 +90,7 @@ export async function PATCH(request: Request) {
     }
     const {id, ...food} = parsed.data;
 
-    const entry = await prisma.foodLog.findFirst({
-      where: {id, userId: session.user.id},
-      select: {loggedAt: true},
-    });
+    const entry = await findFoodLog(session.user.id, id);
     if (!entry) {
       return NextResponse.json({error: 'Entry not found'}, {status: 404});
     }
@@ -114,10 +103,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const updated = await prisma.foodLog.update({
-      where: {id},
-      data: food,
-    });
+    const updated = await updateFoodLog(id, food);
 
     return NextResponse.json(updated);
   } catch {

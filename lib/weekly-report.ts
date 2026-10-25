@@ -5,11 +5,25 @@ import {
   subDays,
   subWeeks,
 } from 'date-fns';
-import {Prisma, type WeeklyReport} from '@prisma/client';
-import {prisma} from '@/lib/prisma';
+import {
+  findLatestBodyMetricLog,
+  listBodyMetricsWithLogs,
+} from '@/lib/data/body-metrics';
+import {isUniqueViolation} from '@/lib/data/errors';
+import {listExerciseGoals} from '@/lib/data/exercise-goals';
+import {listExerciseLogs} from '@/lib/data/exercise-logs';
+import {listFoodLogs} from '@/lib/data/food-logs';
+import {findGoals} from '@/lib/data/goals';
+import type {ExerciseLog, WeeklyReport} from '@/lib/data/types';
+import {listWeightLogs} from '@/lib/data/weight-logs';
+import {
+  createWeeklyReport,
+  findPreviousWeeklyReport,
+  findWeeklyReport,
+} from '@/lib/data/weekly-reports';
+import {listActiveUsers} from '@/lib/data/users';
 import {getDateRange, getTodayDate, toZoned} from '@/lib/timezone';
 import {getPlannedCounts} from '@/lib/exercise-plan';
-import {METRIC_ORDER} from '@/lib/body-metrics';
 import {loadProfileSummary, type ProfileSummary} from '@/lib/profile';
 import {ACTIVITY_LEVELS, BMR_FORMULA_LABELS, FITNESS_GOALS} from '@/lib/tdee';
 import {
@@ -54,7 +68,7 @@ const localDate = (date: Date, timeZone: string) =>
   format(toZoned(date, timeZone), 'yyyy-MM-dd');
 
 export async function getReportGoals(userId: string) {
-  const goal = await prisma.goal.findUnique({where: {userId}});
+  const goal = await findGoals(userId);
   // Same defaults as the dashboard when a user has no Goal row.
   const goals: ReportGoals = {
     calorieGoal: goal?.calorieGoal ?? 2000,
@@ -82,32 +96,16 @@ export async function loadWeekInput(
   )!.start;
 
   const [food, exercise, weights, previousWeek, plannedCounts] = await Promise.all([
-    prisma.foodLog.findMany({
-      where: {userId, loggedAt},
-      orderBy: {loggedAt: 'asc'},
-    }),
-    prisma.exerciseLog.findMany({
-      where: {userId, loggedAt},
-      orderBy: {loggedAt: 'asc'},
-    }),
-    prisma.weightLog.findMany({
-      where: {userId, loggedAt},
-      orderBy: {loggedAt: 'asc'},
-    }),
-    prisma.weightLog.findMany({
-      where: {userId, loggedAt: {gte: previousStart, lt: start}},
-      orderBy: {loggedAt: 'asc'},
-    }),
+    listFoodLogs(userId, {loggedAt, order: 'asc'}),
+    listExerciseLogs(userId, {loggedAt, order: 'asc'}),
+    listWeightLogs(userId, {loggedAt, order: 'asc'}),
+    listWeightLogs(userId, {loggedAt: {gte: previousStart, lt: start}, order: 'asc'}),
     getPlannedCounts(userId, dates, timeZone),
   ]);
   // With no weigh-ins last week, fall back to the latest one before it.
   const previousWeights = previousWeek.length
     ? previousWeek
-    : await prisma.weightLog.findMany({
-        where: {userId, loggedAt: {lt: previousStart}},
-        orderBy: {loggedAt: 'desc'},
-        take: 1,
-      });
+    : await listWeightLogs(userId, {loggedAt: {lt: previousStart}, take: 1});
   const toReportWeight = (entry: {loggedAt: Date; weight: number}) => ({
     date: localDate(entry.loggedAt, timeZone),
     weight: entry.weight,
@@ -139,7 +137,7 @@ export async function loadWeekInput(
 }
 
 function toReportExercise(
-  entry: Prisma.ExerciseLogGetPayload<object>,
+  entry: Omit<ExerciseLog, 'exerciseSets'>,
   timeZone: string,
 ): ReportExercise {
   return {
@@ -163,16 +161,10 @@ async function loadBodyMetrics(
   start: Date,
   end: Date,
 ): Promise<BodyMetricSummary[]> {
-  const metrics = await prisma.bodyMetric.findMany({
-    where: {userId, archivedAt: null},
-    orderBy: [...METRIC_ORDER],
-    include: {
-      logs: {
-        where: {loggedAt: {gte: previousStart, lte: end}},
-        orderBy: {loggedAt: 'asc'},
-        select: {value: true, loggedAt: true},
-      },
-    },
+  const metrics = await listBodyMetricsWithLogs(userId, {
+    activeOnly: true,
+    loggedAt: {gte: previousStart, lte: end},
+    order: 'asc',
   });
 
   const withValues = await Promise.all(
@@ -181,12 +173,9 @@ async function loadBodyMetrics(
       const previous = logs.filter((log) => log.loggedAt < start);
       const previousValues = previous.length
         ? previous
-        : await prisma.bodyMetricLog.findMany({
-            where: {metricId: metric.id, loggedAt: {lt: previousStart}},
-            orderBy: {loggedAt: 'desc'},
-            take: 1,
-            select: {value: true},
-          });
+        : await findLatestBodyMetricLog(metric.id, {lt: previousStart}).then(
+            (log) => (log ? [log] : []),
+          );
       return {
         key: metric.key,
         label: metric.label,
@@ -208,20 +197,15 @@ async function loadStrengthProgress(
   timeZone: string,
 ): Promise<StrengthProgress[]> {
   const [prior, goals] = await Promise.all([
-    prisma.exerciseLog.findMany({
-      where: {
-        userId,
-        weight: {not: null},
-        loggedAt: {
-          gte: subWeeks(weekStartAt, STRENGTH_LOOKBACK_WEEKS),
-          lt: weekStartAt,
-        },
+    listExerciseLogs(userId, {
+      weighted: true,
+      loggedAt: {
+        gte: subWeeks(weekStartAt, STRENGTH_LOOKBACK_WEEKS),
+        lt: weekStartAt,
       },
+      order: 'asc',
     }),
-    prisma.exerciseGoal.findMany({
-      where: {userId},
-      select: {id: true, weight: true},
-    }),
+    listExerciseGoals(userId),
   ]);
   return computeStrengthProgress(
     input.exercise,
@@ -345,10 +329,7 @@ export async function generateWeeklyReport(
   weekStart: string,
   writer?: ReportWriter,
 ): Promise<GenerateResult> {
-  const existing = await prisma.weeklyReport.findUnique({
-    where: {userId_weekStart: {userId, weekStart}},
-    select: {id: true},
-  });
+  const existing = await findWeeklyReport(userId, weekStart);
   if (existing) return 'exists';
 
   const dates = weekDates(weekStart);
@@ -378,10 +359,7 @@ export async function generateWeeklyReport(
   }
   const metrics = computeWeekMetrics(input);
 
-  const previous = await prisma.weeklyReport.findFirst({
-    where: {userId, weekStart: {lt: weekStart}},
-    orderBy: {weekStart: 'desc'},
-  });
+  const previous = await findPreviousWeeklyReport(userId, weekStart);
   const previousFocus = parseJson<FocusItem[]>(previous?.nextWeekFocus);
   const focusResults = previousFocus?.length
     ? evaluateFocus(
@@ -441,8 +419,7 @@ export async function generateWeeklyReport(
   );
 
   try {
-    await prisma.weeklyReport.create({
-      data: {
+    await createWeeklyReport({
         userId,
         weekStart: dates[0],
         weekEnd: dates[6],
@@ -468,14 +445,10 @@ export async function generateWeeklyReport(
         narrative: JSON.stringify(text.sections),
         model: writer?.model ?? getAiModel() ?? 'unknown',
         promptVersion: WEEKLY_REPORT_PROMPT_VERSION,
-      },
     });
   } catch (error) {
     // A concurrent run saved this week first.
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (isUniqueViolation(error)) {
       return 'exists';
     }
     throw error;
@@ -490,14 +463,8 @@ export async function generateWeeklyReport(
 export async function generateDueWeeklyReports(now = new Date()) {
   if (!isAiEnabled()) return {created: 0, failed: 0};
 
-  const users = await prisma.user.findMany({
-    where: {
-      // No saved timezone means we can't tell when their week ends.
-      timeZone: {not: null},
-      lastSeenAt: {gte: subDays(now, INACTIVE_AFTER_DAYS)},
-    },
-    select: {id: true, timeZone: true},
-  });
+  // No saved timezone means we can't tell when their week ends.
+  const users = await listActiveUsers(subDays(now, INACTIVE_AFTER_DAYS));
 
   let created = 0;
   let failed = 0;

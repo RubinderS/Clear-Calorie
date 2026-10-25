@@ -26,17 +26,14 @@ test('REG-01 creates the user with hashed password and default goals', async ({
     message: 'Account created. Please check your email to verify your account.',
   });
 
-  const user = await db.user.findUnique({
-    where: {email: email.toLowerCase()},
-    include: {goals: true},
-  });
+  const user = await db.user.findUnique({where: {email: email.toLowerCase()}});
   expect(user).not.toBeNull();
   expect(user!.name).toBe('Jane');
   expect(user!.password).not.toBe(DEFAULT_PASSWORD);
   expect(user!.password).toMatch(/^\$2[aby]\$/);
   // Verification is off on this server, so the user isn't marked verified.
   expect(user!.emailVerified).toBeNull();
-  expect(user!.goals).toMatchObject({
+  expect(await db.goal.findUnique({where: {userId: user!.id}})).toMatchObject({
     calorieGoal: 2000,
     proteinGoal: 150,
     carbsGoal: 250,

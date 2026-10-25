@@ -4,11 +4,16 @@ import {
   type APIRequestContext,
   type Page,
 } from '@playwright/test';
-import type {PrismaClient} from '@prisma/client';
 import {MOCK_URL, type ServerName} from '../env';
 import type {RecordedEmail, RecordedRequest} from '../mocks/data';
 import {signInOrThrow} from './auth';
-import {createUser, getDb, type CreateUserOptions, type TestUser} from './db';
+import {
+  createUser,
+  getDb,
+  type CreateUserOptions,
+  type TestDb,
+  type TestUser,
+} from './db';
 
 export type TestOptions = {
   /** Which app server (and so which database) the project runs against. */
@@ -20,7 +25,7 @@ export type TestOptions = {
 type ApiOptions = {timeZone?: string};
 
 type Fixtures = {
-  db: PrismaClient;
+  db: TestDb;
   /** A fresh, verified user for this test. */
   user: TestUser;
   makeUser: (options?: CreateUserOptions) => Promise<TestUser>;

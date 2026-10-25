@@ -1,6 +1,5 @@
 import {z} from 'zod';
 import {
-  EXERCISE_LOG_INCLUDE,
   exerciseInputSchema,
   inputSets,
   isSameExerciseName,
@@ -9,7 +8,7 @@ import {
 } from '@/lib/exercise';
 import {catalogIdFor} from '@/lib/exercise-catalog';
 import {getPlannedExerciseGoals} from '@/lib/exercise-plan';
-import {prisma} from '@/lib/prisma';
+import * as exerciseLogs from '@/lib/data/exercise-logs';
 
 export const exerciseLogSchema = z
   .object({
@@ -38,15 +37,12 @@ export async function createExerciseLog(
 
   const sets = inputSets(input);
   const fields = toExerciseFields(sets);
-  return prisma.exerciseLog.create({
-    data: {
-      name,
-      catalogId: catalogIdFor(name),
-      ...fields,
-      durationMin: fields.durationMin ?? 0,
-      userId,
-      exerciseSets: {create: toSetRows(sets)},
-    },
-    include: EXERCISE_LOG_INCLUDE,
+  return exerciseLogs.createExerciseLog({
+    name,
+    catalogId: catalogIdFor(name),
+    ...fields,
+    durationMin: fields.durationMin ?? 0,
+    userId,
+    exerciseSets: toSetRows(sets),
   });
 }

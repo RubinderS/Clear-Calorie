@@ -398,21 +398,6 @@ export function goalInputSets(input: ExerciseGoalInput): ExerciseSet[] {
   return 'steps' in input ? stepSets(input.steps) : inputSets(input);
 }
 
-/** Loads an exercise log entry's sets and its planned goal's notes. */
-export const EXERCISE_LOG_INCLUDE = {
-  exerciseGoal: {select: {notes: true}},
-  exerciseSets: {
-    orderBy: {position: 'asc'},
-    select: {
-      reps: true,
-      durationSec: true,
-      weight: true,
-      name: true,
-      catalogId: true,
-    },
-  },
-} as const;
-
 /** Trims notes, storing blank ones as null. */
 export function normalizeNotes(
   notes: string | undefined | null,

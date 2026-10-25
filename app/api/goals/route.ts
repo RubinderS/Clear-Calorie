@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
-import {prisma} from '@/lib/prisma';
+import {upsertGoals} from '@/lib/data/goals';
 
 const goalsSchema = z.object({
   calorieGoal: z.number().int().min(0).optional(),
@@ -34,14 +34,7 @@ export async function POST(request: Request) {
     }
 
     // Each goals card submits only its own fields, so merge with defaults on create.
-    const goals = await prisma.goal.upsert({
-      where: {userId: session.user.id},
-      update: parsed.data,
-      create: {
-        ...parsed.data,
-        userId: session.user.id,
-      },
-    });
+    const goals = await upsertGoals(session.user.id, parsed.data);
 
     return NextResponse.json(goals);
   } catch {

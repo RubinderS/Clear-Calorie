@@ -15,7 +15,7 @@ A Next.js web app for tracking calories, exercise, weight, and health goals.
 
 - Next.js 16 (App Router, TypeScript)
 - Tailwind CSS 4
-- Prisma ORM with SQLite
+- MongoDB with Mongoose, migrations by migrate-mongo
 - NextAuth.js (credentials provider)
 - Recharts for data visualization
 
@@ -30,16 +30,20 @@ npm install
 2. Set up environment variables:
 
 ```bash
-cp .env.example .env.local
+cp .env.example .env
 ```
 
-Edit `.env.local` and set a strong `NEXTAUTH_SECRET`.
+Edit `.env`: set a strong `NEXTAUTH_SECRET`, and point `DATABASE_URL` at your
+MongoDB (4.4 or later), with the database name in the path, e.g.
+`mongodb://localhost:27017/clearcalorie`. The `db:*` scripts read `.env` too.
 
-3. Run the database migration:
+3. Apply the data migrations:
 
 ```bash
-npx prisma migrate dev
+npm run db:migrate
 ```
+
+The app builds its indexes itself when it starts.
 
 4. Seed the database with a demo user (optional):
 
@@ -148,24 +152,51 @@ tools return to the configured AI service.
 - `npm run start` — Start production server
 - `npm run lint` — Run ESLint
 - `npm test` — Run decimal arithmetic regression tests
-- `npm run db:migrate` — Run Prisma migrations
-- `npm run db:studio` — Open Prisma Studio
-- `npm run db:seed` — Seed the database
+- `npm run db:migrate` — Apply pending data migrations (see `migrations/README.md`)
+- `npm run db:migrate:status` / `db:migrate:down` / `db:migrate:create -- <name>` — Inspect, undo the last, or add a migration
+- `npm run db:seed` — Seed the database with the demo user
+- `npm run db:reset` — Empty the database, migrate, and seed
+- `npm run db:migrate-from-sqlite -- --sqlite <file.db> --mongo <url>` — Copy a database from the SQLite versions (add `--dry-run` to only check it)
 - `npm run reports:generate` — Write any due weekly reports now
+
+## Docker
+
+```bash
+cp .env.example .env   # set NEXTAUTH_SECRET and NEXTAUTH_URL
+docker compose up -d
+```
+
+The image runs MongoDB alongside the app, stored in the mounted volume
+(`~/clearcalorie` by default), so there's nothing else to set up. On start it
+applies pending migrations, then the app builds its indexes. To use your own
+MongoDB instead, set `DATABASE_URL`; the bundled one then never starts.
+
+MongoDB 5+ needs a CPU with AVX (x86) or ARMv8.2 (ARM). On older hardware,
+such as a Raspberry Pi 4, use an external MongoDB 4.4 via `DATABASE_URL`.
+
+### Upgrading from the SQLite image
+
+Pull the new image and start it with the same volume. On first start it finds
+`Clear-Calorie.db` there, copies everything into MongoDB (ids are kept, so
+sessions stay signed in), verifies the copy, and writes
+`.sqlite-imported` so it doesn't run again. The `.db` file is kept as a backup.
 
 ## Numeric Calculations
 
 Health totals, net calories, goal percentages, remaining amounts, chart bounds,
 and exercise rounding use `decimal.js` with 40 significant digits. Decimal
 accumulators are converted to numbers only for component, API, and chart
-boundaries. Food nutrition is still stored as Prisma `Float` / SQLite `REAL`;
+boundaries. Food nutrition is still stored as MongoDB doubles;
 this prevents arithmetic rounding artifacts, not arbitrary-precision storage.
 
 ## Project Structure
 
 - `app/` — Next.js App Router pages and layouts
 - `components/` — Reusable React components
-- `lib/` — Utility functions, Prisma client, and auth configuration
-- `prisma/` — Prisma schema and migrations
+- `lib/` — Utility functions and auth configuration
+  - `lib/models/` — Mongoose schemas and indexes
+  - `lib/data/` — All database queries, returning plain records
+- `migrations/` — Data migrations (migrate-mongo)
+- `scripts/` — Seed, reset, weekly reports and the SQLite import
 - `public/` — Static assets
 - `types/` — TypeScript declarations

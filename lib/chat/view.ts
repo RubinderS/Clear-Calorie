@@ -1,5 +1,5 @@
-import type {ChatAction} from '@prisma/client';
-import {prisma} from '@/lib/prisma';
+import type {ChatAction} from '@/lib/data/types';
+import {findChatThreadWithItems, listChatThreads} from '@/lib/data/chat';
 
 export type ChatActionKind = 'food' | 'exercise' | 'weight' | 'plan' | 'links';
 export type ChatActionStatus = 'pending' | 'confirmed' | 'dismissed';
@@ -48,13 +48,12 @@ export type ChatItem =
 export type ChatThreadSummary = {id: string; title: string; updatedAt: string};
 
 export async function listThreads(userId: string): Promise<ChatThreadSummary[]> {
-  const threads = await prisma.chatThread.findMany({
-    where: {userId},
-    orderBy: {updatedAt: 'desc'},
-    select: {id: true, title: true, updatedAt: true},
-    take: 50,
-  });
-  return threads.map((thread) => ({...thread, updatedAt: thread.updatedAt.toISOString()}));
+  const threads = await listChatThreads(userId, 50);
+  return threads.map(({id, title, updatedAt}) => ({
+    id,
+    title,
+    updatedAt: updatedAt.toISOString(),
+  }));
 }
 
 /**
@@ -65,16 +64,7 @@ export async function loadThreadItems(
   userId: string,
   threadId: string,
 ): Promise<{thread: ChatThreadSummary; items: ChatItem[]} | null> {
-  const thread = await prisma.chatThread.findFirst({
-    where: {id: threadId, userId},
-    include: {
-      messages: {
-        where: {role: {in: ['user', 'assistant']}, content: {not: null}},
-        orderBy: {createdAt: 'asc'},
-      },
-      actions: {orderBy: {createdAt: 'asc'}},
-    },
-  });
+  const thread = await findChatThreadWithItems(userId, threadId);
   if (!thread) return null;
 
   const items: ChatItem[] = [

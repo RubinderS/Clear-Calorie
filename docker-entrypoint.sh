@@ -1,19 +1,90 @@
-#!/bin/sh
-set -e
+#!/bin/bash
+# Starts the bundled MongoDB unless DATABASE_URL points elsewhere, imports a
+# database left by the SQLite versions of this image once, applies data
+# migrations, then runs the app. On stop, the app exits before MongoDB.
+set -euo pipefail
 
-if [ -z "$NEXTAUTH_SECRET" ]; then
+if [ -z "${NEXTAUTH_SECRET:-}" ]; then
   echo "ERROR: NEXTAUTH_SECRET is required. Please provide it via environment variable."
   echo "Example: docker run -e NEXTAUTH_SECRET=your-random-secret ..."
   exit 1
 fi
 
-if [ -z "$DATABASE_URL" ]; then
-  echo "ERROR: DATABASE_URL is required."
-  exit 1
+DATA_DIR=/app/data
+SQLITE_FILE="$DATA_DIR/Clear-Calorie.db"
+IMPORTED_MARKER="$DATA_DIR/.sqlite-imported"
+
+mongod_pid=""
+app_pid=""
+
+stop() {
+  if [ -n "$app_pid" ]; then
+    kill -TERM "$app_pid" 2>/dev/null || true
+    wait "$app_pid" 2>/dev/null || true
+  fi
+  if [ -n "$mongod_pid" ]; then
+    echo "Stopping MongoDB..."
+    kill -TERM "$mongod_pid" 2>/dev/null || true
+    wait "$mongod_pid" 2>/dev/null || true
+  fi
+}
+trap 'stop; exit 0' TERM INT
+
+if [ -z "${DATABASE_URL:-}" ]; then
+  mkdir -p "$DATA_DIR/db"
+  echo "Starting bundled MongoDB (log: $DATA_DIR/mongod.log)..."
+  # Bound to localhost: only the app inside this container can reach it.
+  mongod \
+    --dbpath "$DATA_DIR/db" \
+    --bind_ip 127.0.0.1 \
+    --port 27017 \
+    --wiredTigerCacheSizeGB "${MONGO_CACHE_SIZE_GB:-0.25}" \
+    --logpath "$DATA_DIR/mongod.log" \
+    --logappend &
+  mongod_pid=$!
+  export DATABASE_URL="mongodb://127.0.0.1:27017/clearcalorie"
+
+  for _ in $(seq 1 60); do
+    if mongosh --quiet --eval "db.adminCommand('ping').ok" "$DATABASE_URL" > /dev/null 2>&1; then
+      break
+    fi
+    if ! kill -0 "$mongod_pid" 2>/dev/null; then
+      echo "ERROR: MongoDB exited during startup. Last log lines:"
+      tail -n 20 "$DATA_DIR/mongod.log" || true
+      echo "MongoDB 5+ needs a CPU with AVX (x86) or ARMv8.2 (e.g. not a Raspberry Pi 4)."
+      echo "On such hardware, set DATABASE_URL to an external MongoDB instead."
+      exit 1
+    fi
+    sleep 1
+  done
+  if ! mongosh --quiet --eval "db.adminCommand('ping').ok" "$DATABASE_URL" > /dev/null 2>&1; then
+    echo "ERROR: MongoDB didn't start within 60 seconds; see $DATA_DIR/mongod.log"
+    stop
+    exit 1
+  fi
+fi
+
+# Upgrading from the SQLite image: copy its data over once. The script refuses
+# to write into a database that already has data, so a failure here stops the
+# container rather than mixing the two.
+if [ -f "$SQLITE_FILE" ] && [ ! -f "$IMPORTED_MARKER" ]; then
+  echo "Found $SQLITE_FILE from an earlier version; importing it into MongoDB..."
+  node --no-warnings /app/scripts/migrate-sqlite-to-mongo.mjs \
+    --sqlite "$SQLITE_FILE" --mongo "$DATABASE_URL"
+  date -u +%FT%TZ > "$IMPORTED_MARKER"
+  echo "Import done. $SQLITE_FILE is kept as a backup and won't be imported again."
 fi
 
 echo "Applying database migrations..."
-node /app/prisma-cli/node_modules/prisma/build/index.js migrate deploy \
-  --schema /app/prisma/schema.prisma
+node /app/migrate-cli/node_modules/migrate-mongo/bin/migrate-mongo.js up \
+  -f /app/migrate-mongo-config.js
 
-exec "$@"
+# Run the app as a child, not exec'd, so MongoDB can be stopped after it.
+"$@" &
+app_pid=$!
+set +e
+wait "$app_pid"
+status=$?
+app_pid=""
+stop
+exit "$status"

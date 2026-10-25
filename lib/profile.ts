@@ -1,5 +1,7 @@
 import {format, parseISO, subDays} from 'date-fns';
-import {prisma} from '@/lib/prisma';
+import {listFoodLogs} from '@/lib/data/food-logs';
+import {findProfile} from '@/lib/data/profiles';
+import {findLatestWeightLog, listWeightLogs} from '@/lib/data/weight-logs';
 import {getDateRange, toZoned} from '@/lib/timezone';
 import {
   ADAPTIVE_LOOKBACK_DAYS,
@@ -50,7 +52,7 @@ export async function loadProfileSummary(
   endDate: string,
   weightAsOf?: Date,
 ): Promise<ProfileSummary | null> {
-  const profile = await prisma.profile.findUnique({where: {userId}});
+  const profile = await findProfile(userId);
   if (
     !profile ||
     !isSex(profile.sex) ||
@@ -67,19 +69,9 @@ export async function loadProfileSummary(
   )!.start;
   const loggedAt = {gte: start, lte: end};
   const [latestWeight, food, weights] = await Promise.all([
-    prisma.weightLog.findFirst({
-      where: {userId, loggedAt: {lte: weightAsOf ?? end}},
-      orderBy: {loggedAt: 'desc'},
-      select: {weight: true},
-    }),
-    prisma.foodLog.findMany({
-      where: {userId, loggedAt},
-      select: {loggedAt: true, calories: true},
-    }),
-    prisma.weightLog.findMany({
-      where: {userId, loggedAt},
-      select: {loggedAt: true, weight: true},
-    }),
+    findLatestWeightLog(userId, {lte: weightAsOf ?? end}),
+    listFoodLogs(userId, {loggedAt}),
+    listWeightLogs(userId, {loggedAt}),
   ]);
   if (!latestWeight) return null;
 

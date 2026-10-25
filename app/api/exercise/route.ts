@@ -3,7 +3,6 @@ import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {
-  EXERCISE_LOG_INCLUDE,
   exerciseInputSchema,
   inputSets,
   toExerciseFields,
@@ -14,7 +13,12 @@ import {
   createExerciseLog,
   exerciseLogSchema,
 } from '@/lib/exercise-log';
-import {prisma} from '@/lib/prisma';
+import {
+  deleteExerciseLog,
+  findExerciseLog,
+  listExerciseLogs,
+  updateExerciseLog,
+} from '@/lib/data/exercise-logs';
 import {getDateRange, getTodayRange, getUserTimeZone} from '@/lib/timezone';
 
 export async function GET(request: Request) {
@@ -31,13 +35,8 @@ export async function GET(request: Request) {
     return NextResponse.json({error: 'Invalid date'}, {status: 400});
   }
 
-  const entries = await prisma.exerciseLog.findMany({
-    where: {
-      userId: session.user.id,
-      loggedAt: {gte: range.start, lte: range.end},
-    },
-    orderBy: {loggedAt: 'desc'},
-    include: EXERCISE_LOG_INCLUDE,
+  const entries = await listExerciseLogs(session.user.id, {
+    loggedAt: {gte: range.start, lte: range.end},
   });
 
   return NextResponse.json(entries);
@@ -83,10 +82,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({error: 'Entry ID is required'}, {status: 400});
   }
 
-  const entry = await prisma.exerciseLog.findFirst({
-    where: {id: entryId, userId: session.user.id},
-    select: {loggedAt: true},
-  });
+  const entry = await findExerciseLog(session.user.id, entryId);
   if (!entry) {
     return NextResponse.json({error: 'Entry not found'}, {status: 404});
   }
@@ -99,9 +95,7 @@ export async function DELETE(request: Request) {
     );
   }
 
-  await prisma.exerciseLog.deleteMany({
-    where: {id: entryId, userId: session.user.id},
-  });
+  await deleteExerciseLog(session.user.id, entryId);
 
   return new NextResponse(null, {status: 204});
 }
@@ -127,16 +121,7 @@ export async function PATCH(request: Request) {
     }
     const {id} = parsed.data;
 
-    const entry = await prisma.exerciseLog.findFirst({
-      where: {id, userId: session.user.id},
-      select: {
-        loggedAt: true,
-        exerciseSets: {
-          orderBy: {position: 'asc'},
-          select: {name: true, catalogId: true},
-        },
-      },
-    });
+    const entry = await findExerciseLog(session.user.id, id);
     if (!entry) {
       return NextResponse.json({error: 'Entry not found'}, {status: 404});
     }
@@ -150,20 +135,16 @@ export async function PATCH(request: Request) {
     }
 
     // A sequence's sets keep the exercise each one was.
-    const sets = inputSets(parsed.data).map((set, index) => ({
-      ...set,
-      ...entry.exerciseSets[index],
-    }));
-    const fields = toExerciseFields(sets);
-    const updated = await prisma.exerciseLog.update({
-      where: {id},
-      data: {
-        ...fields,
-        durationMin: fields.durationMin ?? 0,
-        exerciseSets: {deleteMany: {}, create: toSetRows(sets)},
-      },
-      include: EXERCISE_LOG_INCLUDE,
+    const sets = inputSets(parsed.data).map((set, index) => {
+      const old = entry.exerciseSets[index];
+      return old ? {...set, name: old.name, catalogId: old.catalogId} : set;
     });
+    const fields = toExerciseFields(sets);
+    const updated = await updateExerciseLog(
+      id,
+      {...fields, durationMin: fields.durationMin ?? 0},
+      toSetRows(sets),
+    );
 
     return NextResponse.json(updated);
   } catch {

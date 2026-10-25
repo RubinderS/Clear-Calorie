@@ -4,7 +4,7 @@ import {averageNumbers, Decimal, roundNumber, subtractNumbers} from './decimal';
 
 // Optional body measurements beyond weight. Presets give common ones a stable
 // key so reports and the AI know what they mean; users can also add their own
-// label and unit. Kept free of Prisma so client components can import it.
+// label and unit. Kept free of the database so client components can import it.
 
 export const METRIC_DIRECTIONS = ['down', 'up', 'neutral'] as const;
 /** Which way is good: "down" = lower is better. */
@@ -87,22 +87,6 @@ export function toTrackedMetric(metric: TrackedMetric): TrackedMetric {
   const {id, key, label, unit, direction, decimals} = metric;
   return {id, key, label, unit, direction, decimals};
 }
-
-/** Prisma `select` for a TrackedMetric. */
-export const TRACKED_METRIC_SELECT = {
-  id: true,
-  key: true,
-  label: true,
-  unit: true,
-  direction: true,
-  decimals: true,
-} as const;
-
-/** Display order for a user's metrics. */
-export const METRIC_ORDER = [
-  {sortOrder: 'asc'},
-  {createdAt: 'asc'},
-] as const;
 
 /** Input step for a metric, e.g. "0.1" for one decimal. */
 export function metricStep(decimals: number) {

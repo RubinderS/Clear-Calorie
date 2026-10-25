@@ -1,6 +1,7 @@
 import {Resend} from 'resend';
 import {nanoid} from 'nanoid';
-import {prisma} from './prisma';
+import {markEmailVerified} from './data/users';
+import * as tokens from './data/verification-tokens';
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -10,13 +11,7 @@ export async function createVerificationToken(email: string) {
   const token = nanoid(32);
   const expires = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24 hours
 
-  await prisma.verificationToken.create({
-    data: {
-      identifier: email,
-      token,
-      expires,
-    },
-  });
+  await tokens.createVerificationToken({identifier: email, token, expires});
 
   return token;
 }
@@ -50,23 +45,15 @@ export async function sendVerificationEmail(
 }
 
 export async function verifyEmail(token: string) {
-  const verification = await prisma.verificationToken.findUnique({
-    where: {token},
-  });
+  const verification = await tokens.findVerificationToken(token);
 
   if (!verification || verification.expires < new Date()) {
     return {success: false, error: 'Invalid or expired token'};
   }
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: {email: verification.identifier},
-      data: {emailVerified: new Date()},
-    }),
-    prisma.verificationToken.delete({
-      where: {token},
-    }),
-  ]);
+  // Verify first: a crash in between leaves only a stale token, which expires.
+  await markEmailVerified(verification.identifier);
+  await tokens.deleteVerificationToken(token);
 
   return {success: true};
 }

@@ -1,5 +1,5 @@
 import {test, expect} from '../../fixtures/test';
-import {seedBodyMetric, seedBodyMetricLog} from '../../fixtures/db';
+import {metricIdsOf, seedBodyMetric, seedBodyMetricLog} from '../../fixtures/db';
 import {MAX_ACTIVE_METRICS} from '../../../lib/body-metrics';
 
 test.describe('Body metrics API', () => {
@@ -202,7 +202,7 @@ test.describe('Body metrics API', () => {
     expect(logs[0].loggedAt).toBe(logs[1].loggedAt);
     expect(
       await db.bodyMetricLog.findMany({
-        where: {metric: {userId: user.id}},
+        where: {metricId: {in: await metricIdsOf(db, user.id)}},
         select: {value: true},
         orderBy: {value: 'asc'},
       }),
@@ -249,7 +249,9 @@ test.describe('Body metrics API', () => {
       },
     });
     expect(mixed.status()).toBe(404);
-    expect(await db.bodyMetricLog.count({where: {metric: {userId: user.id}}})).toBe(0);
+    expect(
+      await db.bodyMetricLog.count({where: {metricId: {in: await metricIdsOf(db, user.id)}}}),
+    ).toBe(0);
   });
 
   test('BM-10 DELETE log removes one entry', async ({api, db, user}) => {

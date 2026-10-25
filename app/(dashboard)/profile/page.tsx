@@ -2,7 +2,10 @@ import {format, parseISO, subDays} from 'date-fns';
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
 import {authOptions} from '@/lib/auth-options';
-import {prisma} from '@/lib/prisma';
+import {findLatestBodyFat} from '@/lib/data/body-metrics';
+import {findGoals} from '@/lib/data/goals';
+import {findProfile} from '@/lib/data/profiles';
+import {findLatestWeightLog} from '@/lib/data/weight-logs';
 import {isAiEnabled} from '@/lib/ai';
 import {getTodayDate, getUserTimeZone} from '@/lib/timezone';
 import {loadProfileSummary} from '@/lib/profile';
@@ -21,18 +24,10 @@ export default async function ProfilePage() {
   const yesterday = format(subDays(parseISO(today), 1), 'yyyy-MM-dd');
 
   const [profile, latestWeight, latestBodyFat, goal, summary] = await Promise.all([
-    prisma.profile.findUnique({where: {userId}}),
-    prisma.weightLog.findFirst({
-      where: {userId},
-      orderBy: {loggedAt: 'desc'},
-      select: {weight: true},
-    }),
-    prisma.bodyMetricLog.findFirst({
-      where: {metric: {userId, key: 'body_fat', unit: '%'}},
-      orderBy: {loggedAt: 'desc'},
-      select: {value: true},
-    }),
-    prisma.goal.findUnique({where: {userId}}),
+    findProfile(userId),
+    findLatestWeightLog(userId),
+    findLatestBodyFat(userId),
+    findGoals(userId),
     // Today's food is still being logged, so the adaptive TDEE stops at
     // yesterday; weight is the latest weigh-in, today's included.
     loadProfileSummary(userId, timeZone, yesterday, new Date()),
@@ -49,7 +44,7 @@ export default async function ProfilePage() {
         heightCm: profile?.heightCm ?? null,
         weightKg: latestWeight?.weight ?? null,
         bodyFatPct: profile ? profile.bodyFatPct : null,
-        loggedBodyFatPct: latestBodyFat?.value ?? null,
+        loggedBodyFatPct: latestBodyFat,
         activityLevel: profile?.activityLevel ?? null,
         goal: profile?.goal ?? null,
       }}

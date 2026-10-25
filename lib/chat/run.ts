@@ -6,7 +6,7 @@ import {
   type ChatMessageParam,
   type ToolCall,
 } from '@/lib/ai';
-import {prisma} from '@/lib/prisma';
+import {createChatMessage, listChatMessages, touchChatThread} from '@/lib/data/chat';
 import {
   describePageContext,
   serializeToolResult,
@@ -75,11 +75,7 @@ export async function* runChat({
   timeZone: string;
   context?: PageContext;
 }): AsyncGenerator<ChatEvent> {
-  const stored = await prisma.chatMessage.findMany({
-    where: {threadId},
-    orderBy: {createdAt: 'asc'},
-    select: {role: true, content: true, toolCalls: true, toolCallId: true},
-  });
+  const stored = await listChatMessages(threadId);
   const messages: ChatMessageParam[] = [
     {role: 'system', content: systemPrompt(timeZone, context)},
     ...toModelHistory(stored),
@@ -109,20 +105,16 @@ export async function* runChat({
         if (!text.trim()) {
           throw new AiError('AI returned an empty response');
         }
-        await prisma.chatMessage.create({
-          data: {threadId, role: 'assistant', content: text},
-        });
+        await createChatMessage({threadId, role: 'assistant', content: text});
         break;
       }
 
       messages.push({role: 'assistant', content: text || null, tool_calls: toolCalls});
-      await prisma.chatMessage.create({
-        data: {
-          threadId,
-          role: 'assistant',
-          content: text || null,
-          toolCalls: serializeToolCalls(toolCalls),
-        },
+      await createChatMessage({
+        threadId,
+        role: 'assistant',
+        content: text || null,
+        toolCalls: serializeToolCalls(toolCalls),
       });
 
       for (const call of toolCalls) {
@@ -134,9 +126,7 @@ export async function* runChat({
         });
         const content = serializeToolResult(outcome.result);
         messages.push({role: 'tool', tool_call_id: call.id, content});
-        await prisma.chatMessage.create({
-          data: {threadId, role: 'tool', content, toolCallId: call.id},
-        });
+        await createChatMessage({threadId, role: 'tool', content, toolCallId: call.id});
         if (outcome.action) {
           yield {type: 'action', action: outcome.action};
         }
@@ -152,9 +142,7 @@ export async function* runChat({
       message: 'The coach could not answer right now. Please try again.',
     };
   } finally {
-    await prisma.chatThread
-      .update({where: {id: threadId}, data: {updatedAt: new Date()}})
-      .catch(() => {});
+    await touchChatThread(threadId).catch(() => {});
   }
   yield {type: 'done'};
 }

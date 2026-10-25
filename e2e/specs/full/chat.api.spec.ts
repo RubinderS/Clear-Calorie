@@ -211,3 +211,16 @@ test('CHAT-08 an AI failure ends with an error and no reply saved', async ({api,
     await db.chatMessage.findMany({where: {threadId}, select: {role: true}}),
   ).toEqual([{role: 'user'}]);
 });
+
+test('CHAT-09 food search ignores case and matches text literally', async ({api, db, user}) => {
+  for (const name of ['Chicken salad', 'Grilled CHICKEN', 'Beef stew', 'Rice (1.5 cups)']) {
+    await seedFood(db, user.id, {name});
+  }
+
+  const mixedCase = await chat(api, `[ai:chat-search] chicken? ${user.id}`);
+  expect(mixedCase.text).toBe('Found: Chicken salad | Grilled CHICKEN');
+
+  // Regex characters in the search must not be read as a pattern.
+  const literal = await chat(api, `[ai:chat-search-literal] rice? ${user.id}`);
+  expect(literal.text).toBe('Found: Rice (1.5 cups)');
+});

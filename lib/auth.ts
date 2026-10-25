@@ -1,5 +1,5 @@
 import {compare, hash} from 'bcryptjs';
-import {prisma} from './prisma';
+import {createUserWithGoals, findUserByEmail} from './data/users';
 
 export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -19,28 +19,19 @@ export async function createUser(
   name?: string,
 ) {
   const normalizedEmail = normalizeEmail(email);
-  const existing = await prisma.user.findUnique({
-    where: {email: normalizedEmail},
-  });
+  const existing = await findUserByEmail(normalizedEmail);
   if (existing) {
     throw new Error('User already exists');
   }
 
   const hashed = await hashPassword(password);
-  const user = await prisma.user.create({
-    data: {
-      email: normalizedEmail,
-      name: name?.trim() || null,
-      password: hashed,
-      goals: {
-        create: {},
-      },
-    },
+  return createUserWithGoals({
+    email: normalizedEmail,
+    name: name?.trim() || null,
+    password: hashed,
   });
-
-  return user;
 }
 
 export async function getUserByEmail(email: string) {
-  return prisma.user.findUnique({where: {email: normalizeEmail(email)}});
+  return findUserByEmail(normalizeEmail(email));
 }

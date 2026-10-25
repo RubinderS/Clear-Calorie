@@ -4,7 +4,12 @@ import Link from 'next/link';
 import {FileText} from 'lucide-react';
 import {format, parseISO, subDays} from 'date-fns';
 import {authOptions} from '@/lib/auth-options';
-import {prisma} from '@/lib/prisma';
+import {listBodyMetrics} from '@/lib/data/body-metrics';
+import {listExerciseLogs} from '@/lib/data/exercise-logs';
+import {listFoodLogs} from '@/lib/data/food-logs';
+import {findGoals} from '@/lib/data/goals';
+import {listWeightLogs} from '@/lib/data/weight-logs';
+import {findLatestUnseenReportWeek} from '@/lib/data/weekly-reports';
 import {
   getTodayDate,
   getTodayRange,
@@ -34,10 +39,9 @@ import {Decimal, sumNumbers} from '@/lib/decimal';
 import {getPlannedCounts, getTodaysPlanStatus} from '@/lib/exercise-plan';
 import {isAiEnabled} from '@/lib/ai';
 import {
-  METRIC_ORDER,
   ROLLING_AVERAGE_DAYS,
-  TRACKED_METRIC_SELECT,
   rollingAverages,
+  toTrackedMetric,
 } from '@/lib/body-metrics';
 
 export default async function DashboardPage() {
@@ -64,53 +68,27 @@ export default async function DashboardPage() {
     unseenReport,
     bodyMetrics,
   ] = await Promise.all([
-    prisma.goal.findUnique({where: {userId}}),
-    prisma.foodLog.findMany({
-      where: {userId, loggedAt: {gte: todayStart, lte: todayEnd}},
-      orderBy: {loggedAt: 'desc'},
-    }),
-    prisma.exerciseLog.findMany({
-      where: {userId, loggedAt: {gte: todayStart, lte: todayEnd}},
-      orderBy: {loggedAt: 'desc'},
-    }),
-    prisma.weightLog.findMany({
-      where: {userId},
-      orderBy: {loggedAt: 'desc'},
-      take: 7,
-    }),
+    findGoals(userId),
+    listFoodLogs(userId, {loggedAt: {gte: todayStart, lte: todayEnd}}),
+    listExerciseLogs(userId, {loggedAt: {gte: todayStart, lte: todayEnd}}),
+    listWeightLogs(userId, {take: 7}),
     // Two weeks for the 7-day average and its change.
-    prisma.weightLog.findMany({
-      where: {
-        userId,
-        loggedAt: {gte: subDays(todayStart, 2 * ROLLING_AVERAGE_DAYS - 1)},
-      },
-      select: {weight: true, loggedAt: true},
+    listWeightLogs(userId, {
+      loggedAt: {gte: subDays(todayStart, 2 * ROLLING_AVERAGE_DAYS - 1)},
     }),
-    prisma.foodLog.findMany({
-      where: {
-        userId,
-        loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd},
-      },
-      orderBy: {loggedAt: 'asc'},
+    listFoodLogs(userId, {
+      loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd},
+      order: 'asc',
     }),
-    prisma.exerciseLog.findMany({
-      where: {
-        userId,
-        loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd},
-      },
-      orderBy: {loggedAt: 'asc'},
+    listExerciseLogs(userId, {
+      loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd},
+      order: 'asc',
     }),
     getPlannedCounts(userId, weekDates, timeZone),
-    prisma.weeklyReport.findFirst({
-      where: {userId, seenAt: null},
-      orderBy: {weekStart: 'desc'},
-      select: {weekStart: true, weekEnd: true},
-    }),
-    prisma.bodyMetric.findMany({
-      where: {userId, archivedAt: null},
-      orderBy: [...METRIC_ORDER],
-      select: TRACKED_METRIC_SELECT,
-    }),
+    findLatestUnseenReportWeek(userId),
+    listBodyMetrics(userId, {activeOnly: true}).then((metrics) =>
+      metrics.map(toTrackedMetric),
+    ),
   ]);
 
   const todaysExerciseGoals = await getTodaysPlanStatus(

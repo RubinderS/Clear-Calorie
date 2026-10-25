@@ -1,17 +1,14 @@
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
 import {authOptions} from '@/lib/auth-options';
-import {prisma} from '@/lib/prisma';
+import {listExerciseGoals} from '@/lib/data/exercise-goals';
 import {ExerciseGoalsForm} from '@/components/exercise-goals-form';
 
 export default async function ExercisePlanPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect('/login');
 
-  const exerciseGoals = await prisma.exerciseGoal.findMany({
-    where: {userId: session.user.id},
-    orderBy: {createdAt: 'asc'},
-  });
+  const exerciseGoals = await listExerciseGoals(session.user.id);
 
   return (
     <div className="space-y-6">

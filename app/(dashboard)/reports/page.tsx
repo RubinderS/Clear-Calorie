@@ -2,7 +2,11 @@ import {format, parseISO} from 'date-fns';
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
 import {authOptions} from '@/lib/auth-options';
-import {prisma} from '@/lib/prisma';
+import {
+  findWeeklyReport,
+  listReportWeeks,
+  markWeeklyReportsSeen,
+} from '@/lib/data/weekly-reports';
 import {isAiEnabled} from '@/lib/ai';
 import {getTodayDate, getUserTimeZone} from '@/lib/timezone';
 import {getFocusProgress, toReportView} from '@/lib/weekly-report';
@@ -20,28 +24,19 @@ export default async function ReportsPage({
 
   const userId = session.user.id;
   const {week} = await searchParams;
-  const weeks = await prisma.weeklyReport.findMany({
-    where: {userId},
-    orderBy: {weekStart: 'desc'},
-    select: {weekStart: true, weekEnd: true},
-  });
+  const weeks = await listReportWeeks(userId);
 
   const selectedWeek =
     typeof week === 'string' && weeks.some((w) => w.weekStart === week)
       ? week
       : weeks[0]?.weekStart;
   const report = selectedWeek
-    ? await prisma.weeklyReport.findUnique({
-        where: {userId_weekStart: {userId, weekStart: selectedWeek}},
-      })
+    ? await findWeeklyReport(userId, selectedWeek)
     : null;
   if (report && !report.seenAt) {
     // Older reports count as seen too, so a skipped week can't keep the
     // dashboard notice up.
-    await prisma.weeklyReport.updateMany({
-      where: {userId, seenAt: null, weekStart: {lte: report.weekStart}},
-      data: {seenAt: new Date()},
-    });
+    await markWeeklyReportsSeen(userId, report.weekStart);
   }
 
   const timeZone = await getUserTimeZone();

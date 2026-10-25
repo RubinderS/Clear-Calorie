@@ -4,7 +4,7 @@ import {Decimal, sumNumbers} from './decimal';
 
 // Maintenance calories (TDEE): a formula estimate from the user's profile, and
 // an adaptive figure from their own logged weight and intake once there's
-// enough data. Pure functions, free of Prisma so client components and tests
+// enough data. Pure functions, free of the database so client components and tests
 // can import them.
 
 export const SEXES = ['male', 'female'] as const;

@@ -1,8 +1,13 @@
 import AxeBuilder from '@axe-core/playwright';
 import type {Page} from '@playwright/test';
-import type {PrismaClient} from '@prisma/client';
 import {test, expect} from '../../fixtures/test';
-import {seedExercise, seedExerciseGoal, seedFood, seedWeight} from '../../fixtures/db';
+import {
+  seedExercise,
+  seedExerciseGoal,
+  seedFood,
+  seedWeight,
+  type TestDb,
+} from '../../fixtures/db';
 import {todayIn} from '../../fixtures/dates';
 import {dialog, openQuickLog} from '../../fixtures/ui';
 
@@ -17,7 +22,7 @@ const APP_PAGES = [
 ];
 
 /** Some of everything, so pages render their filled-in states. */
-async function seedEverything({db, user}: {db: PrismaClient; user: {id: string}}) {
+async function seedEverything({db, user}: {db: TestDb; user: {id: string}}) {
   const goal = await seedExerciseGoal(db, user.id, {name: 'Squats', notes: 'Chest up'});
   await seedExerciseGoal(db, user.id, {name: 'Run', type: 'TIME', durationMin: 20});
   await seedExercise(db, user.id, {name: 'Squats', exerciseGoalId: goal.id, goalDate: todayIn()});

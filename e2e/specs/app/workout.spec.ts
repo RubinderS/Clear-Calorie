@@ -78,13 +78,11 @@ test('WO-01 setup shows target weights and last week', async ({
     exerciseGoalId: goal.id,
     goalDate: daysAgoIn(7),
     loggedAt: noonDaysAgo(7),
-    exerciseSets: {
-      create: [
-        {position: 1, reps: 10, weight: 10},
-        {position: 2, reps: 9, weight: 10},
-        {position: 3, reps: 8, weight: 12},
-      ],
-    },
+    exerciseSets: [
+      {position: 1, reps: 10, weight: 10},
+      {position: 2, reps: 9, weight: 10},
+      {position: 3, reps: 8, weight: 12},
+    ],
   });
   const {workout} = await startGoal(page, 'Bench');
 
@@ -527,7 +525,6 @@ test('WO-13 a sequence runs its exercises in turn, with breaks that follow a cha
   // One log for the whole sequence, with each step's exercise.
   const log = await db.exerciseLog.findFirstOrThrow({
     where: {userId: user.id},
-    include: {exerciseSets: {orderBy: {position: 'asc'}}},
   });
   expect(log).toMatchObject({exerciseGoalId: goal.id, name: 'Cardio circuit'});
   expect(

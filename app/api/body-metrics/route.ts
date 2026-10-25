@@ -8,15 +8,20 @@ import {
   MAX_ACTIVE_METRICS,
   parseMetricDefinition,
 } from '@/lib/body-metrics';
-import {prisma} from '@/lib/prisma';
+import {
+  countActiveBodyMetrics,
+  countLogsByMetric,
+  createBodyMetric,
+  deleteBodyMetric,
+  findBodyMetric,
+  listBodyMetrics,
+  restoreBodyMetric,
+  setBodyMetricArchived,
+} from '@/lib/data/body-metrics';
 
 const archiveSchema = z.object({archived: z.boolean()});
 
 const LIMIT_ERROR = `You can track up to ${MAX_ACTIVE_METRICS} metrics. Archive one first.`;
-
-function countActive(userId: string) {
-  return prisma.bodyMetric.count({where: {userId, archivedAt: null}});
-}
 
 /**
  * Starts tracking a preset or custom metric. Turning a preset back on restores
@@ -36,20 +41,8 @@ export async function POST(request: Request) {
     }
 
     const [metrics, active] = await Promise.all([
-      prisma.bodyMetric.findMany({
-        where: {userId},
-        select: {
-          id: true,
-          key: true,
-          label: true,
-          unit: true,
-          decimals: true,
-          archivedAt: true,
-          sortOrder: true,
-          _count: {select: {logs: true}},
-        },
-      }),
-      countActive(userId),
+      listBodyMetrics(userId),
+      countActiveBodyMetrics(userId),
     ]);
 
     const existing = definition.key
@@ -80,7 +73,9 @@ export async function POST(request: Request) {
 
     if (existing) {
       // Logged values are in the old unit, so switching converts them.
-      const convert = existing._count.logs > 0 && existing.unit !== definition.unit;
+      const logCount =
+        (await countLogsByMetric([existing.id])).get(existing.id) ?? 0;
+      const convert = logCount > 0 && existing.unit !== definition.unit;
       if (convert && !canConvertUnit(existing.unit, definition.unit)) {
         return NextResponse.json(
           {
@@ -90,40 +85,26 @@ export async function POST(request: Request) {
         );
       }
 
-      const metric = await prisma.$transaction(async (tx) => {
-        if (convert) {
-          const logs = await tx.bodyMetricLog.findMany({
-            where: {metricId: existing.id},
-            select: {id: true, value: true},
-          });
-          for (const log of logs) {
-            await tx.bodyMetricLog.update({
-              where: {id: log.id},
+      const metric = await restoreBodyMetric(
+        existing.id,
+        definition.unit,
+        convert
+          ? (value) =>
               // One extra decimal so converting back and forth doesn't drift.
-              data: {
-                value: convertUnitValue(
-                  log.value,
-                  existing.unit,
-                  definition.unit,
-                  existing.decimals + 1,
-                ),
-              },
-            });
-          }
-        }
-        return tx.bodyMetric.update({
-          where: {id: existing.id},
-          data: {archivedAt: null, unit: definition.unit},
-        });
-      });
+              convertUnitValue(
+                value,
+                existing.unit,
+                definition.unit,
+                existing.decimals + 1,
+              )
+          : undefined,
+      );
       return NextResponse.json(metric);
     }
 
     const sortOrder =
       Math.max(-1, ...metrics.map((metric) => metric.sortOrder)) + 1;
-    const metric = await prisma.bodyMetric.create({
-      data: {...definition, userId, sortOrder},
-    });
+    const metric = await createBodyMetric(userId, {...definition, sortOrder});
     return NextResponse.json(metric, {status: 201});
   } catch {
     return NextResponse.json(
@@ -152,9 +133,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({error: 'Invalid input'}, {status: 400});
     }
 
-    const metric = await prisma.bodyMetric.findFirst({
-      where: {id: metricId, userId},
-    });
+    const metric = await findBodyMetric(userId, metricId);
     if (!metric) {
       return NextResponse.json({error: 'Metric not found'}, {status: 404});
     }
@@ -163,14 +142,11 @@ export async function PATCH(request: Request) {
     if (archived === (metric.archivedAt !== null)) {
       return NextResponse.json(metric);
     }
-    if (!archived && (await countActive(userId)) >= MAX_ACTIVE_METRICS) {
+    if (!archived && (await countActiveBodyMetrics(userId)) >= MAX_ACTIVE_METRICS) {
       return NextResponse.json({error: LIMIT_ERROR}, {status: 400});
     }
 
-    const updated = await prisma.bodyMetric.update({
-      where: {id: metric.id},
-      data: {archivedAt: archived ? new Date() : null},
-    });
+    const updated = await setBodyMetricArchived(metric.id, archived);
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json(
@@ -192,10 +168,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({error: 'Metric ID is required'}, {status: 400});
   }
 
-  const metric = await prisma.bodyMetric.findFirst({
-    where: {id: metricId, userId: session.user.id},
-    select: {id: true, archivedAt: true},
-  });
+  const metric = await findBodyMetric(session.user.id, metricId);
   if (!metric) {
     return NextResponse.json({error: 'Metric not found'}, {status: 404});
   }
@@ -207,6 +180,6 @@ export async function DELETE(request: Request) {
     );
   }
 
-  await prisma.bodyMetric.delete({where: {id: metric.id}});
+  await deleteBodyMetric(metric.id);
   return new NextResponse(null, {status: 204});
 }

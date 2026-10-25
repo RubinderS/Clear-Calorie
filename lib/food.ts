@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {prisma} from '@/lib/prisma';
+import * as foodLogs from '@/lib/data/food-logs';
 
 export const nutritionFields = {
   name: z.string().trim().min(1),
@@ -39,12 +39,10 @@ export type FoodInput = z.infer<typeof foodSchema>;
 
 export function createFoodLog(userId: string, input: FoodInput) {
   const {healthAlert, ...food} = input;
-  return prisma.foodLog.create({
-    data: {
-      ...food,
-      healthAlertLevel: healthAlert?.level ?? null,
-      healthAlertMessage: healthAlert?.message ?? null,
-      userId,
-    },
+  return foodLogs.createFoodLog({
+    ...food,
+    healthAlertLevel: healthAlert?.level ?? null,
+    healthAlertMessage: healthAlert?.message ?? null,
+    userId,
   });
 }

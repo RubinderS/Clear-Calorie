@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
 import {authOptions} from '@/lib/auth-options';
 import {loadThreadItems} from '@/lib/chat/view';
-import {prisma} from '@/lib/prisma';
+import {deleteChatThread} from '@/lib/data/chat';
 
 export async function GET(
   _request: Request,
@@ -31,10 +31,7 @@ export async function DELETE(
   }
 
   const {id} = await params;
-  const result = await prisma.chatThread.deleteMany({
-    where: {id, userId: session.user.id},
-  });
-  if (result.count === 0) {
+  if (!(await deleteChatThread(session.user.id, id))) {
     return NextResponse.json({error: 'Chat not found'}, {status: 404});
   }
   return new NextResponse(null, {status: 204});

@@ -4,9 +4,8 @@ import {
   estimateFood,
   type ToolDefinition,
 } from '@/lib/ai';
-import {METRIC_ORDER, rollingAverages} from '@/lib/body-metrics';
+import {rollingAverages} from '@/lib/body-metrics';
 import {
-  EXERCISE_LOG_INCLUDE,
   WEEKDAYS,
   describeSequence,
   exerciseDetailsSchema,
@@ -25,7 +24,13 @@ import {
 import {exerciseLogSchema} from '@/lib/exercise-log';
 import {getLastWeekSets, getPlannedExerciseGoals} from '@/lib/exercise-plan';
 import {foodSchema} from '@/lib/food';
-import {prisma} from '@/lib/prisma';
+import {listBodyMetricsWithLogs} from '@/lib/data/body-metrics';
+import {createChatAction} from '@/lib/data/chat';
+import {listExerciseGoals} from '@/lib/data/exercise-goals';
+import {listExerciseLogs} from '@/lib/data/exercise-logs';
+import {listFoodLogs} from '@/lib/data/food-logs';
+import {listWeightLogs} from '@/lib/data/weight-logs';
+import {findWeeklyReport, listReportWeeks} from '@/lib/data/weekly-reports';
 import {loadProfileSummary} from '@/lib/profile';
 import {
   getDateRange,
@@ -138,13 +143,11 @@ async function createAction(
   entry: unknown,
   note?: string,
 ) {
-  const action = await prisma.chatAction.create({
-    data: {
-      threadId: ctx.threadId,
-      userId: ctx.userId,
-      kind,
-      payload: JSON.stringify({entry, note: note || undefined}),
-    },
+  const action = await createChatAction({
+    threadId: ctx.threadId,
+    userId: ctx.userId,
+    kind,
+    payload: JSON.stringify({entry, note: note || undefined}),
   });
   return toActionView(action);
 }
@@ -243,14 +246,10 @@ export const TOOLS = {
     },
     async run(args, {userId, timeZone}) {
       const {dates, truncated} = resolveDates(args, getTodayDate(timeZone));
-      const entries = await prisma.foodLog.findMany({
-        where: {
-          userId,
-          loggedAt: rangeBounds(dates, timeZone),
-          ...(args.search ? {name: {contains: args.search}} : {}),
-        },
-        // Newest first, so a cap or a cut-off result drops the oldest.
-        orderBy: {loggedAt: 'desc'},
+      // Newest first, so a cap or a cut-off result drops the oldest.
+      const entries = await listFoodLogs(userId, {
+        loggedAt: rangeBounds(dates, timeZone),
+        nameContains: args.search,
         take: MAX_LOG_ROWS,
       });
       return {
@@ -284,10 +283,8 @@ export const TOOLS = {
     parameters: rangeParameters(14),
     async run(args, {userId, timeZone}) {
       const {dates, truncated} = resolveDates(args, getTodayDate(timeZone), 14);
-      const entries = await prisma.exerciseLog.findMany({
-        where: {userId, loggedAt: rangeBounds(dates, timeZone)},
-        orderBy: {loggedAt: 'desc'},
-        include: EXERCISE_LOG_INCLUDE,
+      const entries = await listExerciseLogs(userId, {
+        loggedAt: rangeBounds(dates, timeZone),
         take: MAX_LOG_ROWS,
       });
       return {
@@ -318,11 +315,8 @@ export const TOOLS = {
     async run(_args, {userId, timeZone}) {
       const {start, end} = getTodayRange(timeZone);
       const [goals, todaysLogs, lastWeekSets] = await Promise.all([
-        prisma.exerciseGoal.findMany({where: {userId}, orderBy: {createdAt: 'asc'}}),
-        prisma.exerciseLog.findMany({
-          where: {userId, loggedAt: {gte: start, lte: end}},
-          select: {exerciseGoalId: true},
-        }),
+        listExerciseGoals(userId),
+        listExerciseLogs(userId, {loggedAt: {gte: start, lte: end}}),
         getLastWeekSets(userId, timeZone),
       ]);
       const weekday = getTodayWeekday(timeZone);
@@ -397,15 +391,11 @@ export const TOOLS = {
       const {dates, truncated} = resolveDates(args, getTodayDate(timeZone), 30);
       const todayStart = getTodayRange(timeZone).start;
       const [entries, recent] = await Promise.all([
-        prisma.weightLog.findMany({
-          where: {userId, loggedAt: rangeBounds(dates, timeZone)},
-          orderBy: {loggedAt: 'desc'},
+        listWeightLogs(userId, {
+          loggedAt: rangeBounds(dates, timeZone),
           take: MAX_LOG_ROWS,
         }),
-        prisma.weightLog.findMany({
-          where: {userId, loggedAt: {gte: subDays(todayStart, 13)}},
-          select: {weight: true, loggedAt: true},
-        }),
+        listWeightLogs(userId, {loggedAt: {gte: subDays(todayStart, 13)}}),
       ]);
       const rolling = rollingAverages(
         recent.map((entry) => ({value: entry.weight, loggedAt: entry.loggedAt})),
@@ -435,16 +425,10 @@ export const TOOLS = {
     parameters: rangeParameters(30),
     async run(args, {userId, timeZone}) {
       const {dates, truncated} = resolveDates(args, getTodayDate(timeZone), 30);
-      const metrics = await prisma.bodyMetric.findMany({
-        where: {userId, archivedAt: null},
-        orderBy: [...METRIC_ORDER],
-        include: {
-          logs: {
-            where: {loggedAt: rangeBounds(dates, timeZone)},
-            orderBy: {loggedAt: 'desc'},
-            take: 200,
-          },
-        },
+      const metrics = await listBodyMetricsWithLogs(userId, {
+        activeOnly: true,
+        loggedAt: rangeBounds(dates, timeZone),
+        takeEach: 200,
       });
       return {
         result: {
@@ -476,17 +460,10 @@ export const TOOLS = {
       },
     },
     async run({weekStart}, {userId, timeZone}) {
-      const weeks = await prisma.weeklyReport.findMany({
-        where: {userId},
-        orderBy: {weekStart: 'desc'},
-        select: {weekStart: true},
-        take: 26,
-      });
+      const weeks = await listReportWeeks(userId, 26);
       const selected = weekStart ?? weeks[0]?.weekStart;
       const report = selected
-        ? await prisma.weeklyReport.findUnique({
-            where: {userId_weekStart: {userId, weekStart: selected}},
-          })
+        ? await findWeeklyReport(userId, selected)
         : null;
       if (!report) {
         return {
@@ -660,10 +637,7 @@ export const TOOLS = {
       required: ['operation'],
     },
     async run(args, ctx) {
-      const goals = await prisma.exerciseGoal.findMany({
-        where: {userId: ctx.userId},
-        orderBy: {createdAt: 'asc'},
-      });
+      const goals = await listExerciseGoals(ctx.userId);
       const change = buildPlanChange(args, goals);
       const action = await createAction(ctx, 'plan', change);
       return {
@@ -703,10 +677,7 @@ export const TOOLS = {
       required: ['links'],
     },
     async run(args, ctx) {
-      const goals = await prisma.exerciseGoal.findMany({
-        where: {userId: ctx.userId},
-        orderBy: {createdAt: 'asc'},
-      });
+      const goals = await listExerciseGoals(ctx.userId);
       const proposal = buildCatalogLinks(args, goals);
       const action = await createAction(ctx, 'links', proposal);
       return {

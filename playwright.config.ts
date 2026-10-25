@@ -2,6 +2,7 @@ import {defineConfig, devices, type PlaywrightTestConfig} from '@playwright/test
 import {
   EXTERNAL_ENABLED,
   MOCK_URL,
+  MONGO_HEALTH_PORT,
   serverEnv,
   serverUrl,
   type ServerName,
@@ -66,7 +67,6 @@ export default defineConfig<TestOptions>({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  // SQLite allows one writer at a time; more workers only add lock waits.
   workers: process.env.CI ? 2 : 4,
   reporter: process.env.CI
     ? [['github'], ['html', {open: 'never'}]]
@@ -81,6 +81,15 @@ export default defineConfig<TestOptions>({
   },
   projects,
   webServer: [
+    {
+      // In-memory MongoDB; each app server gets its own database on it.
+      name: 'mongo',
+      command: 'npx tsx e2e/scripts/mongo-server.ts',
+      url: `http://127.0.0.1:${MONGO_HEALTH_PORT}`,
+      reuseExistingServer: !process.env.CI,
+      // The first run downloads the mongod binary.
+      timeout: 300_000,
+    },
     {
       name: 'mock',
       command: 'npx tsx e2e/mocks/ai-server.ts',

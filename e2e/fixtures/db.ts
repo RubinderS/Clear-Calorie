@@ -1,23 +1,29 @@
 // Direct database access for seeding rows the API can't create (past dates,
 // tokens, plan snapshots) and for asserting what was persisted.
 import {randomUUID} from 'node:crypto';
-import {PrismaClient, type Prisma} from '@prisma/client';
 import {hash} from 'bcryptjs';
 import {SERVERS, dbUrl, type ServerName} from '../env';
 import {EVERYDAY_MASK, daysToMask} from '../../lib/exercise';
+import type * as T from '../../lib/data/types';
+import {createTestDb, type TestDb} from './test-db';
+
+export type {TestDb};
 
 export const DEFAULT_PASSWORD = 'Password1!';
 
-const clients = new Map<ServerName, PrismaClient>();
+const clients = new Map<ServerName, TestDb>();
 
-export function getDb(server: ServerName): PrismaClient {
+export function getDb(server: ServerName): TestDb {
   let client = clients.get(server);
   if (!client) {
-    client = new PrismaClient({datasourceUrl: dbUrl(SERVERS[server].dbFile)});
+    client = createTestDb(dbUrl(SERVERS[server].dbName));
     clients.set(server, client);
   }
   return client;
 }
+
+/** Fields a seed may set; ids and owners are filled in by the helper. */
+type Seed<R, Omitted extends keyof R = never> = Partial<Omit<R, 'id' | Omitted>>;
 
 // Low cost keeps per-test users fast; bcrypt reads the cost from the hash.
 const hashes = new Map<string, Promise<string>>();
@@ -46,11 +52,11 @@ export type CreateUserOptions = {
   password?: string;
   name?: string | null;
   verified?: boolean;
-  goals?: Partial<Omit<Prisma.GoalCreateWithoutUserInput, 'id'>> | null;
+  goals?: Seed<T.Goal, 'userId'> | null;
 };
 
 export async function createUser(
-  db: PrismaClient,
+  db: TestDb,
   {
     email = uniqueEmail(),
     password = DEFAULT_PASSWORD,
@@ -65,26 +71,26 @@ export async function createUser(
       name,
       password: await hashFor(password),
       emailVerified: verified ? new Date() : null,
-      ...(goals && {goals: {create: goals}}),
     },
   });
+  if (goals) await db.goal.create({data: {...goals, userId: user.id}});
   return {id: user.id, email: user.email, password, name: user.name};
 }
 
-type FoodSeed = Partial<Omit<Prisma.FoodLogUncheckedCreateInput, 'userId'>>;
+type FoodSeed = Seed<T.FoodLog, 'userId'>;
 
-export function seedFood(db: PrismaClient, userId: string, data: FoodSeed = {}) {
+export function seedFood(db: TestDb, userId: string, data: FoodSeed = {}) {
   return db.foodLog.create({
     data: {name: 'Seeded food', calories: 300, ...data, userId},
   });
 }
 
-type ExerciseSeed = Partial<
-  Omit<Prisma.ExerciseLogUncheckedCreateInput, 'userId'>
->;
+type ExerciseSeed = Seed<T.ExerciseLog, 'userId' | 'exerciseSets'> & {
+  exerciseSets?: Partial<T.ExerciseSet>[];
+};
 
 export function seedExercise(
-  db: PrismaClient,
+  db: TestDb,
   userId: string,
   data: ExerciseSeed = {},
 ) {
@@ -100,7 +106,7 @@ export function seedExercise(
 }
 
 export function seedWeight(
-  db: PrismaClient,
+  db: TestDb,
   userId: string,
   data: {weight?: number; loggedAt?: Date} = {},
 ) {
@@ -109,30 +115,33 @@ export function seedWeight(
 
 /** A tracked body metric; a waist preset in cm unless overridden. */
 export function seedBodyMetric(
-  db: PrismaClient,
+  db: TestDb,
   userId: string,
-  data: Partial<Omit<Prisma.BodyMetricUncheckedCreateInput, 'userId'>> = {},
+  data: Seed<T.BodyMetric, 'userId'> = {},
 ) {
   return db.bodyMetric.create({
     data: {key: 'waist', label: 'Waist', unit: 'cm', direction: 'down', ...data, userId},
   });
 }
 
+/** Ids of every metric the user tracks, for filtering their logs. */
+export async function metricIdsOf(db: TestDb, userId: string) {
+  return (await db.bodyMetric.findMany({where: {userId}})).map((metric) => metric.id);
+}
+
 export function seedBodyMetricLog(
-  db: PrismaClient,
+  db: TestDb,
   metricId: string,
   data: {value?: number; loggedAt?: Date} = {},
 ) {
   return db.bodyMetricLog.create({data: {value: 85, ...data, metricId}});
 }
 
-type GoalSeed = Partial<
-  Omit<Prisma.ExerciseGoalUncheckedCreateInput, 'userId' | 'daysMask'>
-> & {days?: number[]};
+type GoalSeed = Seed<T.ExerciseGoal, 'userId' | 'daysMask'> & {days?: number[]};
 
 /** Planned exercise; every day unless `days` is given. */
 export function seedExerciseGoal(
-  db: PrismaClient,
+  db: TestDb,
   userId: string,
   {days, ...data}: GoalSeed = {},
 ) {
@@ -150,9 +159,9 @@ export function seedExerciseGoal(
 }
 
 export function seedSavedFood(
-  db: PrismaClient,
+  db: TestDb,
   userId: string,
-  data: Partial<Omit<Prisma.SavedFoodItemUncheckedCreateInput, 'userId'>> = {},
+  data: Seed<T.SavedFoodItem, 'userId'> = {},
 ) {
   return db.savedFoodItem.create({
     data: {name: `Saved ${randomUUID().slice(0, 6)}`, calories: 100, ...data, userId},
@@ -160,11 +169,9 @@ export function seedSavedFood(
 }
 
 export function seedSavedExercise(
-  db: PrismaClient,
+  db: TestDb,
   userId: string,
-  data: Partial<
-    Omit<Prisma.SavedExerciseItemUncheckedCreateInput, 'userId'>
-  > = {},
+  data: Seed<T.SavedExerciseItem, 'userId'> = {},
 ) {
   return db.savedExerciseItem.create({
     data: {
@@ -178,7 +185,7 @@ export function seedSavedExercise(
 }
 
 export async function seedVerificationToken(
-  db: PrismaClient,
+  db: TestDb,
   email: string,
   {expires = new Date(Date.now() + 60 * 60 * 1000)}: {expires?: Date} = {},
 ) {
@@ -189,13 +196,11 @@ export async function seedVerificationToken(
   return token;
 }
 
-type WeeklyReportSeed = Partial<
-  Omit<Prisma.WeeklyReportUncheckedCreateInput, 'userId' | 'weekStart'>
-> & {weekStart: string};
+type WeeklyReportSeed = Seed<T.WeeklyReport, 'userId' | 'weekStart'> & {weekStart: string};
 
 /** A generated weekly report; JSON fields take plain values. */
 export function seedWeeklyReport(
-  db: PrismaClient,
+  db: TestDb,
   userId: string,
   {
     weekStart,

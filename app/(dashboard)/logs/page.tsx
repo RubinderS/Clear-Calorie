@@ -3,9 +3,11 @@ import {redirect} from 'next/navigation';
 import {format} from 'date-fns';
 import {authOptions} from '@/lib/auth-options';
 import {isAiEnabled} from '@/lib/ai';
-import {EXERCISE_LOG_INCLUDE} from '@/lib/exercise';
 import {getTodaysPlanStatus} from '@/lib/exercise-plan';
-import {prisma} from '@/lib/prisma';
+import {countLogsByMetric, listBodyMetricsWithLogs} from '@/lib/data/body-metrics';
+import {listExerciseLogs} from '@/lib/data/exercise-logs';
+import {listFoodLogs} from '@/lib/data/food-logs';
+import {listWeightLogs} from '@/lib/data/weight-logs';
 import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {TogglerNav} from '@/components/ui/toggler';
 import {FoodLog} from '@/components/food-log';
@@ -13,11 +15,7 @@ import {ExerciseLog} from '@/components/exercise-log';
 import {WeightLog} from '@/components/weight-log';
 import {BodyMetricLog} from '@/components/body-metric-log';
 import {BodyMetricsManager} from '@/components/body-metrics-manager';
-import {
-  METRIC_ORDER,
-  TRACKED_METRIC_SELECT,
-  toTrackedMetric,
-} from '@/lib/body-metrics';
+import {toTrackedMetric} from '@/lib/body-metrics';
 
 const TABS = [
   {id: 'food', label: 'Food'},
@@ -83,31 +81,24 @@ async function renderTab(
   manage: boolean,
 ) {
   if (tab === 'body') {
-    const [entries, metrics] = await Promise.all([
-      prisma.weightLog.findMany({
-        where: {userId},
-        orderBy: {loggedAt: 'desc'},
-        take: 30,
-      }),
-      prisma.bodyMetric.findMany({
-        where: {userId},
-        orderBy: [...METRIC_ORDER],
-        select: {
-          ...TRACKED_METRIC_SELECT,
-          archivedAt: true,
-          logs: {
-            orderBy: {loggedAt: 'desc'},
-            take: 30,
-            select: {id: true, value: true, loggedAt: true},
-          },
-          _count: {select: {logs: true}},
-        },
-      }),
+    const [entries, withLogs] = await Promise.all([
+      listWeightLogs(userId, {take: 30}),
+      listBodyMetricsWithLogs(userId, {takeEach: 30}),
     ]);
+    const metrics = withLogs.map(({logs, ...metric}) => ({
+      ...toTrackedMetric(metric),
+      archivedAt: metric.archivedAt,
+      logs: logs.map(({id, value, loggedAt}) => ({id, value, loggedAt})),
+    }));
     const active = metrics.filter((metric) => !metric.archivedAt);
-    const archived = metrics
-      .filter((metric) => metric.archivedAt)
-      .map(({_count, ...metric}) => ({...metric, logCount: _count.logs}));
+    const archivedMetrics = metrics.filter((metric) => metric.archivedAt);
+    const logCounts = await countLogsByMetric(
+      archivedMetrics.map((metric) => metric.id),
+    );
+    const archived = archivedMetrics.map((metric) => ({
+      ...metric,
+      logCount: logCounts.get(metric.id) ?? 0,
+    }));
     return (
       <div className="space-y-4">
         <div className="flex justify-end">
@@ -139,16 +130,11 @@ async function renderTab(
   }
 
   const {start: todayStart, end: todayEnd} = getTodayRange(timeZone);
-  const where = {userId, loggedAt: {gte: todayStart, lte: todayEnd}};
-  const orderBy = {loggedAt: 'desc'} as const;
+  const loggedAt = {gte: todayStart, lte: todayEnd};
   const today = format(toZoned(new Date(), timeZone), 'yyyy-MM-dd');
 
   if (tab === 'exercise') {
-    const entries = await prisma.exerciseLog.findMany({
-      where,
-      orderBy,
-      include: EXERCISE_LOG_INCLUDE,
-    });
+    const entries = await listExerciseLogs(userId, {loggedAt});
     const plannedExercises = await getTodaysPlanStatus(
       userId,
       timeZone,
@@ -164,7 +150,7 @@ async function renderTab(
     );
   }
 
-  const entries = await prisma.foodLog.findMany({where, orderBy});
+  const entries = await listFoodLogs(userId, {loggedAt});
   return (
     <FoodLog
       entries={entries}

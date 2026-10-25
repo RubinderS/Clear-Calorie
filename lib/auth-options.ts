@@ -1,6 +1,4 @@
 import Credentials from 'next-auth/providers/credentials';
-import {PrismaAdapter} from '@auth/prisma-adapter';
-import {prisma} from '@/lib/prisma';
 import {verifyPassword, getUserByEmail, normalizeEmail} from '@/lib/auth';
 import {z} from 'zod';
 import {NextAuthOptions} from 'next-auth';
@@ -11,7 +9,6 @@ const credentialsSchema = z.object({
 });
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET,
   session: {strategy: 'jwt'},
   pages: {

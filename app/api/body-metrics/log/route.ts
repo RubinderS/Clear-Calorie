@@ -2,7 +2,11 @@ import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
 import {authOptions} from '@/lib/auth-options';
 import {isValidMetricValue, metricLogSchema} from '@/lib/body-metrics';
-import {prisma} from '@/lib/prisma';
+import {
+  createBodyMetricLogs,
+  deleteBodyMetricLog,
+  findBodyMetrics,
+} from '@/lib/data/body-metrics';
 
 /** Logs values for one or more of the user's active metrics at once. */
 export async function POST(request: Request) {
@@ -18,13 +22,10 @@ export async function POST(request: Request) {
     }
     const {entries} = parsed.data;
 
-    const metrics = await prisma.bodyMetric.findMany({
-      where: {
-        id: {in: entries.map((entry) => entry.metricId)},
-        userId: session.user.id,
-      },
-      select: {id: true, key: true, archivedAt: true},
-    });
+    const metrics = await findBodyMetrics(
+      session.user.id,
+      entries.map((entry) => entry.metricId),
+    );
     const byId = new Map(metrics.map((metric) => [metric.id, metric]));
 
     for (const entry of entries) {
@@ -44,14 +45,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const loggedAt = new Date();
-    const logs = await prisma.$transaction(
-      entries.map((entry) =>
-        prisma.bodyMetricLog.create({
-          data: {metricId: entry.metricId, value: entry.value, loggedAt},
-        }),
-      ),
-    );
+    const logs = await createBodyMetricLogs(entries, new Date());
     return NextResponse.json(logs, {status: 201});
   } catch {
     return NextResponse.json(
@@ -72,11 +66,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({error: 'Entry ID is required'}, {status: 400});
   }
 
-  const result = await prisma.bodyMetricLog.deleteMany({
-    where: {id: entryId, metric: {userId: session.user.id}},
-  });
-
-  if (result.count === 0) {
+  if (!(await deleteBodyMetricLog(session.user.id, entryId))) {
     return NextResponse.json({error: 'Entry not found'}, {status: 404});
   }
 

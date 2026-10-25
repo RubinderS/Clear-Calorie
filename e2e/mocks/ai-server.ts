@@ -147,6 +147,11 @@ function handleChat(res: ServerResponse, messages: ChatMessage[]) {
         textChunks(result.error ?? `I've proposed ${result.proposed?.name} for you to confirm.`),
       );
     }
+    // Echoes what a food search found, so tests can check the matching.
+    if (scenario === 'chat-search' || scenario === 'chat-search-literal') {
+      const names = (result.entries ?? []).map((entry: {name: string}) => entry.name);
+      return respondStream(res, textChunks(result.error ?? `Found: ${names.sort().join(' | ')}`));
+    }
     const text =
       scenario === 'chat-propose'
         ? `I've proposed ${result.proposed?.name ?? 'nothing'} for you to confirm.`
@@ -158,6 +163,15 @@ function handleChat(res: ServerResponse, messages: ChatMessage[]) {
     return respondStream(
       res,
       toolCallChunks('call_totals', 'get_daily_totals', {}),
+    );
+  }
+  // Mixed case, and regex characters that must match literally.
+  if (scenario === 'chat-search' || scenario === 'chat-search-literal') {
+    return respondStream(
+      res,
+      toolCallChunks('call_search', 'get_food_logs', {
+        search: scenario === 'chat-search' ? 'chICKen' : '(1.5',
+      }),
     );
   }
   if (scenario === 'chat-propose') {

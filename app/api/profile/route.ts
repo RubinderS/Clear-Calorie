@@ -1,7 +1,8 @@
 import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
 import {authOptions} from '@/lib/auth-options';
-import {prisma} from '@/lib/prisma';
+import {upsertProfile} from '@/lib/data/profiles';
+import {createWeightLog, findLatestWeightLog} from '@/lib/data/weight-logs';
 import {getTodayDate, getUserTimeZone} from '@/lib/timezone';
 import {birthYearForAge, profileSchema} from '@/lib/tdee';
 
@@ -25,21 +26,11 @@ export async function POST(request: Request) {
     const currentYear = Number(getTodayDate(await getUserTimeZone()).slice(0, 4));
     const data = {...fields, birthYear: birthYearForAge(age, currentYear)};
 
-    const latest = await prisma.weightLog.findFirst({
-      where: {userId},
-      orderBy: {loggedAt: 'desc'},
-      select: {weight: true},
-    });
-    const [profile] = await prisma.$transaction([
-      prisma.profile.upsert({
-        where: {userId},
-        update: data,
-        create: {...data, userId},
-      }),
-      ...(latest?.weight === weightKg
-        ? []
-        : [prisma.weightLog.create({data: {userId, weight: weightKg}})]),
-    ]);
+    const latest = await findLatestWeightLog(userId);
+    const profile = await upsertProfile(userId, data);
+    if (latest?.weight !== weightKg) {
+      await createWeightLog(userId, weightKg);
+    }
 
     return NextResponse.json(profile);
   } catch {

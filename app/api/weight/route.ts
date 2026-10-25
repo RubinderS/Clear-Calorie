@@ -1,7 +1,7 @@
 import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
 import {authOptions} from '@/lib/auth-options';
-import {prisma} from '@/lib/prisma';
+import {deleteWeightLog} from '@/lib/data/weight-logs';
 import {createWeightLog, weightSchema} from '@/lib/weight';
 
 export async function POST(request: Request) {
@@ -37,11 +37,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({error: 'Entry ID is required'}, {status: 400});
   }
 
-  const result = await prisma.weightLog.deleteMany({
-    where: {id: entryId, userId: session.user.id},
-  });
-
-  if (result.count === 0) {
+  if (!(await deleteWeightLog(session.user.id, entryId))) {
     return NextResponse.json({error: 'Entry not found'}, {status: 404});
   }
 
