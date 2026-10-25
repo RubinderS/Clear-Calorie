@@ -38,6 +38,7 @@ import runningMan from './running-man.json';
 import shadowBoxing from './shadow-boxing.json';
 import slidingLegCurl from './sliding-leg-curl.json';
 import standingHamstringCurl from './standing-hamstring-curl.json';
+import wallSit from './wall-sit.json';
 
 /**
  * Every built-in exercise. To add one, follow docs/exercise-animations.md:
@@ -292,5 +293,12 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     type: 'TIME',
     aliases: ['shadowboxing', 'shadow box', 'boxing', 'jab cross', 'air boxing'],
     areas: {primary: ['cardio', 'shoulders'], secondary: ['core', 'triceps']},
+  },
+  {
+    config: wallSit,
+    // A hold, done for time; the animation marks each step of the hold.
+    type: 'TIME',
+    aliases: ['wall sits', 'wall squat', 'wall squat hold', 'wall chair', 'chair pose against wall', 'wall sitting'],
+    areas: {primary: ['quads', 'glutes'], secondary: ['hamstrings', 'calves', 'core']},
   },
 ];

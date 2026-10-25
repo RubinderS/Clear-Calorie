@@ -15,6 +15,7 @@ const COLOURS = {
   frame: '#5F5E5A',
   band: '#D85A30',
   slider: '#B4B2A9',
+  wall: '#D3D1C7',
 };
 
 const Y = new THREE.Vector3(0, 1, 0);
@@ -165,6 +166,13 @@ export function post(kit: Kit, anchor: THREE.Vector3) {
   knot.position.copy(anchor);
   group.add(pole, foot, knot);
   return {object: group};
+}
+
+/** A wall standing on the floor, `width` across, centred at `centre`, its face towards +x. */
+export function wall(kit: Kit, {centre, height, width, thickness}: {centre: THREE.Vector3; height: number; width: number; thickness: number}) {
+  const slab = box(kit, [thickness, height, width], COLOURS.wall);
+  slab.position.copy(centre);
+  return {object: slab};
 }
 
 /** A stretch of resistance band between two points. */

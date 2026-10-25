@@ -45,6 +45,7 @@ import * as plankJack from '@/components/exercise-animations/3d/poses/plank-jack
 import * as climber from '@/components/exercise-animations/3d/poses/mountain-climber';
 import * as runningMan from '@/components/exercise-animations/3d/poses/running-man';
 import * as boxing from '@/components/exercise-animations/3d/poses/shadow-boxing';
+import * as wallSit from '@/components/exercise-animations/3d/poses/wall-sit';
 import * as benchMoves from '@/components/exercise-animations/3d/moves/bench';
 import * as hanging from '@/components/exercise-animations/3d/moves/hanging';
 import * as hinge from '@/components/exercise-animations/3d/moves/hinge';
@@ -328,6 +329,11 @@ const EXPECT: Record<string, Expect> = {
     // Elbows down, tucked under the punches.
     elbow: () => Y.clone().negate(),
     planted: (s) => [...plantedFeet(s), s.hip],
+  },
+  'wall-sit': {
+    elbow: () => Y.clone().negate(),
+    // A hold: nothing moves.
+    planted: joints,
   },
 };
 const NATIVE = Object.keys(EXPECT);
@@ -1256,6 +1262,29 @@ test('plank: forearms flat, elbows under the shoulders, heels to head in one lin
   assert.ok(plank.BODY_DEG > 8 && plank.BODY_DEG < 20, `body at ${plank.BODY_DEG.toFixed(1)}°`);
   // A hold: every phase stays at the start pose.
   const entry = exerciseCatalog.get('plank')!;
+  assert.equal(entry.type, 'TIME');
+  assert.ok(entry.phases.every((phase) => phase.from === 0 && phase.to === 0));
+});
+
+test('wall sit: shins upright, thighs level, back and head against the wall, arms straight out ahead', () => {
+  const s = wallSit.wallSitPose();
+  for (const side of SIDES) {
+    const {hip, knee, ankle} = s.legs[side];
+    assert.ok(close(jointAngle(hip, knee, ankle), 90, 1), `${side} knee at ${jointAngle(hip, knee, ankle).toFixed(2)}°`);
+    assert.ok(close(knee.x, ankle.x, 0.02), `${side} knee over the ankle`);
+    assert.ok(close(hip.y, knee.y, 0.02), `${side} thigh level`);
+    assert.ok(close(ankle.y, FOOT.ankle, 1e-9), `${side} foot on the floor`);
+    // Arms out at shoulder height, nearly straight, never resting on the thighs.
+    assert.ok(elbowAngle(s, side) > 150, `${side} arm straight: ${elbowAngle(s, side).toFixed(1)}°`);
+    assert.ok(close(s.arms[side].wrist.y, s.arms[side].shoulder.y, 1e-9), `${side} hand at shoulder height`);
+  }
+  // Sitting back on the wall: the torso a touch past upright, the hips and shoulders close to it.
+  const lean = THREE.MathUtils.radToDeg(Math.atan2(-up(s).x, up(s).y));
+  assert.ok(lean >= 0 && lean <= 10, `torso tipped back ${lean.toFixed(1)}°`);
+  for (const p of [s.hip, s.shoulder]) assert.ok(p.x - wallSit.WALL_X < 0.5, 'off the wall');
+  assert.ok(s.head.x - wallSit.WALL_X < 0.4, 'head off the wall');
+  // A hold: every phase stays at the start pose.
+  const entry = exerciseCatalog.get('wall-sit')!;
   assert.equal(entry.type, 'TIME');
   assert.ok(entry.phases.every((phase) => phase.from === 0 && phase.to === 0));
 });

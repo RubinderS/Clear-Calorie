@@ -53,4 +53,5 @@ export const EXERCISE_ANIMATIONS: Record<
   'shadow-boxing': () => scene3D('shadow-boxing'),
   'sliding-leg-curl': () => scene3D('sliding-leg-curl'),
   'standing-hamstring-curl': () => scene3D('standing-hamstring-curl'),
+  'wall-sit': () => scene3D('wall-sit'),
 };

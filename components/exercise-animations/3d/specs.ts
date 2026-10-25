@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type {ExerciseScene} from '@/lib/exercise-animation';
-import {band, barbell, dumbbell, flatBench, inclineBench, post, pullUpBar, slider} from './equipment-3d';
+import {band, barbell, dumbbell, flatBench, inclineBench, post, pullUpBar, slider, wall} from './equipment-3d';
 import {FLAT_BENCH} from './moves/bench';
 import * as hanging from './moves/hanging';
 import * as facePull from './poses/band-face-pull';
@@ -42,6 +42,7 @@ import * as runningMan from './poses/running-man';
 import * as shadowBoxing from './poses/shadow-boxing';
 import * as legCurl from './poses/sliding-leg-curl';
 import * as hamstringCurl from './poses/standing-hamstring-curl';
+import * as wallSit from './poses/wall-sit';
 import {X, Y, Z, type Body} from './rig';
 import {scene3D, type Spec3D} from './scene-3d';
 
@@ -334,6 +335,13 @@ export const SPECS: Record<string, Spec3D> = {
   'standing-hamstring-curl': {
     pose: hamstringCurl.pose,
     camera: {aspect: 360 / 400},
+  },
+  'wall-sit': {
+    pose: wallSit.pose,
+    equipment: (kit, parent) => {
+      parent.add(wall(kit, {centre: wallSit.WALL_CENTRE, ...wallSit.WALL}).object);
+    },
+    camera: {aspect: 380 / 360},
   },
 };
 

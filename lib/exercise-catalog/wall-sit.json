@@ -1,0 +1,25 @@
+{
+  "id": "wall-sit",
+  "name": "Wall sit",
+  "view": "side",
+  "equipment": [],
+  "phases": [
+    {"name": "set", "durationMs": 1500, "from": 0, "to": 0, "cue": "Back flat on the wall, slide down"},
+    {"name": "sit", "durationMs": 1500, "from": 0, "to": 0, "cue": "Thighs level, knees over your ankles"},
+    {"name": "breathe", "durationMs": 1500, "from": 0, "to": 0, "cue": "Press your back into the wall and breathe steadily"}
+  ],
+  "formTips": [
+    "Stand with your back against a wall and your feet about hip-width apart, a step out from it",
+    "Slide down until your thighs are level with the floor and your knees are bent at 90°",
+    "Keep your knees right over your ankles, not past your toes",
+    "Press your lower back, upper back and head flat against the wall",
+    "Keep your weight in your heels and breathe steadily for the whole hold"
+  ],
+  "commonMistakes": [
+    "Feet too close to the wall, so the knees drift past the toes",
+    "Sitting too high, with the thighs well above level",
+    "Resting your hands on your thighs to push yourself up",
+    "Letting the knees cave in towards each other",
+    "Holding your breath"
+  ]
+}
