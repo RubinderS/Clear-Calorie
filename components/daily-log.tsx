@@ -11,7 +11,13 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {Button} from '@/components/ui/button';
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {cn} from '@/lib/utils';
 
 export type DailyLogEntry = {
@@ -122,6 +128,8 @@ type DailyLogCardProps<T extends DailyLogEntry> = {
   log: DailyLog<T>;
   timeZone: string;
   todayTitle: string;
+  /** Shown under the title, e.g. a rolling average. */
+  description?: ReactNode;
   dateInputLabel: string;
   summary?: ReactNode;
   loadingText: string;
@@ -139,6 +147,7 @@ export function DailyLogCard<T extends DailyLogEntry>({
   log,
   timeZone,
   todayTitle,
+  description,
   dateInputLabel,
   summary,
   loadingText,
@@ -164,13 +173,16 @@ export function DailyLogCard<T extends DailyLogEntry>({
   return (
     <Card>
       <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center justify-between gap-3 sm:justify-start">
-          <CardTitle>
-            {isToday
-              ? todayTitle
-              : format(parseISO(selectedDate), 'MMMM d, yyyy')}
-          </CardTitle>
-          {action}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-3 sm:justify-start">
+            <CardTitle>
+              {isToday
+                ? todayTitle
+                : format(parseISO(selectedDate), 'MMMM d, yyyy')}
+            </CardTitle>
+            {action}
+          </div>
+          {description && <CardDescription>{description}</CardDescription>}
         </div>
         <div className="flex w-full items-center justify-between gap-1 sm:w-auto">
           <Button

@@ -451,15 +451,13 @@ export function animationSync(
   const step = state.steps[state.index];
   const elapsed = elapsedMs(state.timer, now);
   const playing = isRunning(state.timer);
-  // A sequence's break shows the exercise coming next moving, as a preview.
-  if (!state.done && step.kind === 'rest' && step.next) {
-    return {key: `free:${state.index}:${playing}`, message: {cmd: 'free', playing}};
-  }
-  if (state.done || step.kind === 'rest') {
+  if (state.done) {
     return {key: `pose:${state.index}`, message: {cmd: 'pose'}};
   }
-  // Timed work has no reps, so the animation keeps its own tempo.
-  if (step.kind === 'work') {
+  // Rests keep it moving at its own tempo, as a reminder of the form; a
+  // sequence's break shows the exercise coming next. Timed work has no reps,
+  // so it keeps its own tempo too.
+  if (step.kind === 'rest' || step.kind === 'work') {
     return {key: `free:${state.index}:${playing}`, message: {cmd: 'free', playing}};
   }
   // Negative during the count-in, so those beats count down to rep 0.

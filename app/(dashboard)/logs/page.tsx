@@ -1,6 +1,6 @@
 import {getServerSession} from 'next-auth/next';
 import {redirect} from 'next/navigation';
-import {format} from 'date-fns';
+import {format, subDays} from 'date-fns';
 import {authOptions} from '@/lib/auth-options';
 import {isAiEnabled} from '@/lib/ai';
 import {getTodaysPlanStatus} from '@/lib/exercise-plan';
@@ -15,7 +15,11 @@ import {ExerciseLog} from '@/components/exercise-log';
 import {WeightLog} from '@/components/weight-log';
 import {BodyMetricLog} from '@/components/body-metric-log';
 import {BodyMetricsManager} from '@/components/body-metrics-manager';
-import {toTrackedMetric} from '@/lib/body-metrics';
+import {
+  ROLLING_AVERAGE_DAYS,
+  dailyRollingAverages,
+  toTrackedMetric,
+} from '@/lib/body-metrics';
 
 const TABS = [
   {id: 'food', label: 'Food'},
@@ -150,10 +154,24 @@ async function renderTab(
     );
   }
 
-  const entries = await listFoodLogs(userId, {loggedAt});
+  const [entries, recent] = await Promise.all([
+    listFoodLogs(userId, {loggedAt}),
+    // Two weeks before today for the 7-day average and its change.
+    listFoodLogs(userId, {
+      loggedAt: {gte: subDays(todayStart, 2 * ROLLING_AVERAGE_DAYS), lt: todayStart},
+    }),
+  ]);
+  const calorieAverage = dailyRollingAverages(
+    recent.map((entry) => ({
+      value: entry.calories,
+      date: format(toZoned(entry.loggedAt, timeZone), 'yyyy-MM-dd'),
+    })),
+    today,
+  );
   return (
     <FoodLog
       entries={entries}
+      calorieAverage={calorieAverage}
       timeZone={timeZone}
       today={today}
       aiEnabled={isAiEnabled()}

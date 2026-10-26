@@ -217,10 +217,9 @@ export function TodaysExercisePlan({
   return (
     <Card>
       <CardHeader className="pr-14">
-        <CardTitle>Today&apos;s plan</CardTitle>
+        <CardTitle>{focus ?? "Today's plan"}</CardTitle>
         {goals.length > 0 && (
           <CardDescription>
-            {focus && `${focus} · `}
             {doneCount} of {goals.length} done
           </CardDescription>
         )}

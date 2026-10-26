@@ -197,6 +197,8 @@ export type Goal = {
   fatGoal: number;
   saturatedFatGoal: number;
   healthNotes: string | null;
+  // Likes, dislikes and diet, e.g. "vegetarian, no mushrooms"; used by the AI coach
+  foodPreferences: string | null;
 };
 
 // Details for maintenance calories (lib/tdee.ts). Weight comes from weigh-ins.

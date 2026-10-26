@@ -77,7 +77,11 @@ export async function getReportGoals(userId: string) {
     fatGoal: goal?.fatGoal ?? 70,
     saturatedFatGoal: goal?.saturatedFatGoal ?? 20,
   };
-  return {goals, healthNotes: goal?.healthNotes?.trim() || null};
+  return {
+    goals,
+    healthNotes: goal?.healthNotes?.trim() || null,
+    foodPreferences: goal?.foodPreferences?.trim() || null,
+  };
 }
 
 /** Loads the logs for consecutive user-local dates into report input; also used by chat tools. */
@@ -298,6 +302,8 @@ export type WeeklyReportPrompt = {
   week: {start: string; end: string};
   goals: ReportGoals;
   healthNotes: string | null;
+  /** Likes, dislikes and diet, for food suggestions. */
+  foodPreferences: string | null;
   metrics: WeekMetrics & {planAdherencePercent: number | null};
   days: DayBreakdown[];
   topIssues: TopIssue[];
@@ -337,7 +343,7 @@ export async function generateWeeklyReport(
   const today = getTodayDate(timeZone);
   const elapsed = dates.filter((date) => date <= today);
   if (elapsed.length === 0) return 'no-data';
-  const {goals, healthNotes} = await getReportGoals(userId);
+  const {goals, healthNotes, foodPreferences} = await getReportGoals(userId);
   const {input, start, end, previousStart} = await loadWeekInput(
     userId,
     elapsed,
@@ -383,6 +389,7 @@ export async function generateWeeklyReport(
     week: {start: dates[0], end: dates[6]},
     goals,
     healthNotes,
+    foodPreferences,
     metrics: {...metrics, planAdherencePercent: planAdherence(metrics)},
     days: dailyBreakdown,
     topIssues,

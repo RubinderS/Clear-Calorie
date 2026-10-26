@@ -20,6 +20,8 @@ interface CalorieTotals {
 interface ExerciseTotals {
   done: number;
   total: number;
+  /** What today's plan works, e.g. "Chest day"; null when it can't tell. */
+  focus?: string | null;
 }
 
 interface NutritionProgressProps {
@@ -100,7 +102,7 @@ function CalorieSummary({eaten, goal}: CalorieTotals) {
   );
 }
 
-function ExerciseSummary({done, total}: ExerciseTotals) {
+function ExerciseSummary({done, total, focus}: ExerciseTotals) {
   const hasGoals = total > 0;
 
   return (
@@ -128,7 +130,7 @@ function ExerciseSummary({done, total}: ExerciseTotals) {
       </div>
       <div>
         <p className="text-sm font-medium">Exercise</p>
-        <p className="text-xs text-muted-foreground">Today&apos;s plan</p>
+        <p className="text-xs text-muted-foreground">{focus ?? "Today's plan"}</p>
       </div>
     </div>
   );

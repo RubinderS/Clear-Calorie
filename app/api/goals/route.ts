@@ -4,19 +4,22 @@ import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {upsertGoals} from '@/lib/data/goals';
 
+const notes = z
+  .string()
+  .trim()
+  .max(500)
+  .nullable()
+  .optional()
+  .transform((value) => (value === '' ? null : value));
+
 const goalsSchema = z.object({
   calorieGoal: z.number().int().min(0).optional(),
   proteinGoal: z.number().int().min(0).optional(),
   carbsGoal: z.number().int().min(0).optional(),
   fatGoal: z.number().int().min(0).optional(),
   saturatedFatGoal: z.number().int().min(0).optional(),
-  healthNotes: z
-    .string()
-    .trim()
-    .max(500)
-    .nullable()
-    .optional()
-    .transform((value) => (value === '' ? null : value)),
+  healthNotes: notes,
+  foodPreferences: notes,
 });
 
 export async function POST(request: Request) {

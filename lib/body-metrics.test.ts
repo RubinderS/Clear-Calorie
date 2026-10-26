@@ -4,6 +4,7 @@ import {
   canConvertUnit,
   changeTone,
   convertUnitValue,
+  dailyRollingAverages,
   formatMetricChange,
   formatMetricValue,
   isValidMetricValue,
@@ -112,6 +113,27 @@ test('rolling averages cover the last seven days and the seven before', () => {
     prevAvg: 85,
   });
   assert.deepEqual(rollingAverages([], todayStart), {avg: null, prevAvg: null});
+});
+
+test('daily rolling averages sum each day and skip today and untracked days', () => {
+  const entries = [
+    {date: '2026-10-19', value: 500}, // today, still being logged
+    {date: '2026-10-18', value: 1200},
+    {date: '2026-10-18', value: 800}, // same day: 2000
+    {date: '2026-10-12', value: 1800}, // first day of this window
+    // 2026-10-13 to 17 have nothing logged and don't count
+    {date: '2026-10-11', value: 2200}, // last day of the previous window
+    {date: '2026-10-05', value: 2400},
+    {date: '2026-10-04', value: 9000}, // older, ignored
+  ];
+  assert.deepEqual(dailyRollingAverages(entries, '2026-10-19'), {
+    avg: 1900,
+    prevAvg: 2300,
+  });
+  assert.deepEqual(dailyRollingAverages(entries.slice(0, 1), '2026-10-19'), {
+    avg: null,
+    prevAvg: null,
+  });
 });
 
 test('rolling averages and their change use decimal arithmetic', () => {

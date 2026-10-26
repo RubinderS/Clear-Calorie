@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {AlertTriangle, Utensils} from 'lucide-react';
 import {DailyLogCard, useDailyLog} from '@/components/daily-log';
 import {AddLogButton} from '@/components/quick-log';
+import {RollingAverage} from '@/components/rolling-average';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
 import {Input} from '@/components/ui/input';
@@ -26,6 +27,8 @@ type FoodEntry = {
 
 type FoodLogProps = {
   entries: FoodEntry[];
+  /** Daily calories over the last 7 days before today, and the 7 before. */
+  calorieAverage: {avg: number | null; prevAvg: number | null};
   timeZone: string;
   today: string;
   aiEnabled?: boolean;
@@ -36,7 +39,13 @@ const alertColor = (level?: string | null) =>
     ? 'text-red-600 dark:text-red-400'
     : 'text-amber-600 dark:text-amber-400';
 
-export function FoodLog({entries, timeZone, today, aiEnabled}: FoodLogProps) {
+export function FoodLog({
+  entries,
+  calorieAverage,
+  timeZone,
+  today,
+  aiEnabled,
+}: FoodLogProps) {
   const log = useDailyLog({
     endpoint: '/api/food',
     initialEntries: entries,
@@ -52,6 +61,16 @@ export function FoodLog({entries, timeZone, today, aiEnabled}: FoodLogProps) {
         log={log}
         timeZone={timeZone}
         todayTitle="Today's entries"
+        description={
+          calorieAverage.avg !== null && (
+            <RollingAverage
+              avg={calorieAverage.avg}
+              prevAvg={calorieAverage.prevAvg}
+              unit="kcal"
+              decimals={0}
+            />
+          )
+        }
         dateInputLabel="View food logs for date"
         summary={`${totalCalories} calories`}
         loadingText="Loading entries..."

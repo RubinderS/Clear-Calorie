@@ -37,9 +37,12 @@ import {Button} from '@/components/ui/button';
 import {formatWeekRange} from '@/components/weekly-report';
 import {Decimal, sumNumbers} from '@/lib/decimal';
 import {getPlannedCounts, getTodaysPlanStatus} from '@/lib/exercise-plan';
+import {dayFocus} from '@/lib/day-focus';
+import {goalCatalogIds} from '@/lib/exercise';
 import {isAiEnabled} from '@/lib/ai';
 import {
   ROLLING_AVERAGE_DAYS,
+  dailyRollingAverages,
   rollingAverages,
   toTrackedMetric,
 } from '@/lib/body-metrics';
@@ -76,8 +79,9 @@ export default async function DashboardPage() {
     listWeightLogs(userId, {
       loggedAt: {gte: subDays(todayStart, 2 * ROLLING_AVERAGE_DAYS - 1)},
     }),
+    // Two weeks before today for the 7-day average and its change.
     listFoodLogs(userId, {
-      loggedAt: {gte: subDays(todayStart, 6), lte: todayEnd},
+      loggedAt: {gte: subDays(todayStart, 2 * ROLLING_AVERAGE_DAYS), lte: todayEnd},
       order: 'asc',
     }),
     listExerciseLogs(userId, {
@@ -146,16 +150,21 @@ export default async function DashboardPage() {
   for (const date of weekDates) {
     weekMap.set(date, {calories: new Decimal(0), protein: new Decimal(0)});
   }
-  for (const item of weekFood) {
-    const date = format(toZoned(item.loggedAt, timeZone), 'yyyy-MM-dd');
-    const totals = weekMap.get(date) ?? {
-      calories: new Decimal(0),
-      protein: new Decimal(0),
-    };
+  const foodDays = weekFood.map((item) => ({
+    ...item,
+    date: format(toZoned(item.loggedAt, timeZone), 'yyyy-MM-dd'),
+  }));
+  for (const item of foodDays) {
+    const totals = weekMap.get(item.date);
+    // Older days are only for the average.
+    if (!totals) continue;
     totals.calories = totals.calories.plus(item.calories);
     totals.protein = totals.protein.plus(item.protein);
-    weekMap.set(date, totals);
   }
+  const calorieAverage = dailyRollingAverages(
+    foodDays.map(({calories, date}) => ({value: calories, date})),
+    today,
+  );
   // parseISO keeps date-only keys at local midnight; new Date() would read them as UTC.
   const caloriesData = Array.from(weekMap.entries()).map(([date, totals]) => ({
     date: format(parseISO(date), 'MMM dd'),
@@ -235,6 +244,7 @@ export default async function DashboardPage() {
             exercise={{
               done: todaysExerciseGoals.filter((goal) => goal.completed).length,
               total: todaysExerciseGoals.length,
+              focus: dayFocus(todaysExerciseGoals.map(goalCatalogIds)),
             }}
             macros={macroItems}
             limits={limitItems}
@@ -253,7 +263,16 @@ export default async function DashboardPage() {
           <CardHeader>
             <CardTitle>Calories this week</CardTitle>
             <CardDescription>
-              Your daily calorie intake over the last 7 days
+              {calorieAverage.avg === null ? (
+                'Your daily calorie intake over the last 7 days'
+              ) : (
+                <RollingAverage
+                  avg={calorieAverage.avg}
+                  prevAvg={calorieAverage.prevAvg}
+                  unit="kcal"
+                  decimals={0}
+                />
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>

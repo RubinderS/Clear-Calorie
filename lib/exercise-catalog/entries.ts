@@ -15,6 +15,7 @@ import dumbbellCalfRaise from './dumbbell-calf-raise.json';
 import dumbbellCurl from './dumbbell-curl.json';
 import dumbbellFly from './dumbbell-fly.json';
 import dumbbellLateralRaise from './dumbbell-lateral-raise.json';
+import dumbbellOverheadTricepsExtension from './dumbbell-overhead-triceps-extension.json';
 import dumbbellRomanianDeadlift from './dumbbell-romanian-deadlift.json';
 import dumbbellShoulderPress from './dumbbell-shoulder-press.json';
 import dumbbellWalkingLunge from './dumbbell-walking-lunge.json';
@@ -171,6 +172,21 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     type: 'STRENGTH',
     aliases: ['band overhead triceps extension', 'band tricep extension', 'overhead band triceps extension', 'single-arm band triceps extension'],
     areas: {primary: ['triceps'], secondary: []},
+  },
+  {
+    config: dumbbellOverheadTricepsExtension,
+    type: 'STRENGTH',
+    aliases: [
+      'overhead dumbbell triceps extension',
+      'overhead dumbbell tricep extension',
+      'dumbbell overhead tricep extension',
+      'overhead triceps extension',
+      'overhead tricep extension',
+      'seated overhead triceps extension',
+      'two-hand dumbbell triceps extension',
+      'dumbbell french press',
+    ],
+    areas: {primary: ['triceps'], secondary: ['core']},
   },
   {
     config: barbellSquat,

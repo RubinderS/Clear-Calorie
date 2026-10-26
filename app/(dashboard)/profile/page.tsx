@@ -13,6 +13,7 @@ import {ageFromBirthYear} from '@/lib/tdee';
 import {ProfileForm} from '@/components/profile-form';
 import {MaintenanceSummary} from '@/components/maintenance-summary';
 import {FoodGoalsForm} from '@/components/food-goals-form';
+import {FoodPreferencesForm} from '@/components/food-preferences-form';
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
@@ -33,7 +34,8 @@ export default async function ProfilePage() {
     loadProfileSummary(userId, timeZone, yesterday, new Date()),
   ]);
 
-  const foodGoalsForm = <FoodGoalsForm goals={goal} aiEnabled={isAiEnabled()} />;
+  const aiEnabled = isAiEnabled();
+  const foodGoalsForm = <FoodGoalsForm goals={goal} aiEnabled={aiEnabled} />;
   const profileForm = (
     <ProfileForm
       defaults={{
@@ -75,7 +77,13 @@ export default async function ProfilePage() {
             {foodGoalsForm}
           </div>
         )}
-        {profileForm}
+        <div className="space-y-6">
+          {profileForm}
+          {/* Only the AI coach and weekly report use them. */}
+          {aiEnabled && (
+            <FoodPreferencesForm foodPreferences={goal?.foodPreferences ?? null} />
+          )}
+        </div>
         {!summary && foodGoalsForm}
       </div>
     </div>

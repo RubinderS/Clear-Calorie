@@ -188,14 +188,14 @@ const PLAN_PROPOSAL_RESULT =
 export const TOOLS = {
   get_profile_and_goals: defineTool({
     description:
-      "The user's daily food goals (calories, protein, carbs, fat, saturated fat), health notes, and profile: fitness goal, body stats, maintenance calories and the suggested daily calories and protein for their goal.",
+      "The user's daily food goals (calories, protein, carbs, fat, saturated fat), health notes, food preferences, and profile: fitness goal, body stats, maintenance calories and the suggested daily calories and protein for their goal.",
     status: 'Checking your goals and profile',
     schema: z.object({}),
     parameters: {type: 'object', properties: {}},
     async run(_args, {userId, timeZone}) {
       const today = getTodayDate(timeZone);
       const yesterday = format(subDays(parseISO(today), 1), 'yyyy-MM-dd');
-      const [{goals, healthNotes}, profile] = await Promise.all([
+      const [{goals, healthNotes, foodPreferences}, profile] = await Promise.all([
         getReportGoals(userId),
         loadProfileSummary(userId, timeZone, yesterday, new Date()),
       ]);
@@ -203,6 +203,7 @@ export const TOOLS = {
         result: {
           dailyGoals: goals,
           healthNotes,
+          foodPreferences,
           profile: profile ?? 'No profile filled in (or no weigh-ins yet).',
         },
       };

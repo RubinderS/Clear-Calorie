@@ -123,7 +123,7 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
   '/dashboard': "the dashboard, showing today's food, exercise, weight and progress",
   '/logs': 'the logs page, with food, exercise and body measurement history',
   '/exercise-plan': 'the exercise plan page, with weekly planned exercises',
-  '/profile': 'the profile page, with body stats, maintenance calories, daily calorie and macro goals and health notes',
+  '/profile': 'the profile page, with body stats, maintenance calories, daily calorie and macro goals, health notes and food preferences',
   '/reports': 'the weekly reports page',
 };
 

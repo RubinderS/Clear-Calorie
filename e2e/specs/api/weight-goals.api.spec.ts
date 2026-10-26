@@ -87,6 +87,19 @@ test.describe('Goals API', () => {
     ).toBeNull();
   });
 
+  test('GA-02 food preferences are saved without touching health notes', async ({api, db, user}) => {
+    await api.post('/api/goals', {data: {healthNotes: 'High LDL'}});
+    await api.post('/api/goals', {data: {foodPreferences: '  Vegetarian, no mushrooms '}});
+    expect(await db.goal.findUnique({where: {userId: user.id}})).toMatchObject({
+      healthNotes: 'High LDL',
+      foodPreferences: 'Vegetarian, no mushrooms',
+    });
+    await api.post('/api/goals', {data: {foodPreferences: ''}});
+    expect(
+      (await db.goal.findUnique({where: {userId: user.id}}))?.foodPreferences,
+    ).toBeNull();
+  });
+
   for (const [label, data] of [
     ['decimal', {calorieGoal: 1800.5}],
     ['negative', {fatGoal: -1}],

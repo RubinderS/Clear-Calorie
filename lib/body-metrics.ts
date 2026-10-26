@@ -1,6 +1,12 @@
-import {subDays} from 'date-fns';
+import {format, parseISO, subDays} from 'date-fns';
 import {z} from 'zod';
-import {averageNumbers, Decimal, roundNumber, subtractNumbers} from './decimal';
+import {
+  averageNumbers,
+  Decimal,
+  roundNumber,
+  subtractNumbers,
+  sumNumbers,
+} from './decimal';
 
 // Optional body measurements beyond weight. Presets give common ones a stable
 // key so reports and the AI know what they mean; users can also add their own
@@ -248,6 +254,31 @@ export function rollingAverages(
   for (const {value, loggedAt} of entries) {
     if (loggedAt >= start) current.push(value);
     else if (loggedAt >= prevStart) previous.push(value);
+  }
+  return {avg: averageNumbers(current), prevAvg: averageNumbers(previous)};
+}
+
+/**
+ * Average daily total of entries over the seven days before `today`, beside
+ * the seven days before those. Today is left out since it's still being
+ * logged, and only days with entries count: a day with nothing logged wasn't
+ * tracked, not zero. Dates are user-local yyyy-MM-dd.
+ */
+export function dailyRollingAverages(
+  entries: {value: number; date: string}[],
+  today: string,
+): {avg: number | null; prevAvg: number | null} {
+  const start = format(subDays(parseISO(today), ROLLING_AVERAGE_DAYS), 'yyyy-MM-dd');
+  const prevStart = format(subDays(parseISO(start), ROLLING_AVERAGE_DAYS), 'yyyy-MM-dd');
+  const totals = new Map<string, number[]>();
+  for (const {value, date} of entries) {
+    if (date < prevStart || date >= today) continue;
+    totals.set(date, [...(totals.get(date) ?? []), value]);
+  }
+  const current: number[] = [];
+  const previous: number[] = [];
+  for (const [date, values] of totals) {
+    (date >= start ? current : previous).push(sumNumbers(values));
   }
   return {avg: averageNumbers(current), prevAvg: averageNumbers(previous)};
 }

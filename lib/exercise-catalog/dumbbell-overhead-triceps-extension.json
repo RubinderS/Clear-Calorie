@@ -1,0 +1,25 @@
+{
+  "id": "dumbbell-overhead-triceps-extension",
+  "name": "Dumbbell overhead triceps extension",
+  "view": "side",
+  "equipment": ["dumbbell"],
+  "phases": [
+    {"name": "extend", "durationMs": 1200, "from": 0, "to": 1, "cue": "Straighten your arms overhead"},
+    {"name": "squeeze", "durationMs": 400, "from": 1, "to": 1, "cue": "Squeeze your triceps at the top"},
+    {"name": "lower", "durationMs": 2000, "from": 1, "to": 0, "cue": "Lower the dumbbell behind your head"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Elbows up, pointing at the ceiling"}
+  ],
+  "formTips": [
+    "Hold one dumbbell upright with both hands, palms up under the top plate",
+    "Keep your elbows pointing up, close beside your head",
+    "Only your forearms move: lower the dumbbell behind your neck, then straighten your arms",
+    "Brace your core and keep your ribs down",
+    "Lower slowly and stop when your forearms touch your biceps"
+  ],
+  "commonMistakes": [
+    "Letting the elbows flare out wide",
+    "Arching the lower back to push the weight up",
+    "Moving the upper arms instead of just the forearms",
+    "Dropping the dumbbell fast behind the head"
+  ]
+}

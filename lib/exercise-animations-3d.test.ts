@@ -22,6 +22,7 @@ import * as calfRaise from '@/components/exercise-animations/3d/poses/dumbbell-c
 import * as curl from '@/components/exercise-animations/3d/poses/dumbbell-curl';
 import * as fly from '@/components/exercise-animations/3d/poses/dumbbell-fly';
 import * as lateralRaise from '@/components/exercise-animations/3d/poses/dumbbell-lateral-raise';
+import * as overheadExtension from '@/components/exercise-animations/3d/poses/dumbbell-overhead-triceps-extension';
 import * as press from '@/components/exercise-animations/3d/poses/dumbbell-shoulder-press';
 import * as lunge from '@/components/exercise-animations/3d/poses/dumbbell-walking-lunge';
 import * as wristCurl from '@/components/exercise-animations/3d/poses/dumbbell-wrist-curl';
@@ -223,6 +224,11 @@ const EXPECT: Record<string, Expect> = {
     // The working elbow points up; the other arm hangs.
     elbow: (_, side) => (side === 'left' ? unit(1, 1, 0) : backAndDown),
     planted: (s) => [...standingStill(s), s.arms.left.elbow],
+  },
+  'dumbbell-overhead-triceps-extension': {
+    // Both elbows point up, held still by the head.
+    elbow: () => unit(1, 1, 0),
+    planted: (s) => [...standingStill(s), s.arms.left.elbow, s.arms.right.elbow],
   },
   'band-face-pull': {
     elbow: () => Y.clone().negate(),
@@ -957,6 +963,33 @@ test('band triceps extension: the elbow stays up by the head; the forearm straig
   assert.ok(end.paws.left.at.y > end.head.y + 0.6, 'hand high overhead');
   // The band is held under the heel.
   assert.ok(extension.ANCHOR.y < FOOT.height);
+});
+
+test('overhead triceps extension: elbows up by the head; the dumbbell lowers behind the neck, then the arms straighten overhead', () => {
+  for (const t of steps) {
+    const s = overheadExtension.overheadTricepsExtensionPose(t);
+    assertMirrored(s, `at ${t}`);
+    // The paws stay together under the plate.
+    assert.ok(close(s.paws.left.at.distanceTo(s.paws.right.at), 2 * overheadExtension.PAW_HALF, 1e-9), `paws apart at ${t}`);
+    for (const side of SIDES) {
+      const elbow = s.arms[side].elbow;
+      assert.ok(elbow.y > s.head.y, `${side} elbow below the head at ${t}`);
+      // Outside the head, rather than flared wide.
+      const out = Math.abs(elbow.z);
+      assert.ok(out > SHOULDER_HALF && out < SHOULDER_HALF + 0.15, `${side} elbow ${out.toFixed(2)} out at ${t}`);
+    }
+  }
+  const start = overheadExtension.overheadTricepsExtensionPose(0);
+  const end = overheadExtension.overheadTricepsExtensionPose(1);
+  for (const side of SIDES) {
+    assert.ok(elbowAngle(start, side) < 60, `${side} dumbbell behind the neck: ${elbowAngle(start, side).toFixed(1)}°`);
+    assert.ok(elbowAngle(end, side) > 150, `${side} arm long: ${elbowAngle(end, side).toFixed(1)}°`);
+  }
+  // Behind the head and down by the neck, then high overhead.
+  const low = between(start.paws.left.at, start.paws.right.at);
+  assert.ok(low.x < start.head.x - 0.3, 'dumbbell behind the head');
+  assert.ok(low.y < start.head.y, 'dumbbell down behind the neck');
+  assert.ok(between(end.paws.left.at, end.paws.right.at).y > end.head.y + 0.4, 'dumbbell high overhead');
 });
 
 test('face pull: elbows at shoulder height; arms long to the anchor, then hands by the ears with elbows wide', () => {

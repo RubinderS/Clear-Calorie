@@ -71,8 +71,7 @@ Where things live:
    (`--use-angle=swiftshader`) in light and dark mode, drag the view round, and check the
    form is correct and nothing passes through anything.
 5. **Check tempo sync.** In a workout for a linked exercise, each rep's lift should
-   start on its beat, follow tempo changes, and hold the start pose during the count-in
-   and rests.
+   start on its beat, follow tempo changes and keep moving at its own tempo during rests.
 6. **Run the tests:** `npm test`. They check the config, the file names, that every
    exercise has a pose module, a spec and an `EXPECT` entry, and every 25 ms of the rep:
    exact limb lengths, bends, planted points, grips, the form ranges, and nothing passing

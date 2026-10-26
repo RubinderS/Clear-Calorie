@@ -30,6 +30,7 @@ export const EXERCISE_ANIMATIONS: Record<
   'dumbbell-curl': () => scene3D('dumbbell-curl'),
   'dumbbell-fly': () => scene3D('dumbbell-fly'),
   'dumbbell-lateral-raise': () => scene3D('dumbbell-lateral-raise'),
+  'dumbbell-overhead-triceps-extension': () => scene3D('dumbbell-overhead-triceps-extension'),
   'dumbbell-romanian-deadlift': () => scene3D('dumbbell-romanian-deadlift'),
   'dumbbell-shoulder-press': () => scene3D('dumbbell-shoulder-press'),
   'dumbbell-walking-lunge': () => scene3D('dumbbell-walking-lunge'),

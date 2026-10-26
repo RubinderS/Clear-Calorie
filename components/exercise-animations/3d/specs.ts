@@ -19,6 +19,7 @@ import * as calfRaise from './poses/dumbbell-calf-raise';
 import * as curl from './poses/dumbbell-curl';
 import * as fly from './poses/dumbbell-fly';
 import * as lateralRaise from './poses/dumbbell-lateral-raise';
+import * as overheadExtension from './poses/dumbbell-overhead-triceps-extension';
 import * as dumbbellRdl from './poses/dumbbell-romanian-deadlift';
 import * as shoulderPress from './poses/dumbbell-shoulder-press';
 import * as lunge from './poses/dumbbell-walking-lunge';
@@ -202,6 +203,19 @@ export const SPECS: Record<string, Spec3D> = {
     pose: lateralRaise.pose,
     equipment: dumbbellsInGrips(),
     camera: {aspect: 328 / 391},
+  },
+  'dumbbell-overhead-triceps-extension': {
+    pose: overheadExtension.pose,
+    equipment: (kit, parent) => {
+      // One dumbbell hanging upright from the paws, its top plate resting on them.
+      const d = dumbbell(kit, overheadExtension.DUMBBELL);
+      parent.add(d.object);
+      return (_, skeleton) => {
+        const paws = skeleton.paws.left.at.clone().lerp(skeleton.paws.right.at, 0.5);
+        d.update(paws.addScaledVector(Y, -overheadExtension.DUMBBELL_BELOW_PAWS), Y);
+      };
+    },
+    camera: {aspect: 308 / 420},
   },
   'dumbbell-romanian-deadlift': {
     pose: dumbbellRdl.pose,

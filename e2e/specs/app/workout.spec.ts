@@ -194,6 +194,8 @@ test('WO-12 a built-in exercise animates in time with the workout', async ({
   await page.goto('/dashboard');
   const today = await openQuickLog(page, 'exercise');
   await expect(today.getByTitle('Main area worked')).toHaveText('Chest');
+  // The plan is named after what it works, instead of "Today's plan".
+  await expect(card(today, 'Chest day')).toBeVisible();
 
   const {workout} = await startGoal(page, 'Push-up');
   const c = controls(workout);
@@ -520,7 +522,8 @@ test('WO-13 a sequence runs its exercises in turn, with breaks that follow a cha
   const logged = nextApiRequest(page, '/api/exercise-goals/log');
   await workout.getByRole('button', {name: 'Done', exact: true}).click();
   expect((await logged).postDataJSON()).toEqual({goalId: goal.id});
-  await expect(card(panel, "Today's plan").getByText('All planned exercises done.')).toBeVisible();
+  // Named after what its built-in step works.
+  await expect(card(panel, 'Leg day').getByText('All planned exercises done.')).toBeVisible();
 
   // One log for the whole sequence, with each step's exercise.
   const log = await db.exerciseLog.findFirstOrThrow({
