@@ -26,6 +26,7 @@ import {
   ExerciseDetailFields,
   toDetailValues,
   toDetailsPayload,
+  withDefaultMode,
 } from '@/components/exercise-detail-fields';
 import {ExerciseAreaTag, ExerciseAreas, ExerciseHowTo} from '@/components/exercise-animation';
 import {ExerciseNameInput} from '@/components/exercise-name-input';
@@ -116,6 +117,14 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
     setDetails(toDetailValues(goal));
     setDays(maskToDays(goal.daysMask));
     setError(null);
+  }
+
+  function changeName(next: string) {
+    setName(next);
+    // A built-in exercise sets its sets for reps or a time, as it's done.
+    setDetails((current) =>
+      withDefaultMode(current, exerciseCatalog.get(catalogIdFor(next))),
+    );
   }
 
   function toggleDay(day: number, checked: boolean) {
@@ -394,7 +403,7 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
                 <ExerciseNameInput
                   id="exerciseGoalName"
                   value={name}
-                  onChange={setName}
+                  onChange={changeName}
                   maxLength={100}
                   required
                 />

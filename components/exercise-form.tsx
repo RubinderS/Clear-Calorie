@@ -11,12 +11,14 @@ import {
   ExerciseDetailFields,
   toDetailValues,
   toDetailsPayload,
+  withDefaultMode,
 } from '@/components/exercise-detail-fields';
 import {
   CatalogSuggestion,
   catalogSuggestions,
 } from '@/components/exercise-name-input';
 import {formatExerciseDetail, isSameExerciseName} from '@/lib/exercise';
+import {catalogIdFor, exerciseCatalog} from '@/lib/exercise-catalog';
 
 type SavedExerciseItem = {
   id: string;
@@ -136,6 +138,10 @@ export function ExerciseForm({
 
   function handleNameChange(event: React.ChangeEvent<HTMLInputElement>) {
     setName(event.target.value);
+    // A built-in exercise sets its sets for reps or a time, as it's done.
+    setDetails((current) =>
+      withDefaultMode(current, exerciseCatalog.get(catalogIdFor(event.target.value))),
+    );
     setSelectedId(null);
     setShowSuggestions(true);
     setSaveError(null);
@@ -277,6 +283,7 @@ export function ExerciseForm({
                     entry={entry}
                     onPick={(picked) => {
                       setName(picked.name);
+                      setDetails((current) => withDefaultMode(current, picked));
                       setSelectedId(null);
                       setShowSuggestions(false);
                     }}

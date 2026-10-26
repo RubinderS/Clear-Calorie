@@ -11,6 +11,7 @@ import {
   type ExerciseSet,
   type ExerciseWithSets,
 } from '@/lib/exercise';
+import type {CatalogEntry} from '@/lib/exercise-catalog';
 import {MAX_REPS} from '@/lib/workout';
 
 /** A set is done either for reps or for a time. */
@@ -31,6 +32,22 @@ const EMPTY_SET: SetValues = {mode: 'reps', reps: '', time: '', weight: ''};
 export const EMPTY_EXERCISE_DETAILS: ExerciseDetailValues = {
   sets: [EMPTY_SET],
 };
+
+/**
+ * The sets switched to how a built-in exercise is done: for a time (holds,
+ * cardio, meditation) or for reps. Only while nothing has been typed in them,
+ * so it never changes numbers the user entered or a saved exercise's sets.
+ */
+export function withDefaultMode(
+  value: ExerciseDetailValues,
+  entry: CatalogEntry | null | undefined,
+): ExerciseDetailValues {
+  if (!entry) return value;
+  const mode: SetMode = entry.type === 'TIME' ? 'time' : 'reps';
+  const blank = value.sets.every((set) => !set.reps && !set.time && !set.weight);
+  if (!blank || value.sets.every((set) => set.mode === mode)) return value;
+  return {sets: value.sets.map((set) => ({...set, mode}))};
+}
 
 // Minutes alone ("30"), or minutes and seconds ("1:30", "0:45").
 const TIME_PATTERN = '\\d+(:[0-5]\\d)?';
