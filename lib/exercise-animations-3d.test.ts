@@ -45,6 +45,7 @@ import * as highKnees from '@/components/exercise-animations/3d/poses/high-knees
 import * as jumpSquat from '@/components/exercise-animations/3d/poses/jump-squat';
 import * as plankJack from '@/components/exercise-animations/3d/poses/plank-jack';
 import * as climber from '@/components/exercise-animations/3d/poses/mountain-climber';
+import * as meditation from '@/components/exercise-animations/3d/poses/meditation';
 import * as runningMan from '@/components/exercise-animations/3d/poses/running-man';
 import * as boxing from '@/components/exercise-animations/3d/poses/shadow-boxing';
 import * as wallSit from '@/components/exercise-animations/3d/poses/wall-sit';
@@ -313,6 +314,12 @@ const EXPECT: Record<string, Expect> = {
     elbow: () => backAndDown,
     // A hold: nothing moves.
     planted: joints,
+  },
+  meditation: {
+    // The elbows hang soft, back from the line to the hands on the knees.
+    elbow: () => Z.clone().negate(),
+    // Only the breath moves the chest and head: the seat, legs and hands stay put.
+    planted: (s) => [s.hip, ...SIDES.flatMap((side) => [s.legs[side].knee, s.legs[side].ankle, s.feet[side].at, s.paws[side].at])],
   },
   'sliding-leg-curl': {
     elbow: () => Y.clone().negate(),
@@ -1344,6 +1351,35 @@ test('wall sit: shins upright, thighs level, back and head against the wall, arm
   const entry = exerciseCatalog.get('wall-sit')!;
   assert.equal(entry.type, 'TIME');
   assert.ok(entry.phases.every((phase) => phase.from === 0 && phase.to === 0));
+});
+
+test('meditation: sitting cross-legged on the floor, hands resting on the knees; the chest lifts tall on the in-breath', () => {
+  for (const t of steps) {
+    const s = meditation.meditationPose(t);
+    // Sitting on the floor, the knees out wide and low, the shins crossed in front without passing through each other.
+    assert.ok(s.hip.y < 0.25, `seat ${s.hip.y.toFixed(2)} off the floor`);
+    for (const side of SIDES) {
+      const {hip, knee, ankle} = s.legs[side];
+      assert.ok(SIDE_SIGN[side] * knee.x > 0.4, `${side} knee out wide`);
+      assert.ok(knee.y < hip.y + 0.15, `${side} knee up off the floor`);
+      assert.ok(SIDE_SIGN[side] * ankle.x < 0.1 && ankle.z > 0.2, `${side} ankle tucked in across the front`);
+      // Hands spread wide, each resting right on top of its own knee.
+      const paw = s.paws[side].at;
+      assert.ok(Math.hypot(paw.x - knee.x, paw.z - knee.z) < 0.05 && paw.y > knee.y, `${side} hand not on the knee`);
+    }
+    let gap = Infinity;
+    for (const i of steps) for (const j of steps) {
+      const a = s.legs.left.knee.clone().lerp(s.legs.left.ankle, i);
+      gap = Math.min(gap, a.distanceTo(s.legs.right.knee.clone().lerp(s.legs.right.ankle, j)));
+    }
+    assert.ok(gap >= 2 * SIZES.leg, `shins ${gap.toFixed(3)} apart`);
+    // Upright, never leaning back; tall on the in-breath, a touch forward on the out-breath.
+    const lean = THREE.MathUtils.radToDeg(Math.atan2(up(s).z, up(s).y));
+    assert.ok(lean >= -1e-9 && lean <= 5, `torso leaning ${lean.toFixed(1)}°`);
+  }
+  assert.ok(up(meditation.meditationPose(1)).y > up(meditation.meditationPose(0)).y, 'sits taller on the in-breath');
+  const entry = exerciseCatalog.get('meditation')!;
+  assert.equal(entry.type, 'TIME');
 });
 
 test('sliding leg curl: shoulders down, heels sliding on the floor; hips rise as the heels pull in', () => {

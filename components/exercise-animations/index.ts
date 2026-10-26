@@ -45,6 +45,7 @@ export const EXERCISE_ANIMATIONS: Record<
   'jump-squat': () => scene3D('jump-squat'),
   'jumping-jack': () => scene3D('jumping-jack'),
   'plank-jack': () => scene3D('plank-jack'),
+  'meditation': () => scene3D('meditation'),
   'mountain-climber': () => scene3D('mountain-climber'),
   'one-arm-dumbbell-row': () => scene3D('one-arm-dumbbell-row'),
   'plank': () => scene3D('plank'),

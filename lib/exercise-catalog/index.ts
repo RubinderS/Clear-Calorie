@@ -23,6 +23,7 @@ export const BODY_AREAS = [
   {key: 'calves', label: 'Calves'},
   {key: 'full-body', label: 'Full body'},
   {key: 'cardio', label: 'Cardio'},
+  {key: 'mind', label: 'Mind'},
 ] as const;
 export type BodyArea = (typeof BODY_AREAS)[number]['key'];
 export const BODY_AREA_KEYS = BODY_AREAS.map(({key}) => key) as [

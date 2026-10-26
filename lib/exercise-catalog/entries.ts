@@ -30,6 +30,7 @@ import inclineDumbbellPress from './incline-dumbbell-press.json';
 import jumpSquat from './jump-squat.json';
 import jumpingJack from './jumping-jack.json';
 import plankJack from './plank-jack.json';
+import meditation from './meditation.json';
 import mountainClimber from './mountain-climber.json';
 import oneArmDumbbellRow from './one-arm-dumbbell-row.json';
 import plank from './plank.json';
@@ -218,6 +219,13 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     type: 'STRENGTH',
     aliases: ['walking lunge', 'dumbbell lunge', 'lunge'],
     areas: {primary: ['quads', 'glutes'], secondary: ['hamstrings', 'calves', 'core']},
+  },
+  {
+    config: meditation,
+    // Done for time; the animation follows one slow breath.
+    type: 'TIME',
+    aliases: ['meditate', 'mindfulness', 'mindfulness meditation', 'breathing meditation', 'breathwork', 'seated meditation', 'sukhasana', 'easy pose'],
+    areas: {primary: ['mind'], secondary: []},
   },
   {
     config: gobletSquat,

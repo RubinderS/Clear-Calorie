@@ -15,10 +15,11 @@ const FOCUS_GROUPS: Record<BodyArea, string> = {
   core: 'Core',
   cardio: 'Cardio',
   'full-body': 'Full body',
+  mind: 'Mind',
 };
 
 // Usually finishers on a split day, so they name a day only when it's all they are.
-const ACCESSORY_GROUPS = new Set(['Core', 'Cardio', 'Full body']);
+const ACCESSORY_GROUPS = new Set(['Core', 'Cardio', 'Full body', 'Mind']);
 const LOWER_AREAS = new Set<BodyArea>(['glutes', 'quads', 'hamstrings', 'calves']);
 const PULL_AREAS = new Set<BodyArea>(['back', 'biceps', 'forearms']);
 

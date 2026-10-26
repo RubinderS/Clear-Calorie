@@ -34,6 +34,7 @@ import * as inclinePress from './poses/incline-dumbbell-press';
 import * as jumpSquat from './poses/jump-squat';
 import * as jumpingJack from './poses/jumping-jack';
 import * as plankJack from './poses/plank-jack';
+import * as meditation from './poses/meditation';
 import * as mountainClimber from './poses/mountain-climber';
 import * as oneArmRow from './poses/one-arm-dumbbell-row';
 import * as plank from './poses/plank';
@@ -365,6 +366,10 @@ export const SPECS: Record<string, Spec3D> = {
       parent.add(wall(kit, {centre: wallSit.WALL_CENTRE, ...wallSit.WALL}).object);
     },
     camera: {aspect: 380 / 360},
+  },
+  meditation: {
+    pose: meditation.pose,
+    camera: {aspect: 400 / 360},
   },
 };
 

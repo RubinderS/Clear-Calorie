@@ -1,0 +1,27 @@
+{
+  "id": "meditation",
+  "name": "Meditation",
+  "view": "front",
+  "equipment": [],
+  "phases": [
+    {"name": "inhale", "durationMs": 4000, "from": 0, "to": 1, "cue": "Breathe in slowly through your nose, sitting tall"},
+    {"name": "pause", "durationMs": 1000, "from": 1, "to": 1, "cue": "Pause gently at the top of the breath"},
+    {"name": "exhale", "durationMs": 6000, "from": 1, "to": 0, "cue": "Breathe out slowly and let your shoulders soften"},
+    {"name": "rest", "durationMs": 1000, "from": 0, "to": 0, "cue": "Rest, and notice the next breath arrive"}
+  ],
+  "formTips": [
+    "Sit cross-legged on the floor or a cushion, knees relaxed out to the sides",
+    "Sit tall through your spine with your shoulders relaxed down and back",
+    "Rest your hands in your lap, palms up, or on your knees",
+    "Close your eyes or let your gaze rest softly on the floor ahead",
+    "Breathe slowly through your nose, making the out-breath a little longer than the in-breath",
+    "When your mind wanders, notice it and gently bring your attention back to the breath"
+  ],
+  "commonMistakes": [
+    "Slumping forward and rounding the lower back",
+    "Hunching or lifting the shoulders up towards the ears",
+    "Forcing the breath instead of letting it slow down naturally",
+    "Getting frustrated when the mind wanders",
+    "Sitting in a position that makes your legs go numb; use a cushion or a chair instead"
+  ]
+}
