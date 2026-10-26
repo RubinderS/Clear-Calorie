@@ -75,6 +75,7 @@ import {
   type WorkoutStep,
 } from '@/lib/workout';
 import {
+  createCalmMusic,
   createWorkoutMusic,
   preloadWorkoutMusic,
   type WorkoutMusic,
@@ -173,17 +174,23 @@ function formatTempo(tempoMs: number) {
 }
 
 /**
- * Plays background music while enabled, following the workout's state.
+ * Plays background music while enabled, following the workout's state:
+ * gym beats, or a calm ambient track for exercises like meditation.
  * Returns the playing track's name.
  */
-function useWorkoutMusic(enabled: boolean, playing: boolean, resting: boolean) {
+function useWorkoutMusic(
+  enabled: boolean,
+  playing: boolean,
+  resting: boolean,
+  calm: boolean,
+) {
   const [music, setMusic] = useState<WorkoutMusic | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
     let created: WorkoutMusic | null = null;
-    createWorkoutMusic()
+    (calm ? createCalmMusic() : createWorkoutMusic())
       .then((instance) => {
         if (cancelled) return instance.dispose();
         created = instance;
@@ -195,7 +202,7 @@ function useWorkoutMusic(enabled: boolean, playing: boolean, resting: boolean) {
       created?.dispose();
       setMusic(null);
     };
-  }, [enabled]);
+  }, [enabled, calm]);
 
   useEffect(() => {
     music?.setPlaying(playing);
@@ -906,6 +913,7 @@ function ActiveWorkout({
     musicOn,
     running && !firstCountdown,
     step.kind === 'rest',
+    exerciseCatalog.get(stepPart(step)?.catalogId ?? goal.catalogId)?.music === 'calm',
   );
 
   function toggleMusic() {

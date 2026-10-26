@@ -226,6 +226,7 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     type: 'TIME',
     aliases: ['meditate', 'mindfulness', 'mindfulness meditation', 'breathing meditation', 'breathwork', 'seated meditation', 'sukhasana', 'easy pose'],
     areas: {primary: ['mind'], secondary: []},
+    music: 'calm',
   },
   {
     config: gobletSquat,

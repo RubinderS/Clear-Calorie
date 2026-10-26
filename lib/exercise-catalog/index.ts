@@ -67,6 +67,8 @@ export const catalogSourceSchema = z.object({
     primary: z.array(bodyAreaSchema).min(1),
     secondary: z.array(bodyAreaSchema).default([]),
   }),
+  // The music a workout plays behind it: gym beats, or a calm track for slow, quiet work.
+  music: z.enum(['workout', 'calm']).default('workout'),
   // Kept so old links resolve; never offered or matched for new ones.
   retired: z.boolean().default(false),
 });
@@ -91,6 +93,8 @@ export type CatalogEntry = {
   phases: AnimationPhase[];
   // One loop of the animation, the natural time for a rep
   cycleMs: number;
+  /** The music a workout plays behind it. */
+  music: 'workout' | 'calm';
   retired: boolean;
 };
 
@@ -123,7 +127,7 @@ export type Catalog = ReturnType<typeof createCatalog>;
 /** Validates the sources and builds the lookups. Throws on a bad or ambiguous entry. */
 export function createCatalog(sources: readonly CatalogSource[]) {
   const entries: CatalogEntry[] = sources.map((source) => {
-    const {config, type, aliases, areas, retired} =
+    const {config, type, aliases, areas, music, retired} =
       catalogSourceSchema.parse(source);
     return {
       id: config.id,
@@ -137,6 +141,7 @@ export function createCatalog(sources: readonly CatalogSource[]) {
       commonMistakes: config.commonMistakes,
       phases: config.phases,
       cycleMs: cycleMs(config.phases),
+      music,
       retired,
     };
   });

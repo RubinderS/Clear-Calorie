@@ -1,5 +1,6 @@
 // Gym beats synthesized in the browser to play behind the workout timer; each
-// exercise gets a track picked at random.
+// exercise gets a track picked at random. Calm exercises, like meditation, get
+// a slow ambient track instead (createCalmMusic).
 // Tone.js only loads once music is turned on, and it shares the cue sounds'
 // AudioContext so the tap that unlocks cues on iOS unlocks the music too.
 
@@ -213,6 +214,18 @@ export function preloadWorkoutMusic(): Promise<Tone> {
   return tonePromise;
 }
 
+/** Tone.js on the cue sounds' AudioContext. */
+async function loadTone(): Promise<Tone> {
+  const Tone = await preloadWorkoutMusic();
+  const context = getAudioContext();
+  if (!context) throw new Error("Web Audio is not supported");
+  if (toneContext !== context) {
+    Tone.setContext(context);
+    toneContext = context;
+  }
+  return Tone;
+}
+
 /**
  * Call after a tap has unlocked audio (see unlockAudio). Plays a random track
  * unless one is named.
@@ -220,14 +233,8 @@ export function preloadWorkoutMusic(): Promise<Tone> {
 export async function createWorkoutMusic(
   trackName?: string,
 ): Promise<WorkoutMusic> {
-  const Tone = await preloadWorkoutMusic();
+  const Tone = await loadTone();
   const song = TRACKS.find((track) => track.name === trackName) ?? pickTrack();
-  const context = getAudioContext();
-  if (!context) throw new Error("Web Audio is not supported");
-  if (toneContext !== context) {
-    Tone.setContext(context);
-    toneContext = context;
-  }
 
   const transport = Tone.getTransport();
   const nodes: { dispose: () => unknown }[] = [];
@@ -424,6 +431,151 @@ export async function createWorkoutMusic(
       wantDrums = intensity === "set";
       if (!wantDrums) drums = false;
       bus.frequency.rampTo(wantDrums ? OPEN_FILTER_HZ : REST_FILTER_HZ, 1);
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      fade.gain.rampTo(0, FADE_OUT_S);
+      setTimeout(() => {
+        transport.clear(eventId);
+        for (const node of nodes) node.dispose();
+        liveCount--;
+        if (liveCount === 0) transport.stop();
+      }, FADE_OUT_S * 1000 + 100);
+    },
+  };
+}
+
+/** The calm track's name, shown as "Music: Calm". */
+export const CALM_TRACK = "Calm";
+
+// One beat a second; each chord holds for two bars, eight seconds.
+const CALM_BPM = 60;
+const CALM_BARS_PER_CHORD = 2;
+const CALM_OPEN_FILTER_HZ = 5_000;
+const CALM_REST_FILTER_HZ = 1_200;
+
+// Dmaj9 – Bm11 – Gmaj7 – Asus: soft, unresolved chords over a held D drone.
+const CALM_CHORDS = [
+  ["D3", "A3", "E4", "F#4"],
+  ["B2", "F#3", "A3", "E4"],
+  ["G2", "D3", "F#3", "B3"],
+  ["A2", "E3", "B3", "D4"],
+];
+const CALM_DRONE = "D2";
+// D major pentatonic, so any bowl note sits well over any chord.
+const CALM_BOWL_NOTES = ["D4", "E4", "F#4", "A4", "B4", "D5", "E5", "F#5", "A5"];
+
+/**
+ * A slow ambient track for meditation: a held drone, long swelling pads and
+ * the odd singing-bowl note, all washed in reverb. No drums, no beat to keep.
+ * Call after a tap has unlocked audio (see unlockAudio).
+ */
+export async function createCalmMusic(): Promise<WorkoutMusic> {
+  const Tone = await loadTone();
+  const transport = Tone.getTransport();
+  const nodes: { dispose: () => unknown }[] = [];
+  function track<T extends { dispose: () => unknown }>(node: T): T {
+    nodes.push(node);
+    return node;
+  }
+
+  // Master bus: everything → filter (for rests) → limiter → fade.
+  const fade = track(new Tone.Gain(0)).toDestination();
+  const limiter = track(new Tone.Limiter(-2)).connect(fade);
+  const bus = track(
+    new Tone.Filter({ type: "lowpass", frequency: CALM_OPEN_FILTER_HZ, rolloff: -24 }),
+  ).connect(limiter);
+  const reverb = track(new Tone.Reverb({ decay: 10, wet: 0.6 })).connect(bus);
+
+  const drone = track(
+    new Tone.Synth({
+      oscillator: { type: "sine" },
+      envelope: { attack: 4, decay: 0, sustain: 1, release: 4 },
+      volume: -14,
+    }),
+  ).connect(reverb);
+
+  // A slow chorus keeps the held pads gently moving.
+  const padChorus = track(new Tone.Chorus(0.3, 3.5, 0.4).start()).connect(reverb);
+  const pad = track(
+    new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: "fattriangle", count: 3, spread: 12 },
+      envelope: { attack: 3, decay: 1, sustain: 0.8, release: 5 },
+      volume: -20,
+    }),
+  ).connect(padChorus);
+
+  // Inharmonic FM partials, struck and left to ring, like a singing bowl.
+  const bowl = track(
+    new Tone.FMSynth({
+      harmonicity: 2.76,
+      modulationIndex: 1.5,
+      oscillator: { type: "sine" },
+      modulation: { type: "sine" },
+      envelope: { attack: 0.005, decay: 6, sustain: 0, release: 6 },
+      modulationEnvelope: { attack: 0.005, decay: 2, sustain: 0, release: 2 },
+      volume: -18,
+    }),
+  ).connect(reverb);
+
+  await reverb.ready;
+
+  const beatsPerChord = CALM_BARS_PER_CHORD * 4;
+  let beat = 0;
+  // A new chord swells in on the next beat after starting or resuming.
+  let padDue = true;
+
+  function playBeat(time: number) {
+    const pos = beat % beatsPerChord;
+    const chord = CALM_CHORDS[Math.floor(beat / beatsPerChord) % CALM_CHORDS.length];
+    beat++;
+    if (pos === 0 || padDue) {
+      // Held a little past the change, so each chord fades under the next.
+      pad.triggerAttackRelease(chord, beatsPerChord - pos + 0.5, time, 0.7);
+      padDue = false;
+    }
+    // A bowl on each chord change, and now and then between.
+    if (pos === 0 || (pos % 2 === 0 && Math.random() < 0.2)) {
+      const note = CALM_BOWL_NOTES[Math.floor(Math.random() * CALM_BOWL_NOTES.length)];
+      bowl.triggerAttackRelease(note, 0.1, time, pos === 0 ? 0.6 : 0.3 + Math.random() * 0.2);
+    }
+  }
+
+  if (liveCount === 0) {
+    transport.stop();
+    transport.position = 0;
+  }
+  liveCount++;
+  transport.bpm.value = CALM_BPM;
+  transport.swing = 0;
+  const eventId = transport.scheduleRepeat(playBeat, "4n");
+
+  // Created silent and stopped, so it can load early and start on cue.
+  let disposed = false;
+  let started = false;
+  let sounding = false;
+  return {
+    name: CALM_TRACK,
+    setPlaying(playing) {
+      if (disposed) return;
+      if (playing) {
+        if (transport.state !== "started") transport.start("+0.05");
+        if (!sounding) drone.triggerAttack(CALM_DRONE, Tone.now());
+        sounding = true;
+        if (!started) fade.gain.rampTo(MUSIC_LEVEL, FADE_IN_S);
+        started = true;
+      } else {
+        transport.pause();
+        pad.releaseAll();
+        drone.triggerRelease(Tone.now());
+        sounding = false;
+        padDue = true;
+      }
+    },
+    setIntensity(intensity) {
+      if (disposed) return;
+      bus.frequency.rampTo(intensity === "set" ? CALM_OPEN_FILTER_HZ : CALM_REST_FILTER_HZ, 2);
     },
     dispose() {
       if (disposed) return;
