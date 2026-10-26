@@ -15,6 +15,7 @@ import * as buttKicks from './poses/butt-kicks';
 import * as chestSupportedRow from './poses/chest-supported-dumbbell-row';
 import * as chinUp from './poses/chin-up';
 import * as closeGrip from './poses/close-grip-push-up';
+import * as dumbbellBench from './poses/dumbbell-bench-press';
 import * as calfRaise from './poses/dumbbell-calf-raise';
 import * as curl from './poses/dumbbell-curl';
 import * as fly from './poses/dumbbell-fly';
@@ -190,6 +191,14 @@ export const SPECS: Record<string, Spec3D> = {
     pose: curl.pose,
     equipment: dumbbellsInGrips(),
     camera: {aspect: 308 / 394},
+  },
+  'dumbbell-bench-press': {
+    pose: dumbbellBench.pose,
+    equipment: (kit, parent) => {
+      parent.add(flatBench(kit, FLAT_BENCH).object);
+      return dumbbellsInGrips()(kit, parent);
+    },
+    camera: {aspect: 419 / 283},
   },
   'dumbbell-fly': {
     pose: fly.pose,

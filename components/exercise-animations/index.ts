@@ -26,6 +26,7 @@ export const EXERCISE_ANIMATIONS: Record<
   'chest-supported-dumbbell-row': () => scene3D('chest-supported-dumbbell-row'),
   'chin-up': () => scene3D('chin-up'),
   'close-grip-push-up': () => scene3D('close-grip-push-up'),
+  'dumbbell-bench-press': () => scene3D('dumbbell-bench-press'),
   'dumbbell-calf-raise': () => scene3D('dumbbell-calf-raise'),
   'dumbbell-curl': () => scene3D('dumbbell-curl'),
   'dumbbell-fly': () => scene3D('dumbbell-fly'),

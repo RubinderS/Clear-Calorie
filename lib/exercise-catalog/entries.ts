@@ -11,6 +11,7 @@ import buttKicks from './butt-kicks.json';
 import chestSupportedDumbbellRow from './chest-supported-dumbbell-row.json';
 import chinUp from './chin-up.json';
 import closeGripPushUp from './close-grip-push-up.json';
+import dumbbellBenchPress from './dumbbell-bench-press.json';
 import dumbbellCalfRaise from './dumbbell-calf-raise.json';
 import dumbbellCurl from './dumbbell-curl.json';
 import dumbbellFly from './dumbbell-fly.json';
@@ -88,6 +89,12 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     type: 'STRENGTH',
     aliases: ['incline dumbbell bench press', 'incline press', 'incline chest press'],
     areas: {primary: ['chest', 'shoulders'], secondary: ['triceps']},
+  },
+  {
+    config: dumbbellBenchPress,
+    type: 'STRENGTH',
+    aliases: ['dumbbell press', 'db bench press', 'flat dumbbell press', 'flat dumbbell bench press', 'dumbbell chest press'],
+    areas: {primary: ['chest'], secondary: ['triceps', 'shoulders']},
   },
   {
     config: dumbbellFly,

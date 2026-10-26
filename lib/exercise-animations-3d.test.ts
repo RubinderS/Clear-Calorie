@@ -18,6 +18,7 @@ import * as splitSquat from '@/components/exercise-animations/3d/poses/bulgarian
 import * as chestRow from '@/components/exercise-animations/3d/poses/chest-supported-dumbbell-row';
 import * as chinUp from '@/components/exercise-animations/3d/poses/chin-up';
 import * as closeGrip from '@/components/exercise-animations/3d/poses/close-grip-push-up';
+import * as dumbbellBench from '@/components/exercise-animations/3d/poses/dumbbell-bench-press';
 import * as calfRaise from '@/components/exercise-animations/3d/poses/dumbbell-calf-raise';
 import * as curl from '@/components/exercise-animations/3d/poses/dumbbell-curl';
 import * as fly from '@/components/exercise-animations/3d/poses/dumbbell-fly';
@@ -246,6 +247,11 @@ const EXPECT: Record<string, Expect> = {
     hand: wristCurl.HAND,
   },
   'barbell-bench-press': {
+    elbow: pressElbows,
+    planted: standingStill,
+    grip: palmsToFeet,
+  },
+  'dumbbell-bench-press': {
     elbow: pressElbows,
     planted: standingStill,
     grip: palmsToFeet,
@@ -1070,6 +1076,24 @@ test('bench press: lying flat on the pad; locked out over the shoulders, the bar
   }
   // At the bottom the elbows sit below the chest.
   assert.ok(bottom.arms.left.elbow.y < bottom.shoulder.y);
+});
+
+test('dumbbell bench press: lying flat; locked out over the shoulders, down beside the chest', () => {
+  const start = dumbbellBench.dumbbellBenchPressPose(0);
+  assert.ok(close(start.hip.y, start.shoulder.y, 1e-9), 'torso level');
+  assert.ok(elbowAngle(start) > 160, `locked out: ${elbowAngle(start).toFixed(1)}°`);
+  assert.ok(Math.abs(dumbbellBench.DUMBBELLS.top.x - start.shoulder.x) < 0.05, 'over the shoulders');
+  const bottom = dumbbellBench.dumbbellBenchPressPose(1);
+  assert.ok(elbowAngle(bottom) < 90, `elbows bent at the bottom: ${elbowAngle(bottom).toFixed(1)}°`);
+  // Down beside the middle of the chest, the elbows below it.
+  const low = dumbbellBench.DUMBBELLS.bottom.clone().sub(start.shoulder);
+  assert.ok(low.x > 0.15 && low.y < DEPTH + 0.2, 'beside the chest');
+  assert.ok(bottom.arms.left.elbow.y < bottom.shoulder.y);
+  for (const t of steps) {
+    const s = dumbbellBench.dumbbellBenchPressPose(t);
+    assertMirrored(s, `at ${t}`);
+    for (const side of SIDES) assert.ok(s.arms[side].elbow.x >= s.shoulder.x - 1e-9, `elbow towards the head at ${t}`);
+  }
 });
 
 test('dumbbell fly: a fixed soft elbow; together over the chest, open wide to chest level', () => {

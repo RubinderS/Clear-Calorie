@@ -1,0 +1,25 @@
+{
+  "id": "dumbbell-bench-press",
+  "name": "Dumbbell bench press",
+  "view": "side",
+  "equipment": ["dumbbells", "bench"],
+  "phases": [
+    {"name": "lower", "durationMs": 2000, "from": 0, "to": 1, "cue": "Lower the dumbbells to the sides of your chest"},
+    {"name": "pause", "durationMs": 300, "from": 1, "to": 1, "cue": "Elbows just below the bench"},
+    {"name": "press", "durationMs": 1200, "from": 1, "to": 0, "cue": "Press straight up over your shoulders"},
+    {"name": "lockout", "durationMs": 400, "from": 0, "to": 0, "cue": "Arms long, back on the bench"}
+  ],
+  "formTips": [
+    "Lie flat with your eyes under where the dumbbells start, feet planted on the floor",
+    "Pinch your shoulder blades together and keep them on the bench",
+    "Lower the dumbbells slowly to the sides of your chest, elbows about 45–60° from your body",
+    "Press up until your arms are straight over your shoulders, without clanking the dumbbells",
+    "Keep your head, shoulders and hips on the bench"
+  ],
+  "commonMistakes": [
+    "Flaring the elbows straight out to the sides",
+    "Bouncing the dumbbells at the bottom",
+    "Lifting the hips off the bench to push the weight",
+    "Letting the dumbbells drift towards the face or the stomach"
+  ]
+}
