@@ -357,56 +357,70 @@ const SCENARIOS: Record<number, DayScenario> = {
 // focus checks and report chain still come from the real report code.
 const days = (count: number) => `${count} ${count === 1 ? "day" : "days"}`;
 
+// Follows the real prompt's shape: the app shows the scorecard and focus
+// statuses, so sections explain causes, and each piece of advice appears once.
 function writeMockReport(prompt: WeeklyReportPrompt) {
   const { metrics, goals, topIssues, previousFocusResults } = prompt;
-  const satFatTop = topIssues.find((issue) => issue.nutrient === "saturatedFat")
-    ?.sources[0];
+  const satFat = topIssues.find((issue) => issue.nutrient === "saturatedFat");
+  const [satFatTop, satFatNext] = satFat?.sources ?? [];
+  const missed = previousFocusResults?.filter(
+    (result) => result.status === "missed",
+  );
   const sections = [];
 
-  if (previousFocusResults?.length) {
+  if (metrics.daysLogged === 0) {
     sections.push({
-      title: "Last week's focus",
-      points: previousFocusResults.map(
-        (result) =>
-          `${result.text}: ${result.status} (${result.actual ?? "no data"} against a target of ${result.target}).`,
-      ),
+      title: "Nutrition",
+      points: ["Food wasn't tracked this week, so there's nothing to review."],
+    });
+  } else {
+    sections.push({
+      title: "Nutrition",
+      points: [
+        satFatTop
+          ? `"${satFatTop.name}" was the main source of saturated fat${satFatNext ? `, followed by "${satFatNext.name}"` : ""}.`
+          : "Saturated fat stayed in check, with no single meal standing out.",
+        ...(metrics.daysLogged < 7
+          ? [`Only ${days(metrics.daysLogged)} had food logged, so the averages miss part of the week.`]
+          : []),
+        ...(missed?.length
+          ? [`${missed[0].text} slipped on the days those meals came up.`]
+          : []),
+      ],
     });
   }
-  sections.push({
-    title: "Nutrition",
-    points: [
-      `You averaged ${metrics.avgCalories} kcal a day against a ${goals.calorieGoal} kcal goal over ${days(metrics.daysLogged)} logged.`,
-      `Protein averaged ${metrics.avgProtein} g against ${goals.proteinGoal} g, reaching the goal on ${days(metrics.proteinDaysHit)}.`,
-      ...(satFatTop
-        ? [
-            `Saturated fat averaged ${metrics.avgSaturatedFat} g against a ${goals.saturatedFatGoal} g limit; "${satFatTop.name}" was the biggest source.`,
-          ]
-        : []),
-    ],
-  });
-  if (prompt.healthNotes) {
+  if (prompt.healthNotes && satFatTop) {
     sections.push({
       title: "Your health notes",
       points: [
-        `With your notes in mind, saturated fat went over the limit on ${days(metrics.satFatDaysOver)}, so that is the number to bring down.`,
+        "With cholesterol in mind, the higher saturated fat days came from a few takeaway meals rather than everyday eating.",
       ],
     });
   }
   sections.push({
     title: "Training and weight",
     points: [
-      `You did ${metrics.exercisesDone} of ${metrics.exercisesPlanned} planned exercises and ${metrics.cardioMinutes} minutes of cardio.`,
+      metrics.exercisesDone >= metrics.exercisesPlanned
+        ? "Every planned session got done, which kept training steady."
+        : "A few planned sessions were skipped, mostly later in the week.",
       metrics.weightAvg === null
-        ? "No weigh-ins this week."
+        ? "No weigh-ins this week, so the weight trend is unclear."
         : metrics.prevWeightAvg === null
-          ? `Weight averaged ${metrics.weightAvg} over ${metrics.weighInCount} weigh-ins.`
-          : `Weight averaged ${metrics.weightAvg}, against ${metrics.prevWeightAvg} the week before.`,
+          ? "This is the first week of weigh-ins, so there's no trend yet."
+          : metrics.weightAvg < metrics.prevWeightAvg
+            ? "Weight is trending down, in line with fat loss."
+            : "Weight held steady against last week.",
       ...prompt.bodyMetrics
-        .filter((metric) => metric.avg !== null)
-        .map((metric) =>
-          metric.prevAvg === null
-            ? `${metric.label} averaged ${metric.avg} ${metric.unit}.`
-            : `${metric.label} averaged ${metric.avg} ${metric.unit}, against ${metric.prevAvg} ${metric.unit} the week before.`,
+        .filter(
+          (metric) =>
+            metric.avg !== null &&
+            metric.prevAvg !== null &&
+            metric.avg !== metric.prevAvg,
+        )
+        .slice(0, 1)
+        .map(
+          (metric) =>
+            `${metric.label} moved from ${metric.prevAvg} to ${metric.avg} ${metric.unit}.`,
         ),
     ],
   });
@@ -421,16 +435,25 @@ function writeMockReport(prompt: WeeklyReportPrompt) {
         )
       : goals.proteinGoal;
 
+  // Swaps keep to the seeded preferences: chicken, salmon and eggs, no mushrooms.
+  const goalSuggestions = prompt.profile
+    ? [
+        prompt.profile.suggestedCalories === goals.calorieGoal
+          ? "Your food goal matches the suggested calories for fat loss; keep it there."
+          : `Move your food goal from ${goals.calorieGoal} towards the suggested ${prompt.profile.suggestedCalories} kcal for fat loss.`,
+        ...(prompt.foodPreferences
+          ? ["Swap the butter croissant for scrambled eggs on sourdough toast on busy mornings."]
+          : []),
+        "Add 20 minutes of walking on rest days.",
+      ]
+    : [];
+
   return {
-    headline: `${days(metrics.daysLogged)} logged and ${metrics.exercisesDone} of ${metrics.exercisesPlanned} planned exercises done; saturated fat was over on ${days(metrics.satFatDaysOver)}.`,
+    headline: satFatTop
+      ? `A steady week, with "${satFatTop.name}" the one thing pushing saturated fat up.`
+      : "A steady week, with nutrition and training on track.",
     sections,
-    goalSuggestions: prompt.profile
-      ? [
-          `For "${prompt.profile.goal}", your food goal of ${goals.calorieGoal} kcal compares with a suggested ${prompt.profile.suggestedCalories} kcal against maintenance of ${prompt.profile.maintenanceCalories} kcal.`,
-          `Aim for ${prompt.profile.suggestedProtein} g protein a day to hold on to muscle.`,
-          "Keep at least 3 strength sessions in your exercise plan and add 20 minutes of walking on rest days.",
-        ]
-      : [],
+    goalSuggestions,
     nextWeekFocus: [
       {
         text: `Average at least ${proteinTarget} g protein a day`,
@@ -487,6 +510,7 @@ async function main() {
     fatGoal: 75,
     saturatedFatGoal: 20,
     healthNotes: "Watching cholesterol; trying to keep saturated fat low.",
+    foodPreferences: "Love chicken, salmon and eggs; no mushrooms or tofu.",
   });
   await models.Profile.create({
     userId: user._id,

@@ -117,13 +117,14 @@ test.describe('EL-03 editing what was done', () => {
     await expect(logRow(page, 'Cycling')).toContainText('15 min');
   });
 
-  test('a set can change from reps to time', async ({authedPage: page, db, user}) => {
+  test('a set keeps its type', async ({authedPage: page, db, user}) => {
     const entry = await seedExercise(db, user.id, {...STRENGTH, name: 'Plank'});
     await page.goto('/logs?tab=exercise');
     await logRow(page, 'Plank').getByRole('button', {name: 'Edit Plank'}).click();
     const edit = dialog(page, 'Edit exercise');
-    await setMode(edit, 3, 'time').check();
-    await edit.getByLabel('Set 3 time').fill('1:15');
+    await expect(setMode(edit, 3, 'time')).toHaveCount(0);
+    await expect(edit.getByLabel('Set 3 time')).toHaveCount(0);
+    await edit.getByLabel('Set 3 reps').fill('8');
 
     const request = nextApiRequest(page, '/api/exercise', 'PATCH');
     await edit.getByRole('button', {name: 'Save changes'}).click();
@@ -132,10 +133,10 @@ test.describe('EL-03 editing what was done', () => {
       exerciseSets: [
         {reps: 10, weight: 50},
         {reps: 10, weight: 50},
-        {durationSec: 75, weight: 50},
+        {reps: 8, weight: 50},
       ],
     });
-    await expect(logRow(page, 'Plank')).toContainText('10 @ 50, 10 @ 50, 1:15 @ 50');
+    await expect(logRow(page, 'Plank')).toContainText('10 @ 50, 10 @ 50, 8 @ 50');
   });
 
   test('EL-06 server errors are shown in the dialog', async ({authedPage: page, db, user}) => {

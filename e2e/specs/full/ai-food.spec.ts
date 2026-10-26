@@ -247,11 +247,11 @@ test('AIF-09 health notes on the profile page', async ({authedPage: page, db, us
   const notes = page.getByLabel('Health notes');
   await expect(notes).toHaveAttribute('maxlength', '500');
   await expect(notes).toHaveAttribute('placeholder', 'e.g. High LDL cholesterol, keep sodium low');
-  await expect(page.getByText('0/500')).toBeVisible();
+  await expect(page.locator('#healthNotes-help').getByText('0/500')).toBeVisible();
   await expect(page.getByText(/Notes are sent to the AI service\. Not medical advice\./)).toBeVisible();
 
   await notes.fill('  Low sodium  ');
-  await expect(page.getByText('14/500')).toBeVisible();
+  await expect(page.locator('#healthNotes-help').getByText('14/500')).toBeVisible();
   let request = nextApiRequest(page, '/api/goals');
   await page.getByRole('button', {name: 'Save food goal'}).click();
   expect((await request).postDataJSON()).toMatchObject({healthNotes: 'Low sodium'});

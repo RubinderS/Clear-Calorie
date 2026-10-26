@@ -495,7 +495,7 @@ test('WO-13 a sequence runs its exercises in turn, with breaks that follow a cha
   await expect(c.timer).toHaveText('0:30');
   await page.clock.runFor(30_000);
   await expect(c.step).toHaveText('Break');
-  await expect(c.detail).toHaveText('Next: Goblet squat · 10 reps');
+  await expect(c.detail).toHaveText('Next: Step 2 of 3 · Goblet squat · 10 reps');
   await expect(c.timer).toHaveText('1:00');
 
   // A shorter break carries on to the later breaks.
@@ -506,7 +506,7 @@ test('WO-13 a sequence runs its exercises in turn, with breaks that follow a cha
   await expect(c.detail).toHaveText('Step 2 of 3 · 10 reps');
   await c.next.click(); // Done
   await expect(c.step).toHaveText('Break');
-  await expect(c.detail).toHaveText('Next: Skipping · 30s');
+  await expect(c.detail).toHaveText('Next: Step 3 of 3 · Skipping · 30s');
   await expect(c.timer).toHaveText('0:45');
   await skipBreak.click();
   await expect(c.detail).toHaveText('Step 3 of 3 · 30s');
