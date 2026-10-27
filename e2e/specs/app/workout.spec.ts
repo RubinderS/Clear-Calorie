@@ -23,8 +23,8 @@ async function freezeClock(page: Page) {
 function controls(workout: Locator) {
   return {
     timer: workout.getByRole('timer'),
-    step: workout.locator('[aria-live="polite"] p').first(),
-    detail: workout.locator('[aria-live="polite"] p').nth(1),
+    step: workout.getByTestId('step-label'),
+    detail: workout.getByTestId('step-detail'),
     voice: workout.getByRole('radio', {name: 'Voice'}),
     tones: workout.getByRole('radio', {name: 'Tones'}),
     cuesOff: workout.getByRole('radio', {name: 'Off'}),
@@ -364,9 +364,10 @@ test('WO-09 timed workout counts down and logs', async ({authedPage: page, db, u
   const workout = card(panel, 'Rowing');
   const c = controls(workout);
 
-  // Starts on its own once the voice is ready; no setup screen.
-  await expect(c.step).toHaveText('Workout');
-  await expect(c.detail).toHaveText('1 min');
+  // Starts on its own once the voice is ready; no setup screen. The title
+  // names the exercise and the timer the time, so nothing sits above it.
+  await expect(c.detail).toHaveCount(0);
+  await expect(c.step).toHaveCount(0);
   await expect(c.timer).toHaveText('5');
   await page.clock.runFor(10_000);
   await expect(c.timer).toHaveText('1:00');
@@ -400,7 +401,7 @@ test('WO-10 workout still starts when voice files fail', async ({authedPage: pag
   await seedExerciseGoal(db, user.id, {name: 'Swim', type: 'TIME', durationMin: 5, sets: null, reps: null});
   await page.route('**/audio/voice/**', (route) => route.abort());
   const {workout} = await startGoal(page, 'Swim');
-  await expect(controls(workout).step).toHaveText('Workout');
+  await expect(controls(workout).timer).toBeVisible();
 });
 
 test.describe('WO-11 notes during a workout', () => {
@@ -485,11 +486,16 @@ test('WO-13 a sequence runs its exercises in turn, with breaks that follow a cha
   // The setup lists each step and the breaks between them.
   await expect(workout.getByRole('table')).toContainText('Goblet squat');
   await expect(workout.getByText('Break 1 min')).toHaveCount(2);
+  // How to shows a built-in step's animation; the user's own have none.
+  await expect(workout.getByRole('button', {name: 'How to do Skipping'})).toHaveCount(0);
+  await expect(workout.getByRole('img', {name: 'Goblet squat'})).toHaveCount(0);
+  await workout.getByRole('button', {name: 'How to do Goblet squat'}).click();
+  await expect(workout.getByRole('img', {name: 'Goblet squat'})).toBeVisible();
   await freezeClock(page);
   await workout.getByRole('button', {name: 'Start 3 steps'}).click();
 
   await expect(c.step).toHaveText('Skipping');
-  await expect(c.detail).toHaveText('Step 1 of 3 · 30s');
+  await expect(c.detail).toHaveText('Step 1 of 3');
   await expect(c.timer).toHaveText('5');
   await page.clock.runFor(10_000);
   await expect(c.timer).toHaveText('0:30');
@@ -509,7 +515,7 @@ test('WO-13 a sequence runs its exercises in turn, with breaks that follow a cha
   await expect(c.detail).toHaveText('Next: Step 3 of 3 · Skipping · 30s');
   await expect(c.timer).toHaveText('0:45');
   await skipBreak.click();
-  await expect(c.detail).toHaveText('Step 3 of 3 · 30s');
+  await expect(c.detail).toHaveText('Step 3 of 3');
   await expect(c.next).toHaveText('Finish');
   await c.next.click();
 

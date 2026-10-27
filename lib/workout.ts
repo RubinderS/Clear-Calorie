@@ -16,9 +16,10 @@ export type SequencePlanStep = PlannedSet & {
   part: StepPart;
 };
 
+/** A calm step, like meditation, starts straight away with no lead-in. */
 export type WorkoutStep =
-  | {kind: 'work'; durationMs: number; set: number; sets: number; part?: StepPart}
-  | {kind: 'set'; set: number; sets: number; reps: number; part?: StepPart}
+  | {kind: 'work'; durationMs: number; set: number; sets: number; part?: StepPart; calm?: boolean}
+  | {kind: 'set'; set: number; sets: number; reps: number; part?: StepPart; calm?: boolean}
   | {
       kind: 'rest';
       durationMs: number;
@@ -147,6 +148,8 @@ export function resumeTimer(timer: Timer, now: number): Timer {
 
 /** A sequence step that follows straight on from another, with no break, starts at once. */
 export function leadInBeats(state: WorkoutState): number {
+  const step = state.steps[state.index];
+  if (step && step.kind !== 'rest' && step.calm) return 0;
   if (state.index === 0) return FIRST_LEAD_IN_BEATS;
   return state.steps[state.index - 1].kind === 'rest' ? LEAD_IN_BEATS : 0;
 }

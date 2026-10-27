@@ -120,6 +120,16 @@ test('currentCue counts a time workout in, then stays on go', () => {
   assert.equal(remainingMs(state, LEAD_IN_MS), 60_000);
 });
 
+test('a calm step starts straight away with no lead-in', () => {
+  const state = startWorkout(
+    buildWorkoutSteps([{durationSec: 60}]).map((step) => ({...step, calm: true})),
+    0,
+  );
+  assert.deepEqual(currentCue(state, 0)?.cue, {type: 'go'});
+  assert.equal(remainingMs(state, 0), 60_000);
+  assert.equal(tickWorkout(state, 60_000).done, true);
+});
+
 test('tickWorkout does not expire a paused countdown', () => {
   const state = togglePause(
     startWorkout(buildWorkoutSteps([{durationSec: 60}]), 0),

@@ -11,6 +11,7 @@ import {
 } from 'react';
 import {
   Check,
+  CircleHelp,
   Loader2,
   Minus,
   Music,
@@ -28,7 +29,6 @@ import {Toggler, type TogglerOption} from '@/components/ui/toggler';
 import type {PlannedExercise} from '@/components/todays-exercise-plan';
 import {
   formatDuration,
-  formatExerciseDetail,
   formatSetAmount,
   isRepSet,
   isSequence,
@@ -396,10 +396,14 @@ export function WorkoutSession({
     // Timed work has no setup screen, so it starts with the saved choices.
     const prefs = loadPrefs();
     return {
-      voice: prefs.cues === 'voice',
+      // Calm exercises never speak, so they needn't wait for the voice.
+      voice: prefs.cues === 'voice' && !isCalmExercise(goal.catalogId),
       make: (startedAt) => ({
         ...prefs,
-        initial: startWorkout(buildWorkoutSteps(setsOf(goal)), startedAt),
+        initial: startWorkout(
+          markCalm(buildWorkoutSteps(setsOf(goal)), goal.catalogId),
+          startedAt,
+        ),
         sound,
       }),
     };
@@ -529,7 +533,7 @@ function StrengthSetup({
       voice: prefs.cues === 'voice',
       make: (startedAt) => ({
         ...prefs,
-        initial: startWorkout(buildWorkoutSteps(planned), startedAt, {
+        initial: startWorkout(markCalm(buildWorkoutSteps(planned), goal.catalogId), startedAt, {
           reps: sameSets ? reps : undefined,
           tempoMs,
         }),
@@ -563,6 +567,7 @@ function StrengthSetup({
           onCuesChange={(cues) => setPrefs({...prefs, cues})}
           music={prefs.music}
           onMusicToggle={() => setPrefs({...prefs, music: !prefs.music})}
+          hideCues={isCalmExercise(goal.catalogId)}
         />
         <TempoStepper
           tempoMs={tempoMs}
@@ -590,6 +595,19 @@ function StrengthSetup({
   );
 }
 
+function isCalmExercise(catalogId: string | null | undefined): boolean {
+  return exerciseCatalog.get(catalogId)?.music === 'calm';
+}
+
+/** Calm exercises, like meditation, start straight away with no countdown. */
+function markCalm(steps: WorkoutStep[], goalCatalogId: string | null | undefined) {
+  return steps.map((step) =>
+    step.kind !== 'rest' && isCalmExercise(stepPart(step)?.catalogId ?? goalCatalogId)
+      ? {...step, calm: true}
+      : step,
+  );
+}
+
 /** The sequence's steps in order, each with its own exercise's tempo. */
 function sequencePlan(steps: readonly SequenceStep[]) {
   return steps.map((step) => ({
@@ -613,6 +631,8 @@ function SequenceSetup({
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
   const [steps] = useState(() => parseSequenceSteps(goal.steps) ?? []);
+  // The step whose animation is shown: the first, until another is picked.
+  const [shown, setShown] = useState(0);
 
   function start() {
     savePrefs(prefs);
@@ -623,7 +643,7 @@ function SequenceSetup({
       make: (startedAt) => ({
         ...prefs,
         initial: startWorkout(
-          buildSequenceSteps(sequencePlan(steps)),
+          markCalm(buildSequenceSteps(sequencePlan(steps)), goal.catalogId),
           startedAt,
         ),
         sound,
@@ -635,10 +655,10 @@ function SequenceSetup({
     if (prefs.music) void preloadWorkoutMusic().catch(() => {});
   }, [prefs.music]);
 
-  // Previews the first exercise, which the sequence starts with.
+  // Previews the first exercise, which the sequence starts with, or the one picked.
   return (
     <WithAnimation
-      catalogId={steps[0]?.catalogId}
+      catalogId={steps[shown]?.catalogId}
       dimmed
       sync={{key: 'preview', message: {cmd: 'free', playing: true}}}
     >
@@ -649,7 +669,12 @@ function SequenceSetup({
           music={prefs.music}
           onMusicToggle={() => setPrefs({...prefs, music: !prefs.music})}
         />
-        <SequencePlanTable steps={steps} lastWeek={goal.lastWeekSets} />
+        <SequencePlanTable
+          steps={steps}
+          lastWeek={goal.lastWeekSets}
+          shown={shown}
+          onShow={setShown}
+        />
         <Button
           className="h-12 w-full"
           disabled={steps.length === 0}
@@ -674,6 +699,7 @@ function SoundControls({
   music,
   onMusicToggle,
   trackName,
+  hideCues,
 }: {
   cues: Cues;
   onCuesChange: (cues: Cues) => void;
@@ -681,16 +707,21 @@ function SoundControls({
   onMusicToggle: () => void;
   /** The track playing, shown in place of "Music on". */
   trackName?: string;
+  /** Calm exercises have no counts to cue, so only music is offered. */
+  hideCues?: boolean;
 }) {
+  const name = useId();
   return (
-    <div className="grid w-full grid-cols-2 gap-2">
-      <Toggler
-        name={useId()}
-        label="Cues"
-        options={CUE_OPTIONS}
-        value={cues}
-        onChange={onCuesChange}
-      />
+    <div className={cn('grid w-full gap-2', !hideCues && 'grid-cols-2')}>
+      {!hideCues && (
+        <Toggler
+          name={name}
+          label="Cues"
+          options={CUE_OPTIONS}
+          value={cues}
+          onChange={onCuesChange}
+        />
+      )}
       <Button
         type="button"
         variant={music ? 'default' : 'outline'}
@@ -763,13 +794,21 @@ function SetPlanTable({
   );
 }
 
-/** A sequence's steps with the breaks between, beside last week's when logged. */
+/**
+ * A sequence's steps with the breaks between, beside last week's when logged.
+ * Built-in exercises have a How to button that shows their animation.
+ */
 function SequencePlanTable({
   steps,
   lastWeek,
+  shown,
+  onShow,
 }: {
   steps: readonly SequenceStep[];
   lastWeek?: readonly ExerciseSet[] | null;
+  /** The step whose animation is showing. */
+  shown: number;
+  onShow: (index: number) => void;
 }) {
   const previous = lastWeek?.length ? lastWeek : null;
   return (
@@ -810,7 +849,25 @@ function SequencePlanTable({
                 >
                   {index + 1}
                 </th>
-                <td className="py-1.5 text-left">{step.name}</td>
+                <td className="py-1.5 text-left">
+                  <div className="flex items-center gap-1">
+                    <span className="min-w-0">{step.name}</span>
+                    {exerciseCatalog.get(step.catalogId) ? (
+                      <Button
+                        type="button"
+                        variant={index === shown ? 'secondary' : 'ghost'}
+                        size="sm"
+                        className="h-7 shrink-0 px-2"
+                        aria-label={`How to do ${step.name}`}
+                        aria-pressed={index === shown}
+                        onClick={() => onShow(index)}
+                      >
+                        <CircleHelp />
+                        <span className="max-sm:hidden">How to</span>
+                      </Button>
+                    ) : null}
+                  </div>
+                </td>
                 <td className="py-1.5 text-right font-semibold">
                   <SetPair set={step} />
                 </td>
@@ -843,11 +900,11 @@ function SetPair({set}: {set: ExerciseSet | undefined}) {
   );
 }
 
-function stepLabel(step: WorkoutStep): string {
+function stepLabel(step: WorkoutStep): string | null {
   if (step.kind === 'rest') return step.next ? 'Break' : 'Rest';
   if (step.part) return step.part.name;
-  // A single timed set is the whole workout.
-  if (step.kind === 'work' && step.sets === 1) return 'Workout';
+  // A single timed set is the whole workout, already named in the title.
+  if (step.kind === 'work' && step.sets === 1) return null;
   return `Set ${step.set} of ${step.sets}`;
 }
 
@@ -855,7 +912,7 @@ function stepDetail(
   step: WorkoutStep,
   state: WorkoutState,
   goal: PlannedExercise,
-): string {
+): string | null {
   if (step.kind === 'rest') {
     if (!step.next) return `Next: set ${step.nextSet} of ${step.sets}`;
     const following = state.steps[state.index + 1];
@@ -864,14 +921,14 @@ function stepDetail(
       ? `${next} · ${stepAmount(following, following.kind === 'set' ? following.reps : 0)}`
       : next;
   }
-  if (step.kind === 'work' && step.sets === 1 && !step.part) {
-    return formatExerciseDetail(goal);
-  }
-  const amount = stepAmount(step, state.reps);
+  const position = step.part ? `Step ${step.set} of ${step.sets}` : null;
+  // The timer already shows how long timed work runs.
+  if (step.kind === 'work') return position;
   const sets = setsOf(goal);
   const {weight} = sets[step.set - 1] ?? sets[sets.length - 1];
+  const amount = stepAmount(step, state.reps);
   const detail = weight ? `${amount} @ ${weight}` : amount;
-  return step.part ? `Step ${step.set} of ${step.sets} · ${detail}` : detail;
+  return position ? `${position} · ${detail}` : detail;
 }
 
 function stepAmount(step: Exclude<WorkoutStep, {kind: 'rest'}>, reps: number) {
@@ -913,7 +970,7 @@ function ActiveWorkout({
     musicOn,
     running && !firstCountdown,
     step.kind === 'rest',
-    exerciseCatalog.get(stepPart(step)?.catalogId ?? goal.catalogId)?.music === 'calm',
+    isCalmExercise(stepPart(step)?.catalogId ?? goal.catalogId),
   );
 
   function toggleMusic() {
@@ -960,8 +1017,11 @@ function ActiveWorkout({
       const endCue = setEndCue(previous, next);
       const straightOn = !next.done && next.steps[next.index].kind !== 'rest';
       const endSound = endCue && cueSound(endCue, cues, musicOn);
-      // "And rest" would be wrong with no break, so going straight on is a tone.
-      const endMode = straightOn && endSound ? 'tones' : endSound;
+      // "And rest" would be wrong with no break, so going straight on is a tone,
+      // and a calm exercise like meditation ends quietly on the finish tone.
+      const ended = previous.steps[previous.index];
+      const calmEnd = ended.kind !== 'rest' && ended.calm;
+      const endMode = (straightOn || calmEnd) && endSound ? 'tones' : endSound;
       if (endCue && endMode) {
         sound?.play(endCue, endMode, next.tempoMs, leadInBeats(next));
       }
@@ -1037,10 +1097,16 @@ function ActiveWorkout({
   const controls = (
     <div className="flex flex-col items-center gap-3 md:gap-6">
       <div className="text-center" aria-live="polite">
-        <p className="text-xl font-semibold md:text-lg">{stepLabel(step)}</p>
-        <p className="text-base text-muted-foreground md:text-sm">
-          {stepDetail(step, state, goal)}
-        </p>
+        {stepLabel(step) && (
+          <p data-testid="step-label" className="text-xl font-semibold md:text-lg">
+            {stepLabel(step)}
+          </p>
+        )}
+        {stepDetail(step, state, goal) && (
+          <p data-testid="step-detail" className="text-base text-muted-foreground md:text-sm">
+            {stepDetail(step, state, goal)}
+          </p>
+        )}
       </div>
 
       {/* On phones, tempo and reps sit beside the timer rather than below it. */}
@@ -1149,6 +1215,7 @@ function ActiveWorkout({
         music={musicOn}
         onMusicToggle={toggleMusic}
         trackName={trackName}
+        hideCues={isCalmExercise(goal.catalogId)}
       />
 
       <Button variant="ghost" size="sm" onClick={cancel}>
