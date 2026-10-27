@@ -68,11 +68,26 @@ export function dayFocus(
   if (entries.length === 0 || builtIn < items.length / 2 - EPSILON) return null;
 
   // A circuit of mostly cardio moves is a cardio day, even when some of them
-  // also mainly work the legs, as a jump squat does.
-  const cardio = entries
-    .filter(({entry}) => entry.areas.primary.includes('cardio'))
-    .reduce((sum, {weight}) => sum + weight, 0);
-  if (cardio > builtIn / 2 + EPSILON) return 'Cardio day';
+  // also mainly work the legs, as a jump squat does. A plank or a meditation
+  // around the circuits doesn't change that, unless there's more of it.
+  let cardio = 0;
+  const finishers = new Map<string, number>();
+  for (const {entry, weight} of entries) {
+    const groups = new Set(entry.areas.primary.map((area) => FOCUS_GROUPS[area]));
+    if (groups.has('Cardio')) cardio += weight;
+    else if ([...groups].every((group) => ACCESSORY_GROUPS.has(group))) {
+      for (const group of groups) {
+        finishers.set(group, (finishers.get(group) ?? 0) + weight / groups.size);
+      }
+    }
+  }
+  const finisherTotal = [...finishers.values()].reduce((sum, count) => sum + count, 0);
+  if (
+    cardio > (builtIn - finisherTotal) / 2 + EPSILON &&
+    [...finishers.values()].every((count) => cardio > count + EPSILON)
+  ) {
+    return 'Cardio day';
+  }
 
   // Each exercise has one vote, shared across the groups it mainly works,
   // leaving out finishers when it also works something else.

@@ -78,6 +78,13 @@ test('gives a sequence one vote, shared across its steps', () => {
   assert.equal(dayFocus([['pull-up', null], null]), null);
 });
 
+test('keeps cardio circuits a cardio day around core and mind finishers', () => {
+  const circuitA = ['jumping-jack', 'high-knees', 'mountain-climber', 'shadow-boxing', 'butt-kicks'];
+  const circuitB = [null, 'running-man', 'standing-hamstring-curl', 'jump-squat', 'burpee'];
+  assert.equal(dayFocus(['plank', circuitA, circuitB, 'meditation']), 'Cardio day');
+  assert.equal(dayFocus(['plank', 'hanging-knee-raise', 'jumping-jack']), 'Core day');
+});
+
 test('gives an exercise its whole vote for the main group it works alongside a finisher', () => {
   const catalog = createCatalog([
     source('crunch-thrust', ['core', 'glutes']),
