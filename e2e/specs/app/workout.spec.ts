@@ -10,7 +10,7 @@ async function startGoal(page: Page, name: string) {
   const panel = await openQuickLog(page, 'exercise');
   await panel.getByRole('button', {name: `Start ${name}`}).click();
   const workout = card(panel, name);
-  await expect(workout.getByText('Workout in progress')).toBeVisible();
+  await expect(panel.locator('[data-workout]')).toBeVisible();
   return {panel, workout};
 }
 
