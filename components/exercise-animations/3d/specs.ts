@@ -16,6 +16,7 @@ import * as chestSupportedRow from './poses/chest-supported-dumbbell-row';
 import * as chinUp from './poses/chin-up';
 import * as closeGrip from './poses/close-grip-push-up';
 import * as dumbbellBench from './poses/dumbbell-bench-press';
+import * as dumbbellSplitSquat from './poses/dumbbell-bulgarian-split-squat';
 import * as calfRaise from './poses/dumbbell-calf-raise';
 import * as curl from './poses/dumbbell-curl';
 import * as fly from './poses/dumbbell-fly';
@@ -182,6 +183,15 @@ export const SPECS: Record<string, Spec3D> = {
   'close-grip-push-up': {
     pose: closeGrip.pose,
     camera: {aspect: 404 / 261},
+  },
+  'dumbbell-bulgarian-split-squat': {
+    pose: dumbbellSplitSquat.pose,
+    equipment: (kit, parent) => {
+      const {back, front, top, bottom, z} = dumbbellSplitSquat.BENCH;
+      parent.add(flatBench(kit, {left: back, right: front, top, bottom, z}).object);
+      return dumbbellsInGrips()(kit, parent);
+    },
+    camera: {aspect: 378 / 368},
   },
   'dumbbell-calf-raise': {
     pose: calfRaise.pose,

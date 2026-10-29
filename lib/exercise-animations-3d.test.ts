@@ -19,6 +19,7 @@ import * as chestRow from '@/components/exercise-animations/3d/poses/chest-suppo
 import * as chinUp from '@/components/exercise-animations/3d/poses/chin-up';
 import * as closeGrip from '@/components/exercise-animations/3d/poses/close-grip-push-up';
 import * as dumbbellBench from '@/components/exercise-animations/3d/poses/dumbbell-bench-press';
+import * as dumbbellSplitSquat from '@/components/exercise-animations/3d/poses/dumbbell-bulgarian-split-squat';
 import * as calfRaise from '@/components/exercise-animations/3d/poses/dumbbell-calf-raise';
 import * as curl from '@/components/exercise-animations/3d/poses/dumbbell-curl';
 import * as fly from '@/components/exercise-animations/3d/poses/dumbbell-fly';
@@ -195,6 +196,7 @@ const EXPECT: Record<string, Expect> = {
   'romanian-deadlift': {elbow: () => X.clone().negate(), planted: plantedFeet, grip: hangingOverhand},
   'dumbbell-romanian-deadlift': {elbow: () => X.clone().negate(), planted: plantedFeet, grip: hangingOverhand},
   'bulgarian-split-squat': {elbow: () => X.clone().negate(), planted: plantedFeet},
+  'dumbbell-bulgarian-split-squat': {elbow: () => X.clone().negate(), planted: plantedFeet, grip: neutral},
   'dumbbell-walking-lunge': {elbow: () => X.clone().negate(), planted: plantedFeet, grip: neutral},
   'dumbbell-curl': {
     elbow: () => backAndDown,
@@ -823,6 +825,17 @@ test('Bulgarian split squat: back foot on the bench; hips straight down; front t
   const thigh = bottom.legs.left.knee.clone().sub(bottom.hip);
   const slope = THREE.MathUtils.radToDeg(Math.atan2(thigh.y, Math.hypot(thigh.x, thigh.z)));
   assert.ok(Math.abs(slope) < 30, `front thigh about level: ${slope.toFixed(1)}°`);
+});
+
+test('dumbbell Bulgarian split squat: the same legs, a dumbbell hanging under each shoulder', () => {
+  for (const t of steps) {
+    const s = dumbbellSplitSquat.dumbbellBulgarianSplitSquatPose(t);
+    const plain = splitSquat.bulgarianSplitSquatPose(t);
+    for (const side of SIDES) {
+      assert.ok(same(s.legs[side].knee, plain.legs[side].knee) && same(s.feet[side].at, plain.feet[side].at), `${side} leg at ${t}`);
+      assert.ok(close(s.paws[side].at.x, s.arms[side].shoulder.x, 1e-9), `${side} dumbbell swings at ${t}`);
+    }
+  }
 });
 
 test('walking lunge: front foot flat, back on its toes; the back knee drops to just above the floor', () => {

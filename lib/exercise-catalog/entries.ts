@@ -12,6 +12,7 @@ import chestSupportedDumbbellRow from './chest-supported-dumbbell-row.json';
 import chinUp from './chin-up.json';
 import closeGripPushUp from './close-grip-push-up.json';
 import dumbbellBenchPress from './dumbbell-bench-press.json';
+import dumbbellBulgarianSplitSquat from './dumbbell-bulgarian-split-squat.json';
 import dumbbellCalfRaise from './dumbbell-calf-raise.json';
 import dumbbellCurl from './dumbbell-curl.json';
 import dumbbellFly from './dumbbell-fly.json';
@@ -211,8 +212,14 @@ export const CATALOG_SOURCES: CatalogSource[] = [
   {
     config: bulgarianSplitSquat,
     type: 'STRENGTH',
-    aliases: ['rear-foot elevated split squat', 'bulgarian squat', 'dumbbell bulgarian split squat'],
+    aliases: ['rear-foot elevated split squat', 'bulgarian squat'],
     areas: {primary: ['quads', 'glutes'], secondary: ['hamstrings', 'core']},
+  },
+  {
+    config: dumbbellBulgarianSplitSquat,
+    type: 'STRENGTH',
+    aliases: ['dumbbell rear-foot elevated split squat', 'dumbbell split squat', 'weighted bulgarian split squat'],
+    areas: {primary: ['quads', 'glutes'], secondary: ['hamstrings', 'core', 'forearms']},
   },
   {
     config: dumbbellWalkingLunge,

@@ -27,6 +27,7 @@ export const EXERCISE_ANIMATIONS: Record<
   'chin-up': () => scene3D('chin-up'),
   'close-grip-push-up': () => scene3D('close-grip-push-up'),
   'dumbbell-bench-press': () => scene3D('dumbbell-bench-press'),
+  'dumbbell-bulgarian-split-squat': () => scene3D('dumbbell-bulgarian-split-squat'),
   'dumbbell-calf-raise': () => scene3D('dumbbell-calf-raise'),
   'dumbbell-curl': () => scene3D('dumbbell-curl'),
   'dumbbell-fly': () => scene3D('dumbbell-fly'),
