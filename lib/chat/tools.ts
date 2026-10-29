@@ -40,6 +40,7 @@ import {
   toZoned,
 } from '@/lib/timezone';
 import {weightSchema} from '@/lib/weight';
+import {SIDES, toSides} from '@/lib/workout';
 import {
   getFocusProgress,
   getReportGoals,
@@ -118,7 +119,7 @@ function rangeNote(truncated: boolean, capped = false) {
 function catalogFields(catalogId: string | null) {
   const entry = exerciseCatalog.get(catalogId);
   return entry
-    ? {catalogId: entry.id, areas: describeAreas(entry)}
+    ? {catalogId: entry.id, areas: describeAreas(entry), sides: entry.sides}
     : {catalogId: undefined};
 }
 
@@ -129,6 +130,7 @@ function catalogResult(entry: CatalogEntry) {
     type: entry.type,
     equipment: entry.equipment.length ? entry.equipment : undefined,
     areas: describeAreas(entry),
+    sides: entry.sides,
     formTips: entry.formTips.length ? entry.formTips : undefined,
   };
 }
@@ -309,7 +311,7 @@ export const TOOLS = {
 
   get_exercise_plan: defineTool({
     description:
-      "The user's weekly exercise plan (each exercise with its id, weekdays, sets/reps/weight or duration, and notes) and which of today's planned exercises are done. Exercises linked to the built-in list have a catalogId and the body areas they work; ones without are the user's own. Type SEQUENCE items are several exercises done back to back, listed in steps with their breaks.",
+      "The user's weekly exercise plan (each exercise with its id, weekdays, sets/reps/weight or duration, and notes) and which of today's planned exercises are done. Exercises linked to the built-in list have a catalogId and the body areas they work; ones without are the user's own. sides is how it's done: both sides together, each (every set on the left, then the right) or alternate (each rep one move on each side). Type SEQUENCE items are several exercises done back to back, listed in steps with their breaks.",
     status: 'Checking your exercise plan',
     schema: z.object({}),
     parameters: {type: 'object', properties: {}},
@@ -329,6 +331,8 @@ export const TOOLS = {
             id: goal.id,
             name: goal.name,
             ...catalogFields(goal.catalogId),
+            // A sequence's exercises each have their own, in the catalog.
+            ...(!isSequence(goal) && !goal.catalogId && {sides: toSides(goal.sides)}),
             type: goal.type,
             days: weekdayNames(goal.daysMask),
             detail: formatExerciseDetail(goal),
@@ -601,7 +605,7 @@ export const TOOLS = {
 
   propose_exercise_plan_change: defineTool({
     description:
-      "Propose adding, changing or removing one exercise in the user's weekly exercise plan. Shows the user a card with the change to confirm. Use only when the user asks to change their plan or agrees to a suggested change. Call get_exercise_plan first for the exercise ids and current values. One call per exercise. For update, pass only the fields that change. Only built-in exercises can be added: call search_exercise_catalog and pass its catalogId; never invent exercises. To add or change a sequence (several built-in exercises done back to back with breaks, started and ticked off as one, e.g. a cardio circuit), make one call with name and steps instead of catalogId and sets. To link several existing exercises to built-in ones, use propose_exercise_catalog_links instead.",
+      "Propose adding, changing or removing one exercise in the user's weekly exercise plan. Shows the user a card with the change to confirm. Use only when the user asks to change their plan or agrees to a suggested change. Call get_exercise_plan first for the exercise ids and current values. One call per exercise. For update, pass only the fields that change. Only built-in exercises can be added: call search_exercise_catalog and pass its catalogId; never invent exercises. To add or change a sequence (several built-in exercises done back to back with breaks, started and ticked off as one, e.g. a cardio circuit), make one call with name and steps instead of catalogId and sets. To link several existing exercises to built-in ones, use propose_exercise_catalog_links instead. sides can only change on the user's own exercises (no catalogId); a built-in exercise's are fixed.",
     status: 'Preparing the plan change',
     schema: planChangeArgsSchema,
     parameters: {
@@ -617,6 +621,12 @@ export const TOOLS = {
         weight: {type: 'number', description: 'Load in kg for every set, for STRENGTH; 0 for none'},
         durationMin: {type: 'integer', description: 'Minutes, for TIME'},
         notes: {type: 'string', description: 'Replaces the notes; empty to clear'},
+        sides: {
+          type: 'string',
+          enum: [...SIDES],
+          description:
+            "For the user's own exercises only: \"both\" sides together, \"each\" to do every set on the left then the right (e.g. a single-leg or single-arm move), or \"alternate\" to swap sides every rep",
+        },
         name: {type: 'string', description: 'For a sequence: its name, e.g. "Cardio circuit"; required to add one'},
         steps: {
           type: 'array',

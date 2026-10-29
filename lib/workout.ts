@@ -20,6 +20,17 @@ export type SequencePlanStep = PlannedSet & {
 export const SIDES = ['both', 'each', 'alternate'] as const;
 export type Sides = (typeof SIDES)[number];
 
+export const SIDES_LABELS: Record<Sides, string> = {
+  both: 'Both sides together',
+  each: 'One side, then the other',
+  alternate: 'Alternating sides',
+};
+
+/** Stored sides as one of SIDES; anything else, or none, works both together. */
+export function toSides(value: string | null | undefined): Sides {
+  return SIDES.find((sides) => sides === value) ?? 'both';
+}
+
 /** Which side a step of a one-side-at-a-time exercise works. */
 export type Side = 'left' | 'right';
 

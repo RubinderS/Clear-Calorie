@@ -33,7 +33,7 @@ import {
   type Catalog,
   type CatalogEntry,
 } from '@/lib/exercise-catalog';
-import {MAX_REPS} from '@/lib/workout';
+import {MAX_REPS, SIDES, SIDES_LABELS, toSides, type Sides} from '@/lib/workout';
 import {ToolInputError} from './helpers';
 
 /**
@@ -59,13 +59,16 @@ export const planChangeSchema = z.discriminatedUnion('operation', [
 ]);
 export type StoredPlanChange = z.infer<typeof planChangeSchema>;
 
-/** A planned exercise in a proposal with every set listed, or a sequence. */
+/**
+ * A planned exercise in a proposal with every set listed, or a sequence. Only
+ * the user's own exercises have `sides`; a built-in one's are in the catalog.
+ */
 export type PlanGoal = {
   name: string;
   notes?: string | null;
   days: number[];
 } & (
-  | {exerciseSets: ExerciseSet[]}
+  | {exerciseSets: ExerciseSet[]; sides?: Sides}
   | {type: typeof SEQUENCE_TYPE; steps: SequenceStep[]}
 );
 
@@ -92,6 +95,8 @@ export const planChangeArgsSchema = z.object({
   weight: z.number().min(0).max(1000).optional(),
   durationMin: z.number().int().min(1).max(1440).optional(),
   notes: z.string().max(EXERCISE_NOTES_MAX).optional(),
+  // How the user's own exercise uses its sides; a built-in one's are fixed
+  sides: z.enum(SIDES).optional(),
   // A sequence: several built-in exercises back to back, each step one set
   name: z.string().trim().min(1).max(100).optional(),
   steps: z
@@ -123,6 +128,8 @@ export type CurrentGoal = {
   setPlan: string | null;
   steps: string | null;
   notes: string | null;
+  catalogId?: string | null;
+  sides?: string | null;
   daysMask: number;
   updatedAt: Date;
 };
@@ -134,9 +141,10 @@ export function toPlanGoal(goal: CurrentGoal): PlanGoal {
     days: maskToDays(goal.daysMask),
   };
   const steps = isSequence(goal) ? parseSequenceSteps(goal.steps) : null;
-  return steps
-    ? {...base, type: SEQUENCE_TYPE, steps}
-    : {...base, exerciseSets: setsOf(goal)};
+  if (steps) return {...base, type: SEQUENCE_TYPE, steps};
+  return goal.catalogId
+    ? {...base, exerciseSets: setsOf(goal)}
+    : {...base, exerciseSets: setsOf(goal), sides: toSides(goal.sides)};
 }
 
 function parseDays(names: readonly string[]): number[] {
@@ -275,6 +283,14 @@ function findGoal(args: PlanChangeArgs, goals: readonly CurrentGoal[]) {
   return goal;
 }
 
+/** A built-in exercise's sides are set by the exercise list, not the plan. */
+function checkSides(sides: Sides | undefined, entry: CatalogEntry | null | undefined) {
+  if (sides === undefined || !entry || sides === entry.sides) return;
+  throw new ToolInputError(
+    `${entry.name} is a built-in exercise, always done ${SIDES_LABELS[entry.sides].toLowerCase()}; its sides can't be changed. Only the user's own exercises take sides.`,
+  );
+}
+
 function checkNameFree(name: string, goals: readonly CurrentGoal[], exceptId?: string) {
   if (goals.some((goal) => goal.id !== exceptId && isSameExerciseName(goal.name, name))) {
     throw new ToolInputError(
@@ -315,6 +331,7 @@ export function buildPlanChange(
 
   if (args.operation === 'add') {
     const entry = findEntry(args.catalogId, catalog);
+    checkSides(args.sides, entry);
     if (!args.days) {
       throw new ToolInputError('days is required to add an exercise. Ask the user which days.');
     }
@@ -346,8 +363,8 @@ export function buildPlanChange(
   };
   let goal: PlanGoal;
   if ('steps' in before) {
-    const {catalogId, type, sets, reps, weight, durationMin} = args;
-    if ([catalogId, type, sets, reps, weight, durationMin].some((value) => value !== undefined)) {
+    const {catalogId, type, sets, reps, weight, durationMin, sides} = args;
+    if ([catalogId, type, sets, reps, weight, durationMin, sides].some((value) => value !== undefined)) {
       throw new ToolInputError(
         `"${before.name}" is a sequence. To change its exercises, pass the full steps list.`,
       );
@@ -366,13 +383,24 @@ export function buildPlanChange(
         `"${before.name}" is a single exercise. To turn it into a sequence, remove it and add a sequence.`,
       );
     }
-    // Linking to a built-in exercise renames it to the entry's name.
-    const name = args.catalogId ? findEntry(args.catalogId, catalog).name : before.name;
+    // Linking to a built-in exercise renames it to the entry's name, and its
+    // sides come from the entry.
+    const entry = args.catalogId ? findEntry(args.catalogId, catalog) : catalog.get(current.catalogId);
+    checkSides(args.sides, entry);
+    const name = entry && args.catalogId ? entry.name : before.name;
     if (name !== before.name) checkNameFree(name, goals, current.id);
-    goal = {name, ...shared, exerciseSets: changedSets(args, current)};
+    const exerciseSets = changedSets(args, current);
+    goal = entry
+      ? {name, ...shared, exerciseSets}
+      : {name, ...shared, exerciseSets, sides: args.sides ?? ('sides' in before ? before.sides : undefined)};
   }
-  const details = ({name, notes, days}: PlanGoal) =>
-    JSON.stringify({name, notes, days});
+  const details = (goal: PlanGoal) =>
+    JSON.stringify({
+      name: goal.name,
+      notes: goal.notes,
+      days: goal.days,
+      sides: 'sides' in goal ? goal.sides : undefined,
+    });
   if (workKey(goal) === workKey(before) && details(goal) === details(before)) {
     throw new ToolInputError('That is already the plan; nothing would change.');
   }
@@ -420,14 +448,17 @@ export function planChangeRows(
     ...('steps' in goal
       ? {Steps: describeSequence(goal.steps).join(' · ')}
       : {Sets: formatPlanSets(goalInputSets(goal))}),
+    // Only the user's own exercises say; the others' are in the catalog.
+    ...(goal.sides ? {Sides: SIDES_LABELS[goal.sides]} : {}),
     Notes: goal.notes?.trim() || 'None',
   });
   const linesFor = (goal: ExerciseGoalInput, label: string) =>
     label === 'Steps' && 'steps' in goal ? {lines: describeSequence(goal.steps)} : {};
   if (change.operation !== 'update') {
     const goal = change.operation === 'add' ? change.goal : change.before;
+    // Working both sides together goes without saying, unless it's changing.
     return Object.entries(describe(goal))
-      .filter(([, value]) => value !== 'None')
+      .filter(([label, value]) => value !== 'None' && !(label === 'Sides' && value === SIDES_LABELS.both))
       .map(([label, after]) => ({label, after, ...linesFor(goal, label)}));
   }
   const before: Record<string, string> = {Name: change.before.name, ...describe(change.before)};

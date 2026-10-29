@@ -95,9 +95,9 @@ test.describe('desktop drawer', () => {
     );
     expect(await db.foodLog.count({where: {userId: user.id}})).toBe(0);
 
-    await card.getByRole('button', {name: 'Confirm'}).click();
+    await card.getByRole('button', {name: 'Log', exact: true}).click();
     await expect(card.getByText('Logged')).toBeVisible();
-    await expect(card.getByRole('button', {name: 'Confirm'})).toHaveCount(0);
+    await expect(card.getByRole('button', {name: 'Log', exact: true})).toHaveCount(0);
     expect(await db.foodLog.count({where: {userId: user.id}})).toBe(1);
     // The page behind refreshes with the new entry.
     await expect(page.getByText(String(FOOD_ESTIMATE.calories)).first()).toBeVisible();
@@ -129,7 +129,7 @@ test.describe('desktop drawer', () => {
     );
     expect((await db.exerciseGoal.findUniqueOrThrow({where: {id: goal.id}})).weight).toBe(60);
 
-    await card.getByRole('button', {name: 'Confirm'}).click();
+    await card.getByRole('button', {name: 'Update', exact: true}).click();
     await expect(card.getByText('Plan updated')).toBeVisible();
     const updated = await db.exerciseGoal.findUniqueOrThrow({where: {id: goal.id}});
     expect(updated).toMatchObject({sets: 3, reps: 8, weight: 62.5, daysMask: goal.daysMask});
@@ -155,8 +155,8 @@ test.describe('desktop drawer', () => {
     await expect(coach(page).reply).toHaveText("I've proposed Cardio circuit for you to confirm.");
     expect(await db.exerciseGoal.count({where: {userId: user.id}})).toBe(0);
 
-    await card.getByRole('button', {name: 'Confirm'}).click();
-    await expect(card.getByText('Plan updated')).toBeVisible();
+    await card.getByRole('button', {name: 'Add', exact: true}).click();
+    await expect(card.getByText('Added to plan')).toBeVisible();
     const goal = await db.exerciseGoal.findFirstOrThrow({where: {userId: user.id}});
     expect(goal).toMatchObject({name: 'Cardio circuit', type: 'SEQUENCE', daysMask: 2});
     expect(JSON.parse(goal.steps ?? '[]')).toEqual([
@@ -182,7 +182,7 @@ test.describe('desktop drawer', () => {
     await expect(coach(page).reply).toHaveText("I've proposed matching Pushups to Push-up.");
     expect((await db.exerciseGoal.findUniqueOrThrow({where: {id: goal.id}})).catalogId).toBeNull();
 
-    await card.getByRole('button', {name: 'Confirm'}).click();
+    await card.getByRole('button', {name: 'Link', exact: true}).click();
     await expect(card.getByText('Plan updated')).toBeVisible();
     expect(await db.exerciseGoal.findUniqueOrThrow({where: {id: goal.id}})).toMatchObject({
       name: 'Push-up',
@@ -201,10 +201,10 @@ test.describe('desktop drawer', () => {
     await page.getByRole('button', {name: 'Ask coach'}).click();
     await ask(page, '[ai:chat-plan] Bump my bench by 2.5 kg');
     const card = page.getByTestId('chat-action');
-    await expect(card.getByRole('button', {name: 'Confirm'})).toBeVisible();
+    await expect(card.getByRole('button', {name: 'Update', exact: true})).toBeVisible();
 
     await db.exerciseGoal.update({where: {id: goal.id}, data: {weight: 65}});
-    await card.getByRole('button', {name: 'Confirm'}).click();
+    await card.getByRole('button', {name: 'Update', exact: true}).click();
     await expect(card.getByRole('alert')).toHaveText(/changed or removed since/);
     expect((await db.exerciseGoal.findUniqueOrThrow({where: {id: goal.id}})).weight).toBe(65);
     // Still pending, so it can be dismissed.

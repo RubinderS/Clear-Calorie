@@ -41,7 +41,7 @@ import {
 import {dayFocus} from '@/lib/day-focus';
 import {catalogIdFor, exerciseCatalog} from '@/lib/exercise-catalog';
 import {cn} from '@/lib/utils';
-import {SIDES, type Sides} from '@/lib/workout';
+import {SIDES, SIDES_LABELS, toSides, type Sides} from '@/lib/workout';
 import {
   EXERCISE_NOTES_MAX,
   SEQUENCE_TYPE,
@@ -54,17 +54,6 @@ import {
   maskToDays,
   parseSequenceSteps,
 } from '@/lib/exercise';
-
-const SIDES_LABELS: Record<Sides, string> = {
-  both: 'Both sides together',
-  each: 'One side, then the other',
-  alternate: 'Alternating sides',
-};
-
-/** A goal's stored sides as the picker shows them. */
-function toSides(value: string | null): Sides {
-  return SIDES.find((sides) => sides === value) ?? 'both';
-}
 
 type ExerciseGoalsFormProps = {
   goals: ExerciseGoal[];

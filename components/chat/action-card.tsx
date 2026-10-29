@@ -35,8 +35,20 @@ const KIND = {
 const PLAN_LABEL = {
   add: 'Add to plan',
   update: 'Change plan',
-  remove: 'Remove from plan',
+  remove: 'Delete from plan',
 } as const;
+
+/** The confirm button says what it does, then what it's doing, then what it did. */
+type ConfirmText = {verb: string; busy: string; done: string};
+const LOG_CONFIRM: ConfirmText = {verb: 'Log', busy: 'Logging…', done: 'Logged'};
+const PLAN_CONFIRM: Record<StoredPlanChange['operation'], ConfirmText> = {
+  add: {verb: 'Add', busy: 'Adding…', done: 'Added to plan'},
+  update: {verb: 'Update', busy: 'Updating…', done: 'Plan updated'},
+  remove: {verb: 'Delete', busy: 'Deleting…', done: 'Deleted from plan'},
+};
+const LINKS_CONFIRM: ConfirmText = {verb: 'Link', busy: 'Linking…', done: 'Plan updated'};
+// A plan change that can't be read still confirms as one.
+const PLAN_FALLBACK: ConfirmText = {verb: 'Confirm', busy: 'Saving…', done: 'Plan updated'};
 
 function planChangeOf(action: ChatActionView): StoredPlanChange | null {
   if (action.kind !== 'plan') return null;
@@ -192,7 +204,7 @@ function Summary({action}: {action: ChatActionView}) {
   return <p className="font-medium">{num(entry.weight)} kg</p>;
 }
 
-/** A log entry or plan change the coach proposed, with Confirm and Dismiss. */
+/** A log entry or plan change the coach proposed, with a button to do it and Dismiss. */
 export function ActionCard({
   action,
   onStatusChange,
@@ -210,7 +222,14 @@ export function ActionCard({
       ? 'Add sequence to plan'
       : PLAN_LABEL[planChange.operation]
     : kindLabel;
-  const isPlan = action.kind === 'plan' || action.kind === 'links';
+  const confirm =
+    action.kind === 'links'
+      ? LINKS_CONFIRM
+      : action.kind === 'plan'
+        ? planChange
+          ? PLAN_CONFIRM[planChange.operation]
+          : PLAN_FALLBACK
+        : LOG_CONFIRM;
 
   async function decide(decision: 'confirm' | 'dismiss') {
     setBusy(decision);
@@ -265,11 +284,12 @@ export function ActionCard({
           <div className="flex gap-2">
             <Button
               type="button"
+              variant={planChange?.operation === 'remove' ? 'destructive' : 'default'}
               className="h-11 flex-1"
               disabled={busy !== null}
               onClick={() => decide('confirm')}
             >
-              {busy === 'confirm' ? (isPlan ? 'Saving…' : 'Logging…') : 'Confirm'}
+              {busy === 'confirm' ? confirm.busy : confirm.verb}
             </Button>
             <Button
               type="button"
@@ -283,7 +303,7 @@ export function ActionCard({
           </div>
         ) : action.status === 'confirmed' ? (
           <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-            <Check aria-hidden className="size-4" /> {isPlan ? 'Plan updated' : 'Logged'}
+            <Check aria-hidden className="size-4" /> {confirm.done}
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">Dismissed</p>

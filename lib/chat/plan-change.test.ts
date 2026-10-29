@@ -11,6 +11,7 @@ import {
   planChangeSchema,
   planGoalSets,
   type CurrentGoal,
+  type PlanChangeArgs,
 } from './plan-change';
 
 function entry(id: string, name: string, overrides: Partial<CatalogSource> = {}): CatalogSource {
@@ -392,5 +393,57 @@ test('updates a sequence as a whole and only through its steps', () => {
   assert.throws(
     () => buildCatalogLinks({links: [{exerciseId: 'circuit', catalogId: 'swimming'}]}, [current], catalog),
     ToolInputError,
+  );
+});
+
+test("changes how the user's own exercise uses its sides", () => {
+  const change = buildPlanChange(
+    {operation: 'update', exerciseId: 'bench', sides: 'each'},
+    [goal({name: 'Cossack squat'})],
+    catalog,
+  );
+  assert.ok(change.operation === 'update');
+  assert.ok(planChangeSchema.safeParse(change).success);
+  assert.equal('sides' in change.goal && change.goal.sides, 'each');
+  assert.deepEqual(planChangeRows(change, catalog), [
+    {label: 'Sides', before: 'Both sides together', after: 'One side, then the other'},
+  ]);
+  // Other changes keep the sides as they are.
+  const days = buildPlanChange(
+    {operation: 'update', exerciseId: 'bench', days: ['Friday']},
+    [goal({name: 'Cossack squat', sides: 'alternate'})],
+    catalog,
+  );
+  assert.ok(days.operation === 'update');
+  assert.equal('sides' in days.goal && days.goal.sides, 'alternate');
+  assert.throws(
+    () =>
+      buildPlanChange(
+        {operation: 'update', exerciseId: 'bench', sides: 'alternate'},
+        [goal({name: 'Cossack squat', sides: 'alternate'})],
+        catalog,
+      ),
+    /nothing would change/,
+  );
+});
+
+test("a built-in exercise's sides are fixed, and a sequence has none", () => {
+  const builtIn = goal({catalogId: 'bench-press'});
+  const changes: PlanChangeArgs[] = [
+    {operation: 'update', exerciseId: 'bench', sides: 'each'},
+    {operation: 'add', catalogId: 'swimming', days: ['Monday'], durationMin: 20, sides: 'alternate'},
+  ];
+  for (const args of changes) {
+    assert.throws(() => buildPlanChange(args, [builtIn], catalog), /its sides can't be changed/);
+  }
+  const linked = buildPlanChange(
+    {operation: 'update', exerciseId: 'bench', sets: 4},
+    [builtIn],
+    catalog,
+  );
+  assert.ok(linked.operation === 'update' && !('sides' in linked.goal));
+  assert.throws(
+    () => buildPlanChange({operation: 'update', exerciseId: 'circuit', sides: 'each'}, [sequenceGoal()], catalog),
+    /is a sequence/,
   );
 });

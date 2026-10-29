@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     "test-results/**",
     "playwright-report/**",
     "blob-report/**",
+    // Claude Code's worktrees are whole copies of the repo, build output and all.
+    ".claude/**",
   ]),
   {
     // Playwright fixtures call `use()`, which isn't React's `use` hook.
