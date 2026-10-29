@@ -31,11 +31,18 @@ export type WorkoutSound = {
   endCountdown: () => void;
 };
 
-type Tone = {frequency: number; durationMs: number; gain?: number};
+type Tone = {frequency: number; durationMs: number; gain?: number; delayMs?: number};
 
 // Chime notes from a C major chord; durationMs is how long each rings out.
 const LEAD_IN_TONE: Tone = {frequency: 659.25, durationMs: 700}; // E5
 const REP_TONE: Tone = {frequency: 783.99, durationMs: 500}; // G5
+// An alternating set's moves: a single high strike on the left, a quick lower
+// double strike on the right, neither like a count.
+const LEFT_SIDE_TONES: Tone[] = [{frequency: 880, durationMs: 400}]; // A5
+const RIGHT_SIDE_TONES: Tone[] = [
+  {frequency: 523.25, durationMs: 300, gain: 0.7}, // C5
+  {frequency: 523.25, durationMs: 300, gain: 0.7, delayMs: 160},
+];
 const ACCENT_TONE: Tone = {frequency: 1046.5, durationMs: 1600}; // C6
 // A full chord that rings longest, so the end of a set stands out.
 const SET_END_TONES: Tone[] = [
@@ -57,6 +64,7 @@ function cueTones(cue: WorkoutCue): Tone[] {
   if (cue.type === 'leadIn') return [LEAD_IN_TONE];
   if (cue.type === 'go') return [ACCENT_TONE];
   if (cue.type === 'setEnd') return SET_END_TONES;
+  if (cue.type === 'side') return cue.side === 'left' ? LEFT_SIDE_TONES : RIGHT_SIDE_TONES;
   return [REP_TONE];
 }
 
@@ -107,6 +115,7 @@ export function voiceClip(
   if (cue.type === 'setEnd') {
     return {name: cue.lastSet ? 'great-work' : 'and-rest', offsetMs: 0};
   }
+  if (cue.type === 'side') return {name: cue.side, offsetMs: 0};
   return {name: countClip(cue.n, tempoMs, lengthMs), offsetMs: 0};
 }
 
@@ -116,6 +125,8 @@ const CLIP_NAMES = [
   countdownName(LEAD_IN_BEATS),
   'and-rest',
   'great-work',
+  'left',
+  'right',
   ...Array.from({length: MAX_REPS}, (_, i) => String(i + 1)),
 ];
 
@@ -233,10 +244,10 @@ export function createWorkoutSound(): WorkoutSound {
   let speaking: {name: string; source: AudioBufferSourceNode; endS: number}[] =
     [];
 
-  function chime({frequency, durationMs, gain: toneGain = 1}: Tone) {
+  function chime({frequency, durationMs, gain: toneGain = 1, delayMs = 0}: Tone) {
     if (!context) return;
     wake(context);
-    const start = context.currentTime;
+    const start = context.currentTime + delayMs / 1000;
     for (const partial of PARTIALS) {
       const end = start + durationMs / 1000 / partial.ratio;
       const oscillator = context.createOscillator();
@@ -263,8 +274,15 @@ export function createWorkoutSound(): WorkoutSound {
     speaking = [];
   }
 
-  /** afterCount queues the clip behind a count still being spoken. */
-  function say({name, offsetMs}: VoiceClip, afterCount: boolean): boolean {
+  /**
+   * afterCount queues the clip behind a count still being spoken, and
+   * afterCountdown behind a countdown too.
+   */
+  function say(
+    {name, offsetMs}: VoiceClip,
+    afterCount: boolean,
+    afterCountdown = false,
+  ): boolean {
     const clip = clips.get(name);
     if (!context || !clip) return false;
     const last = speaking[speaking.length - 1];
@@ -274,7 +292,9 @@ export function createWorkoutSound(): WorkoutSound {
     if (offsetS >= clip.buffer.duration) return false;
     wake(context);
     const follows =
-      afterCount && last && !last.name.startsWith('countdown-') ? last : null;
+      afterCount && last && (afterCountdown || !last.name.startsWith('countdown-'))
+        ? last
+        : null;
     if (!follows) stop();
     const startS = Math.max(
       context.currentTime,
@@ -299,12 +319,14 @@ export function createWorkoutSound(): WorkoutSound {
   return {
     play(cue, mode, tempoMs, leadInBeats) {
       // The final count lands as the set ends; the set-end phrase follows it
-      // rather than cutting it off.
+      // rather than cutting it off. The first "left" follows the countdown's "go".
+      const side = cue.type === 'side';
       const spoken =
         mode === 'voice' &&
         say(
           voiceClip(cue, tempoMs, leadInBeats, clipLengthMs),
-          cue.type === 'setEnd',
+          cue.type === 'setEnd' || side,
+          side,
         );
       if (!spoken) cueTones(cue).forEach(chime);
     },

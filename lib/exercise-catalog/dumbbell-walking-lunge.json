@@ -4,10 +4,10 @@
   "view": "side",
   "equipment": ["dumbbells"],
   "phases": [
-    {"name": "lower", "durationMs": 1500, "from": 0, "to": 1, "cue": "Step out and drop your back knee"},
+    {"name": "lower", "durationMs": 1400, "from": 0, "to": 1, "cue": "Step out and drop your back knee"},
     {"name": "bottom", "durationMs": 300, "from": 1, "to": 1, "cue": "Back knee just above the floor"},
-    {"name": "rise", "durationMs": 1100, "from": 1, "to": 0, "cue": "Drive up through your front foot"},
-    {"name": "step", "durationMs": 500, "from": 0, "to": 0, "cue": "Step through into the next lunge"}
+    {"name": "rise", "durationMs": 1000, "from": 1, "to": 0, "cue": "Drive up through your front foot"},
+    {"name": "step", "durationMs": 700, "from": 0, "to": 0, "cue": "Step through into the next lunge"}
   ],
   "formTips": [
     "Hold a dumbbell in each hand at your sides and stand tall",

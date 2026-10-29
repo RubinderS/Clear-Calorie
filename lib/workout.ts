@@ -17,7 +17,8 @@ export type SequencePlanStep = PlannedSet & {
 };
 
 /** How an exercise uses its sides: together, one then the other, or swapping every rep. */
-export type Sides = 'both' | 'each' | 'alternate';
+export const SIDES = ['both', 'each', 'alternate'] as const;
+export type Sides = (typeof SIDES)[number];
 
 /** Which side a step of a one-side-at-a-time exercise works. */
 export type Side = 'left' | 'right';
@@ -61,6 +62,8 @@ export type WorkoutCue =
   | {type: 'leadIn'; n: number}
   | {type: 'go'}
   | {type: 'rep'; n: number}
+  // An alternating set has no counts: each move cues its side; n reps done.
+  | {type: 'side'; side: Side; n: number}
   | {type: 'setEnd'; lastSet: boolean};
 
 export const DEFAULT_REST_MS = 60_000;
@@ -402,8 +405,9 @@ export function repsDone(state: WorkoutState, now: number): number {
  * The latest cue reached in the current set or timed work, with how late
  * `now` is for it. Timed work only counts in, then stays on "go". Time past
  * the end of a set counts toward its final rep, so the last count still
- * sounds when the set ends between ticks. `key` is stable for a beat so
- * callers can play each cue once.
+ * sounds when the set ends between ticks. An alternating set cues each move's
+ * side instead of go and the counts. `key` is stable for a
+ * beat so callers can play each cue once.
  */
 export function currentCue(
   state: WorkoutState,
@@ -417,13 +421,44 @@ export function currentCue(
       ? leadInBeat(state, elapsed)
       : setBeat(state, Math.min(elapsed, currentStepDurationMs(state)));
   const beats = leadInBeats(state);
+  const repsDone = beat - beats;
+  if (step.kind === 'set' && step.alternate && repsDone >= 0) {
+    return alternatingCue(state, beat, repsDone, startMs, elapsed);
+  }
   const cue: WorkoutCue =
     beat < beats
       ? {type: 'leadIn', n: beats - beat}
       : beat === beats
         ? {type: 'go'}
-        : {type: 'rep', n: beat - beats};
+        : {type: 'rep', n: repsDone};
   return {key: `${state.index}:${beat}`, cue, lateMs: elapsed - startMs};
+}
+
+/**
+ * An alternating rep is a move on the left, then one on the right halfway
+ * through. Once every rep is done it stays on the last move, so nothing more
+ * sounds before the set ends.
+ */
+function alternatingCue(
+  state: WorkoutState,
+  beat: number,
+  repsDone: number,
+  startMs: number,
+  elapsed: number,
+) {
+  const halfMs = state.tempoMs / 2;
+  const [rep, side, moveMs] =
+    repsDone >= state.reps
+      ? [repsDone - 1, 'right' as const, startMs - halfMs]
+      : elapsed >= startMs + halfMs
+        ? [repsDone, 'right' as const, startMs + halfMs]
+        : [repsDone, 'left' as const, startMs];
+  const repBeat = beat - (repsDone - rep);
+  return {
+    key: `${state.index}:${repBeat}:${side}`,
+    cue: {type: 'side', side, n: rep} satisfies WorkoutCue,
+    lateMs: elapsed - moveMs,
+  };
 }
 
 /**
@@ -539,16 +574,13 @@ export function animationSync(
   if (rep >= state.reps) {
     return {key: `pose:${state.index}:end`, message: {cmd: 'pose'}};
   }
-  // An alternating rep is two moves, one on each side.
-  const moves = step.alternate ? 2 : 1;
-  const moveMs = state.tempoMs / moves;
-  const move = Math.floor(intoReps / moveMs);
+  // An alternating rep's animation loops a move on each side itself.
   return {
-    key: `sync:${state.index}:${move}:${state.tempoMs}:${playing}`,
+    key: `sync:${state.index}:${rep}:${state.tempoMs}:${playing}`,
     message: {
       cmd: 'sync',
-      repMs: moveMs,
-      repElapsedMs: intoReps - move * moveMs,
+      repMs: state.tempoMs,
+      repElapsedMs: intoReps - rep * state.tempoMs,
       playing,
     },
   };

@@ -14,6 +14,7 @@ import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
+import {Select} from '@/components/ui/select';
 import {
   Card,
   CardContent,
@@ -40,6 +41,7 @@ import {
 import {dayFocus} from '@/lib/day-focus';
 import {catalogIdFor, exerciseCatalog} from '@/lib/exercise-catalog';
 import {cn} from '@/lib/utils';
+import {SIDES, type Sides} from '@/lib/workout';
 import {
   EXERCISE_NOTES_MAX,
   SEQUENCE_TYPE,
@@ -52,6 +54,17 @@ import {
   maskToDays,
   parseSequenceSteps,
 } from '@/lib/exercise';
+
+const SIDES_LABELS: Record<Sides, string> = {
+  both: 'Both sides together',
+  each: 'One side, then the other',
+  alternate: 'Alternating sides',
+};
+
+/** A goal's stored sides as the picker shows them. */
+function toSides(value: string | null): Sides {
+  return SIDES.find((sides) => sides === value) ?? 'both';
+}
 
 type ExerciseGoalsFormProps = {
   goals: ExerciseGoal[];
@@ -75,6 +88,8 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
   const noun = sequence ? 'sequence' : 'exercise';
   const [notes, setNotes] = useState('');
   const [details, setDetails] = useState(EMPTY_EXERCISE_DETAILS);
+  // A custom exercise done one side at a time; a built-in one's entry says.
+  const [sides, setSides] = useState<Sides>('both');
   const [days, setDays] = useState<number[]>([]);
 
   const allCollapsed = collapsedDays.length === WEEKDAYS.length;
@@ -103,6 +118,7 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
     setName('');
     setNotes('');
     setDetails(EMPTY_EXERCISE_DETAILS);
+    setSides('both');
     setDays([]);
     setError(null);
   }
@@ -115,6 +131,7 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
     setName(goal.name);
     setNotes(goal.notes ?? '');
     setDetails(toDetailValues(goal));
+    setSides(toSides(goal.sides));
     setDays(maskToDays(goal.daysMask));
     setError(null);
   }
@@ -173,7 +190,7 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
         days,
         ...(sequence
           ? {type: SEQUENCE_TYPE, steps: toStepsPayload(steps)}
-          : toDetailsPayload(details)),
+          : {...toDetailsPayload(details), ...(!builtIn && {sides})}),
       }),
     });
 
@@ -414,6 +431,29 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
                 value={details}
                 onChange={setDetails}
               />
+              {!builtIn && (
+                <div className="flex flex-col space-y-2">
+                  <Label htmlFor="exerciseGoalSides">Sides</Label>
+                  <Select
+                    id="exerciseGoalSides"
+                    value={sides}
+                    onChange={(event) => setSides(toSides(event.target.value))}
+                  >
+                    {SIDES.map((option) => (
+                      <option key={option} value={option}>
+                        {SIDES_LABELS[option]}
+                      </option>
+                    ))}
+                  </Select>
+                  {sides !== 'both' && (
+                    <p className="text-xs text-muted-foreground">
+                      {sides === 'each'
+                        ? 'The workout runs each set on your left side, then your right. Reps are per side.'
+                        : 'Each rep is one on each side.'}
+                    </p>
+                  )}
+                </div>
+              )}
             </>
           )}
           <div className="flex flex-col space-y-2">

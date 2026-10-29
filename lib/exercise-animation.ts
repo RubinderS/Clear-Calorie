@@ -1,4 +1,5 @@
 import type {ComponentType} from 'react';
+import type {Side} from '@/lib/workout';
 
 /**
  * Timing shared by every exercise animation. The player in
@@ -25,8 +26,11 @@ export type AnimationFrame = {
   progress: number;
 };
 
-/** An exercise's scene: draws the rabbit at one frame. */
-export type ExerciseScene = ComponentType<{frame: AnimationFrame}>;
+/**
+ * An exercise's scene: draws the rabbit at one frame. `side` is the side a
+ * set done one side at a time is working; a scene that can show it does.
+ */
+export type ExerciseScene = ComponentType<{frame: AnimationFrame; side?: Side}>;
 
 export function easeInOut(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;

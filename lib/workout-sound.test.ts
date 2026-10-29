@@ -57,6 +57,14 @@ test('voiceClip picks the set-end phrase', () => {
   );
 });
 
+test('voiceClip says the side of each move in an alternating set', () => {
+  assert.deepEqual(voiceClip({type: 'side', side: 'left', n: 0}, 3_000, 3, lengths), {
+    name: 'left',
+    offsetMs: 0,
+  });
+  assert.equal(voiceClip({type: 'side', side: 'right', n: 2}, 3_000, 3, lengths).name, 'right');
+});
+
 test('voiceClip plays reps from the start of their clip', () => {
   assert.deepEqual(voiceClip({type: 'rep', n: 12}, 3_000, 3, lengths), {
     name: '12',

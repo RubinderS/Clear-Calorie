@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {DEFAULT_TEMPO_MS, MAX_REPS} from '@/lib/workout';
+import {DEFAULT_TEMPO_MS, MAX_REPS, SIDES} from '@/lib/workout';
 
 export const EXERCISE_TYPES = ['TIME', 'STRENGTH'] as const;
 export type ExerciseType = (typeof EXERCISE_TYPES)[number];
@@ -385,6 +385,8 @@ export const exerciseGoalInputSchema = z
   .object({
     name: z.string().trim().min(1).max(100),
     notes: z.string().max(EXERCISE_NOTES_MAX).nullish(),
+    // How a custom exercise uses its sides; a built-in one's catalog entry says.
+    sides: z.enum(SIDES).nullish(),
     days: z
       .array(z.number().int().min(0).max(6))
       .min(1)

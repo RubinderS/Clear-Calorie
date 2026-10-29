@@ -133,6 +133,9 @@ export type ExerciseGoal = {
   notes: string | null;
   // Built-in exercise (lib/exercise-catalog) this is linked to; set from the name
   catalogId: string | null;
+  // A custom exercise done one side at a time: "each" or "alternate" (see
+  // Sides in lib/workout); null works both sides together
+  sides: string | null;
   // For type "SEQUENCE": JSON array of steps (one set of one exercise each,
   // with the break before it), run back to back and logged as one entry
   steps: string | null;

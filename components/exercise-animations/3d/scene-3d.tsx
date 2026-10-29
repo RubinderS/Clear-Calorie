@@ -7,6 +7,7 @@ import {OutlineEffect} from 'three/addons/effects/OutlineEffect.js';
 import {frameAt, cycleMs, type AnimationFrame, type ExerciseScene} from '@/lib/exercise-animation';
 import {exerciseCatalog} from '@/lib/exercise-catalog';
 import {cn} from '@/lib/utils';
+import type {Side} from '@/lib/workout';
 import {createKit, type Kit} from './kit';
 import {createRabbit3D, type Rabbit3D} from './rabbit-3d';
 import {RIG} from './rig';
@@ -27,6 +28,13 @@ export type Spec3D = {
   camera?: {aspect?: number};
   /** Hanging exercises have no floor in view. */
   floor?: boolean;
+  /**
+   * An exercise done one side at a time, posed with the near leg working,
+   * which reads as the right. The left side, and the preview and rests
+   * before it, play it mirrored near side to far, so the rabbit faces the
+   * same way with the other leg doing the work.
+   */
+  sided?: boolean;
 };
 
 let webGL: boolean | undefined;
@@ -95,6 +103,7 @@ type Stage = {
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
   pose(frame: AnimationFrame): void;
+  setSide(side: Side | undefined): void;
   fit(aspect: number): void;
   render(): void;
   dispose(): void;
@@ -176,6 +185,13 @@ function createStage(host: HTMLElement, spec: Spec3D, id: string, view: 'front' 
     camera,
     controls,
     pose,
+    setSide(side) {
+      // Mirrored about the middle of the rep, so the framing and floor still fit.
+      // three.js flips the face winding itself for a mirrored object.
+      const mirrored = spec.sided === true && side !== 'right';
+      subject.scale.z = mirrored ? -1 : 1;
+      subject.position.z = mirrored ? 2 * centre.z : 0;
+    },
     fit(aspect) {
       controls.target.copy(frame(camera, bounds, VIEW_DIRECTION[view], aspect));
       controls.update();
@@ -224,10 +240,11 @@ export function scene3D(id: string, spec: Spec3D): ExerciseScene {
   const view = entry?.view ?? 'side';
   const aspect = spec.camera?.aspect ?? 1;
   const label = `${entry?.name ?? 'Exercise'}: the rabbit in 3D`;
-  function Scene3D({frame: current}: {frame: AnimationFrame}) {
+  function Scene3D({frame: current, side}: {frame: AnimationFrame; side?: Side}) {
     const descId = useId();
     const hostRef = useRef<HTMLDivElement>(null);
     const stageRef = useRef<Stage | null>(null);
+    const sideRef = useRef(side);
     // The server can't tell, so it renders the 3D host and the browser decides.
     const supported = useSyncExternalStore(noSubscription, canUseWebGL, () => true);
 
@@ -236,6 +253,7 @@ export function scene3D(id: string, spec: Spec3D): ExerciseScene {
       const host = hostRef.current;
       if (!host || !supported) return;
       const stage = createStage(host, spec, id, view);
+      stage.setSide(sideRef.current);
       stageRef.current = stage;
       const resize = () => {
         const {width, height} = host.getBoundingClientRect();
@@ -254,13 +272,15 @@ export function scene3D(id: string, spec: Spec3D): ExerciseScene {
       };
     }, [supported]);
 
-    // Pose the rabbit for each frame the player hands over.
+    // Pose the rabbit for each frame the player hands over, on the side it's working.
     useEffect(() => {
+      sideRef.current = side;
       const stage = stageRef.current;
       if (!stage) return;
+      stage.setSide(side);
       stage.pose(current);
       stage.render();
-    }, [current]);
+    }, [current, side]);
 
     if (!supported) return <NoWebGL id={id} frame={current} />;
     return (

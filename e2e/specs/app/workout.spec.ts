@@ -596,3 +596,57 @@ test('WO-14 an exercise done one side at a time runs each side and logs the set 
     exerciseSets: [{reps: 5}, {reps: 5}],
   });
 });
+
+test('WO-15 an own exercise set to one side at a time runs each side', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  await page.clock.install();
+  await seedExerciseGoal(db, user.id, {name: 'Cossack squat', sets: 1, reps: 6, sides: 'each'});
+  const {workout} = await startGoal(page, 'Cossack squat');
+  const c = controls(workout);
+  await expect(workout.getByTestId('sides-note')).toHaveText(
+    'Each set: all reps on your left side, then your right.',
+  );
+  await freezeClock(page);
+  await workout.getByRole('button', {name: 'Start 1 set'}).click();
+
+  await expect(c.step).toHaveText('Set 1 of 1 · Left side');
+  await workout.getByRole('button', {name: 'Switch sides'}).click();
+  await expect(c.step).toHaveText('Set 1 of 1 · Right side');
+  await expect(c.next).toHaveText('Finish');
+});
+
+test('WO-16 an alternating rep shows the switch to the other side', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  await page.clock.install();
+  await seedExerciseGoal(db, user.id, {
+    name: 'Reverse lunge',
+    sets: 1,
+    reps: 6,
+    sides: 'alternate',
+    tempoMs: 4000,
+  });
+  const {workout} = await startGoal(page, 'Reverse lunge');
+  const c = controls(workout);
+  await expect(workout.getByTestId('sides-note')).toHaveText(
+    'Alternate sides: each rep is one on each side.',
+  );
+  await freezeClock(page);
+  await workout.getByRole('button', {name: 'Start 1 set'}).click();
+  await expect(c.detail).toHaveText('6 reps each side');
+
+  await page.clock.runFor(10_000);
+  await expect(c.timer).toHaveText('Go');
+  await expect(workout.getByText('of 6 reps · Left side')).toBeVisible();
+  await page.clock.runFor(2_000);
+  await expect(c.timer).toHaveText('Go');
+  await expect(workout.getByText('of 6 reps · Right side')).toBeVisible();
+  await page.clock.runFor(2_000);
+  await expect(c.timer).toHaveText('1');
+  await expect(workout.getByText('of 6 reps · Left side')).toBeVisible();
+});

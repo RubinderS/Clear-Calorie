@@ -12,6 +12,7 @@ import {
   type ExerciseSet,
 } from '@/lib/exercise';
 import {catalogIdFor} from '@/lib/exercise-catalog';
+import type {Sides} from '@/lib/workout';
 import * as goals from '@/lib/data/exercise-goals';
 import {listExerciseLogs} from '@/lib/data/exercise-logs';
 import {createPlanDays, findLatestPlanDay, listPlanDays} from '@/lib/data/plan-days';
@@ -28,6 +29,16 @@ type PlanGoal = {daysMask: number; createdAt: Date};
 export class ExerciseGoalNotFoundError extends Error {}
 
 /**
+ * How a custom exercise's sides are kept: null for both together, and left as
+ * they are when not given. A built-in exercise's come from its catalog entry.
+ */
+function storedSides(catalogId: string | null, sides: Sides | null | undefined) {
+  if (catalogId) return null;
+  if (sides === undefined) return undefined;
+  return sides === 'both' ? null : sides;
+}
+
+/**
  * Adds a planned exercise, or updates the one with `target.id`. With
  * `target.updatedAt`, only a goal unchanged since then is updated.
  */
@@ -37,16 +48,18 @@ export async function saveExerciseGoal(
   input: ExerciseGoalInput,
   target?: {id: string; updatedAt?: Date},
 ) {
+  const catalogId = 'steps' in input ? null : catalogIdFor(input.name);
   const data = {
     name: input.name,
     notes: normalizeNotes(input.notes),
     daysMask: daysToMask(input.days),
     // A sequence's exercises and tempos are kept per step instead.
     ...('steps' in input
-      ? {...toSequenceFields(input.steps), catalogId: null, tempoMs: null}
+      ? {...toSequenceFields(input.steps), catalogId: null, tempoMs: null, sides: null}
       : {
           ...toPlanFields(inputSets(input)),
-          catalogId: catalogIdFor(input.name),
+          catalogId,
+          sides: storedSides(catalogId, input.sides),
           steps: null,
         }),
   };
@@ -127,6 +140,7 @@ export async function getTodaysPlanStatus(
     setPlan: goal.setPlan,
     steps: goal.steps,
     catalogId: goal.catalogId,
+    sides: goal.sides,
     tempoMs: goal.tempoMs,
     notes: goal.notes,
     lastWeekSets: lastWeekSets.get(goal.id) ?? null,

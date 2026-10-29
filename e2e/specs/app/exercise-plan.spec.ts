@@ -139,6 +139,43 @@ test('EP-13 own exercises stay unlinked, with no how-to', async ({authedPage: pa
   await expect(page.getByRole('button', {name: /^How to do/})).toHaveCount(0);
 });
 
+test('EP-16 an own exercise can be done one side at a time', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  const add = await openAdd(page);
+  const f = goalForm(add);
+  const sides = add.getByLabel('Sides');
+  // A built-in exercise already knows how it uses its sides.
+  await f.name.fill('Goblet squat');
+  await expect(sides).toHaveCount(0);
+
+  await f.name.fill('Cossack squat');
+  await expect(sides).toHaveValue('both');
+  await sides.selectOption({label: 'One side, then the other'});
+  await expect(add.getByText('Reps are per side.', {exact: false})).toBeVisible();
+  await f.fillSets(repeat(8, 2));
+  await f.day('Tue').check();
+  const request = nextApiRequest(page, '/api/exercise-goals');
+  await add.getByRole('button', {name: 'Add exercise'}).click();
+  expect((await request).postDataJSON()).toMatchObject({name: 'Cossack squat', sides: 'each'});
+  await expect(add).toBeHidden();
+  const goal = await db.exerciseGoal.findFirstOrThrow({where: {userId: user.id}});
+  expect(goal.sides).toBe('each');
+
+  // Editing shows it, and both sides together clears it.
+  await daySection(page, 2).getByRole('button', {name: 'Edit Cossack squat'}).click();
+  const edit = dialog(page, 'Edit exercise');
+  await expect(edit.getByLabel('Sides')).toHaveValue('each');
+  await edit.getByLabel('Sides').selectOption({label: 'Both sides together'});
+  await edit.getByRole('button', {name: 'Update exercise'}).click();
+  await expect(edit).toBeHidden();
+  await expect
+    .poll(async () => (await db.exerciseGoal.findFirstOrThrow({where: {id: goal.id}})).sides)
+    .toBeNull();
+});
+
 test('EP-02 add a strength goal on Mon/Wed/Fri', async ({authedPage: page, db, user}) => {
   const add = await openAdd(page);
   const f = goalForm(add);
@@ -157,6 +194,7 @@ test('EP-02 add a strength goal on Mon/Wed/Fri', async ({authedPage: page, db, u
     notes: 'Heels down',
     days: [1, 3, 5],
     exerciseSets: repeat(10, 3).map((reps) => ({reps, weight: 50})),
+    sides: 'both',
   });
   expect((await sent.response())?.status()).toBe(201);
   await expect(add).toBeHidden();
@@ -187,6 +225,7 @@ test('EP-03 time goal', async ({authedPage: page}) => {
     notes: '',
     days: [0],
     exerciseSets: [{durationSec: 1200, weight: null}],
+    sides: 'both',
   });
   const sunday = daySection(page, 0);
   await expect(sunday).toContainText('20 min');

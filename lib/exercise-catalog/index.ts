@@ -1,6 +1,7 @@
 import {z} from 'zod';
 import {EXERCISE_TYPES, type ExerciseType} from '@/lib/exercise';
 import {cycleMs, type AnimationPhase} from '@/lib/exercise-animation';
+import {SIDES} from '@/lib/workout';
 import {CATALOG_SOURCES} from './entries';
 
 /**
@@ -71,7 +72,7 @@ export const catalogSourceSchema = z.object({
   music: z.enum(['workout', 'calm']).default('workout'),
   // One side at a time: 'each' does a side's reps then switches; 'alternate'
   // swaps every rep, so a rep is one on each side. Reps are always per side.
-  sides: z.enum(['both', 'each', 'alternate']).default('both'),
+  sides: z.enum(SIDES).default('both'),
   // Kept so old links resolve; never offered or matched for new ones.
   retired: z.boolean().default(false),
 });

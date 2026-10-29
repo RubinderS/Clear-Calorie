@@ -119,6 +119,8 @@ type Expect = {
   elbow(s: Skeleton, side: Side, frame: AnimationFrame): THREE.Vector3;
   /** Points that stay put through the whole rep: planted feet, hands, knees. */
   planted?(s: Skeleton): THREE.Vector3[];
+  /** Frames where the planted points move on, as stepping through to the next lunge. */
+  moving?(frame: AnimationFrame): boolean;
   /** For a paw closed round a handle or bar: which side of it the palm is on, and which way the fingers wrap; null for an open paw. */
   grip?(s: Skeleton, side: Side, frame: AnimationFrame): {palm: THREE.Vector3; over: THREE.Vector3} | null;
   /** How far the paw sits out along the hand from the wrist, when it isn't at the wrist. */
@@ -197,7 +199,12 @@ const EXPECT: Record<string, Expect> = {
   'dumbbell-romanian-deadlift': {elbow: () => X.clone().negate(), planted: plantedFeet, grip: hangingOverhand},
   'bulgarian-split-squat': {elbow: () => X.clone().negate(), planted: plantedFeet},
   'dumbbell-bulgarian-split-squat': {elbow: () => X.clone().negate(), planted: plantedFeet, grip: neutral},
-  'dumbbell-walking-lunge': {elbow: () => X.clone().negate(), planted: plantedFeet, grip: neutral},
+  'dumbbell-walking-lunge': {
+    elbow: () => X.clone().negate(),
+    planted: plantedFeet,
+    moving: (frame) => frame.phase.name === 'step',
+    grip: neutral,
+  },
   'dumbbell-curl': {
     elbow: () => backAndDown,
     planted: (s) => [...plantedFeet(s), s.hip, s.shoulder, s.head, s.arms.left.elbow, s.arms.right.elbow],
@@ -583,6 +590,7 @@ test('native planted points stay put through the rep', () => {
     if (!planted) continue;
     const start = planted(SPECS[id].pose(framesOf(id)[0]));
     for (const frame of framesOf(id)) {
+      if (EXPECT[id].moving?.(frame)) continue;
       planted(SPECS[id].pose(frame)).forEach((point, i) => {
         assert.ok(same(point, start[i]), `${id}: planted point ${i} moved at ${frame.progress.toFixed(3)}`);
       });
@@ -850,6 +858,24 @@ test('walking lunge: front foot flat, back on its toes; the back knee drops to j
   }
   // At the bottom the back knee is close to the floor.
   assert.ok(lunge.walkingLungePose(1).legs.right.knee.y < 0.3, 'deep enough');
+});
+
+test('walking lunge: the back foot steps through, ending in the same lunge on the right', () => {
+  const mirrored = (p: THREE.Vector3) => new THREE.Vector3(p.x, p.y, -p.z);
+  const start = lunge.walkingLungePose(0);
+  const end = lunge.walkingLungePose(0, 1);
+  // Played mirrored near side to far, the next move picks up where this one ends.
+  for (const [a, b] of [['left', 'right'], ['right', 'left']] as const) {
+    assert.ok(same(end.legs[a].ankle, mirrored(start.legs[b].ankle)), `${a} ankle`);
+    assert.ok(same(end.legs[a].knee, mirrored(start.legs[b].knee)), `${a} knee`);
+    assert.ok(same(end.feet[a].at, mirrored(start.feet[b].at)), `${a} foot`);
+  }
+  for (const t of steps) {
+    const s = lunge.walkingLungePose(0, t);
+    // The swinging foot never goes into the floor, and passes under the hips at the middle.
+    assert.ok(s.feet.right.at.y >= FOOT.height - 1e-9, `swinging foot in the floor at ${t}`);
+  }
+  assert.ok(Math.abs(lunge.walkingLungePose(0, 0.5).legs.right.ankle.x) < 0.05, 'passes under the hips');
 });
 
 // Curls and the calf raise.
@@ -1576,4 +1602,40 @@ test('shadow boxing: hands up by the chin; the jab and the cross reach out at sh
   }
   // The hips and shoulders turn into the cross.
   assert.ok(boxing.shadowBoxingPose(0.75).arms.right.shoulder.x > guard.arms.right.shoulder.x + 0.1);
+});
+
+// Side-on, the camera looks from +z. Facing +x with up +y, a body's true
+// right (forward × up) is +z, so the near limb is its right; the left side of
+// a sided scene plays mirrored, the far limb working.
+const WORKING_LIMB: Record<string, (s: Skeleton) => THREE.Vector3> = {
+  'bulgarian-split-squat': frontAnkle,
+  'dumbbell-bulgarian-split-squat': frontAnkle,
+  'dumbbell-walking-lunge': frontAnkle,
+  'one-arm-dumbbell-row': (s) => SIDES.map((side) => s.paws[side]).find((paw) => paw.grip)!.at,
+  'band-triceps-extension': (s) =>
+    SIDES.map((side) => s.arms[side].elbow).reduce((a, b) => (a.y > b.y ? a : b)),
+};
+
+function frontAnkle(s: Skeleton) {
+  return SIDES.map((side) => s.legs[side].ankle).reduce((a, b) => (a.x > b.x ? a : b));
+}
+
+test('exercises done one side at a time work the near limb, the true right, unmirrored', () => {
+  assert.ok(new THREE.Vector3().crossVectors(X, Y).z > 0, 'facing +x, the right is +z');
+  const sided = exerciseCatalog.all.filter((entry) => entry.sides !== 'both');
+  assert.deepEqual(sided.map((entry) => entry.id).sort(), Object.keys(WORKING_LIMB).sort());
+  for (const {id} of sided) {
+    assert.ok(SPECS[id].sided, `${id} doesn't switch sides`);
+    for (const frame of framesOf(id)) {
+      if (EXPECT[id]?.moving?.(frame)) continue;
+      const limb = WORKING_LIMB[id](SPECS[id].pose(frame));
+      assert.ok(limb.z > 0, `${id}: the working limb is on the far side at ${frame.progress.toFixed(3)}`);
+    }
+  }
+});
+
+test('only exercises done one side at a time switch sides', () => {
+  for (const [id, spec] of Object.entries(SPECS)) {
+    if (spec.sided) assert.notEqual(exerciseCatalog.get(id)?.sides, 'both', id);
+  }
 });

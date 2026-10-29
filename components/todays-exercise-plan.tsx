@@ -53,6 +53,8 @@ export type PlannedExercise = {
   notes: string | null;
   /** The built-in exercise it's linked to, which has an animation. */
   catalogId?: string | null;
+  /** How a custom exercise uses its sides (see Sides in lib/workout). */
+  sides?: string | null;
   /** Sets logged for this goal on the same weekday last week, if any. */
   lastWeekSets?: ExerciseSet[] | null;
 };

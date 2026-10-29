@@ -133,6 +133,7 @@ const exerciseGoalSchema = schema<T.ExerciseGoal>('exercise_goals', {
   setPlan: optional(String),
   tempoMs: optional(Number),
   notes: optional(String),
+  sides: optional(String),
   steps: optional(String),
   daysMask: {type: Number, required: true},
 });

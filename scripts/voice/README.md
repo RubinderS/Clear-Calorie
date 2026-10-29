@@ -1,7 +1,7 @@
 # Workout voice clips
 
-`generate_voice.py` records the spoken workout cues (counts, countdowns, "And
-rest", "Great work") as mp3 files in [`public/audio/voice/`](../../public/audio/voice/),
+`generate_voice.py` records the spoken workout cues (counts, countdowns, "Left"
+and "Right" for alternating reps, "And rest", "Great work") as mp3 files in [`public/audio/voice/`](../../public/audio/voice/),
 using [Piper](https://github.com/OHF-Voice/piper1-gpl), a text-to-speech engine
 that runs locally. The app plays these files in **Count** mode
 (see `lib/workout-sound.ts`).

@@ -1,6 +1,6 @@
 """Speaks the workout voice cues into trimmed mp3 clips for the app.
 
-Writes 1.mp3-100.mp3, and-rest.mp3, great-work.mp3 and the lead-in countdowns
+Writes 1.mp3-100.mp3, and-rest.mp3, great-work.mp3, left.mp3, right.mp3 and the lead-in countdowns
 countdown-5.mp3 ("5, 4, 3, 2, 1, go") and countdown-3.mp3 ("3, 2, 1, go").
 lib/workout-sound.ts plays them; rerun this after changing any phrase there.
 
@@ -33,10 +33,14 @@ DEFAULT_VOICE = HERE / "voices" / "en_US-lessac-medium.onnx"
 DEFAULT_OUT = HERE.parent.parent / "public" / "audio" / "voice"
 
 # Every phrase cueWords() in lib/workout-sound.ts can say: rep counts up to
-# MAX_REPS (short counts reuse 1-9), and the set-end cues.
+# MAX_REPS (short counts reuse 1-9), the set-end cues, and the sides of an
+# alternating rep.
 WORDS = {str(n): str(n) for n in range(1, 101)}
 WORDS["and-rest"] = "And rest."
 WORDS["great-work"] = "Great work!"
+# The side each move of an alternating rep is on.
+WORDS["left"] = "Left."
+WORDS["right"] = "Right."
 # Only used inside the countdowns, not saved as its own clip.
 GO = "Go!"
 

@@ -124,6 +124,7 @@ export const SPECS: Record<string, Spec3D> = {
     // One end under the working heel, the other in the working paw.
     equipment: bandsToAnchor(tricepsExtension.ANCHOR, {paws: ['left'], onPost: false}),
     camera: {aspect: 308 / 405},
+    sided: true,
   },
   'band-triceps-pushdown': {
     pose: pushdown.pose,
@@ -155,6 +156,7 @@ export const SPECS: Record<string, Spec3D> = {
       parent.add(flatBench(kit, {left: back, right: front, top, bottom, z}).object);
     },
     camera: {aspect: 378 / 368},
+    sided: true,
   },
   'burpee': {
     pose: burpee.pose,
@@ -192,6 +194,7 @@ export const SPECS: Record<string, Spec3D> = {
       return dumbbellsInGrips()(kit, parent);
     },
     camera: {aspect: 378 / 368},
+    sided: true,
   },
   'dumbbell-calf-raise': {
     pose: calfRaise.pose,
@@ -251,6 +254,7 @@ export const SPECS: Record<string, Spec3D> = {
     pose: lunge.pose,
     equipment: dumbbellsInGrips(),
     camera: {aspect: 358 / 364},
+    sided: true,
   },
   'dumbbell-wrist-curl': {
     pose: wristCurl.pose,
@@ -325,6 +329,7 @@ export const SPECS: Record<string, Spec3D> = {
       return (_, skeleton) => d.update(skeleton.paws.left.at, skeleton.paws.left.grip!.axis);
     },
     camera: {aspect: 398 / 292},
+    sided: true,
   },
   plank: {
     pose: plank.pose,

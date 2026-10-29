@@ -71,6 +71,8 @@ import {
   togglePause,
   type AnimationSync,
   type CompletedSet,
+  type Side,
+  type Sides,
   type WorkoutCue,
   type WorkoutState,
   type WorkoutStep,
@@ -117,7 +119,7 @@ type WorkoutPrefs = {cues: Cues; music: boolean};
  */
 function cueSound(cue: WorkoutCue, cues: Cues, music: boolean): SoundMode | null {
   if (cues !== 'off') return cues;
-  return music && cue.type !== 'rep' ? 'tones' : null;
+  return music && cue.type !== 'rep' && cue.type !== 'side' ? 'tones' : null;
 }
 
 function loadPrefs(): WorkoutPrefs {
@@ -147,17 +149,24 @@ const savedTempos = new Map<string, number>();
  * A built-in exercise's own rep time, to the stepper's step, else the app
  * default. An alternating rep is a move on each side, so takes two loops.
  */
-function defaultTempo(catalogId: string | null | undefined): number {
+function defaultTempo(catalogId: string | null | undefined, sides: Sides = 'both'): number {
   const entry = exerciseCatalog.get(catalogId);
-  if (!entry) return DEFAULT_TEMPO_MS;
-  const repMs = entry.sides === 'alternate' ? 2 * entry.cycleMs : entry.cycleMs;
+  const loopMs = entry?.cycleMs ?? DEFAULT_TEMPO_MS;
+  const repMs = (entry?.sides ?? sides) === 'alternate' ? 2 * loopMs : loopMs;
   return clampTempo(Math.round(repMs / TEMPO_STEP_MS) * TEMPO_STEP_MS);
 }
 
 function loadTempo(goal: PlannedExercise): number {
   return clampTempo(
-    savedTempos.get(goal.id) ?? goal.tempoMs ?? defaultTempo(goal.catalogId),
+    savedTempos.get(goal.id) ?? goal.tempoMs ?? defaultTempo(goal.catalogId, goalSides(goal)),
   );
+}
+
+/** How a goal's exercise uses its sides: a built-in one's entry says, else the goal. */
+function goalSides(goal: PlannedExercise): Sides {
+  const entry = exerciseCatalog.get(goal.catalogId);
+  if (entry) return entry.sides;
+  return goal.sides === 'each' || goal.sides === 'alternate' ? goal.sides : 'both';
 }
 
 /** Remembers the tempo on the goal so it follows the user across devices. */
@@ -405,7 +414,7 @@ export function WorkoutSession({
       make: (startedAt) => ({
         ...prefs,
         initial: startWorkout(
-          markSteps(buildWorkoutSteps(setsOf(goal)), goal.catalogId),
+          markSteps(buildWorkoutSteps(setsOf(goal)), goal),
           startedAt,
         ),
         sound,
@@ -476,6 +485,7 @@ function LoadingVoice({onCancel}: {onCancel: () => void}) {
 function WithAnimation({
   catalogId,
   sync,
+  side,
   // Small enough above the controls on phones; as big as fits beside them on desktop.
   maxHeightClassName = '[&>*]:max-h-[min(30vh,15rem)] md:[&>*]:max-h-[min(70vh,30rem)]',
   dimmed,
@@ -484,6 +494,7 @@ function WithAnimation({
 }: {
   catalogId: string | null | undefined;
   sync: {key: string; message: AnimationSync};
+  side?: Side;
   maxHeightClassName?: string;
   dimmed?: boolean;
   areasClassName?: string;
@@ -499,6 +510,7 @@ function WithAnimation({
           key={entry.id}
           entry={entry}
           sync={sync}
+          side={side}
           className="mx-auto max-w-sm md:max-w-none"
           maxHeightClassName={maxHeightClassName}
           dimmed={dimmed}
@@ -537,7 +549,7 @@ function StrengthSetup({
       voice: prefs.cues === 'voice',
       make: (startedAt) => ({
         ...prefs,
-        initial: startWorkout(markSteps(buildWorkoutSteps(planned), goal.catalogId), startedAt, {
+        initial: startWorkout(markSteps(buildWorkoutSteps(planned), goal), startedAt, {
           reps: sameSets ? reps : undefined,
           tempoMs,
         }),
@@ -584,9 +596,9 @@ function StrengthSetup({
             onChange={(value) => setRepsValue(clampReps(value))}
           />
         ) : null}
-        {sidesNote(goal.catalogId) && (
+        {sidesNote(goalSides(goal)) && (
           <p data-testid="sides-note" className="text-center text-sm text-muted-foreground">
-            {sidesNote(goal.catalogId)}
+            {sidesNote(goalSides(goal))}
           </p>
         )}
         {/* Weight is changed when logging, so here it is only shown. */}
@@ -612,21 +624,22 @@ function isCalmExercise(catalogId: string | null | undefined): boolean {
  * Calm exercises, like meditation, start straight away with no countdown.
  * Exercises done one side at a time get a step per side, or alternate.
  */
-function markSteps(steps: WorkoutStep[], goalCatalogId: string | null | undefined) {
+function markSteps(steps: WorkoutStep[], goal: PlannedExercise) {
   const calm = steps.map((step) =>
-    step.kind !== 'rest' && isCalmExercise(stepPart(step)?.catalogId ?? goalCatalogId)
+    step.kind !== 'rest' && isCalmExercise(stepPart(step)?.catalogId ?? goal.catalogId)
       ? {...step, calm: true}
       : step,
   );
-  return bySide(
-    calm,
-    (step) => exerciseCatalog.get(step.part?.catalogId ?? goalCatalogId)?.sides ?? 'both',
+  // A sequence step is its own exercise; a custom one in it works both sides.
+  return bySide(calm, (step) =>
+    step.part
+      ? (exerciseCatalog.get(step.part.catalogId)?.sides ?? 'both')
+      : goalSides(goal),
   );
 }
 
-/** How a built-in exercise's reps are counted, when it's done one side at a time. */
-function sidesNote(catalogId: string | null | undefined): string | null {
-  const sides = exerciseCatalog.get(catalogId)?.sides;
+/** How an exercise's reps are counted, when it's done one side at a time. */
+function sidesNote(sides: Sides): string | null {
   if (sides === 'each') return 'Each set: all reps on your left side, then your right.';
   if (sides === 'alternate') return 'Alternate sides: each rep is one on each side.';
   return null;
@@ -667,7 +680,7 @@ function SequenceSetup({
       make: (startedAt) => ({
         ...prefs,
         initial: startWorkout(
-          markSteps(buildSequenceSteps(sequencePlan(steps)), goal.catalogId),
+          markSteps(buildSequenceSteps(sequencePlan(steps)), goal),
           startedAt,
         ),
         sound,
@@ -1102,7 +1115,9 @@ function ActiveWorkout({
   const progress = inSet
     ? cue?.type === 'rep'
       ? (100 * cue.n) / state.reps
-      : 0
+      : cue?.type === 'side'
+        ? (100 * (cue.n + (cue.side === 'right' ? 0.5 : 0))) / state.reps
+        : 0
     : step.kind === 'work'
       ? (100 * Math.max(0, elapsedMs(state.timer, now) - leadInMs(state))) /
         step.durationMs
@@ -1119,6 +1134,10 @@ function ActiveWorkout({
   } else if (cue?.type === 'rep') {
     display = String(cue.n);
     caption = `of ${state.reps} reps`;
+  } else if (cue?.type === 'side') {
+    // An alternating rep is a move on the left, then one on the right.
+    display = cue.n === 0 ? 'Go' : String(cue.n);
+    caption = `of ${state.reps} reps · ${SIDE_LABELS[cue.side]}`;
   }
 
   // Tighter on phones, so the animation and every control fit on one screen.
@@ -1258,6 +1277,7 @@ function ActiveWorkout({
     <WithAnimation
       catalogId={stepPart(step)?.catalogId ?? goal.catalogId}
       sync={animationSync(state, now)}
+      side={step.kind !== 'rest' ? step.side : undefined}
       dimmed={step.kind === 'rest' && !state.done}
       // Phones need the room for the animation and controls.
       areasClassName="max-md:hidden"

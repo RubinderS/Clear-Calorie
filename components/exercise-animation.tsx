@@ -24,7 +24,7 @@ import {
   exerciseCatalog,
   type CatalogEntry,
 } from '@/lib/exercise-catalog';
-import type {AnimationSync} from '@/lib/workout';
+import type {AnimationSync, Side} from '@/lib/workout';
 import {cn} from '@/lib/utils';
 
 // Made once per exercise so React keeps the loaded scene between renders.
@@ -74,12 +74,15 @@ const MAX_FRAME_MS = 50;
 export function ExerciseAnimation({
   entry,
   sync,
+  side,
   className,
   maxHeightClassName = '[&>*]:max-h-[min(55vh,26rem)]',
   dimmed = false,
 }: {
   entry: CatalogEntry;
   sync?: {key: string; message: AnimationSync} | null;
+  /** The side a set done one side at a time is working; an alternating one shows both in turn. */
+  side?: Side;
   className?: string;
   /** Caps the scene's height, so a tall one (standing, arms up) fits its place. */
   maxHeightClassName?: string;
@@ -94,10 +97,12 @@ export function ExerciseAnimation({
 
   const message = sync?.message;
   const repMs = message?.cmd === 'sync' ? message.repMs : null;
-  const phases = useMemo(
-    () => (repMs ? scalePhases(entry.phases, repMs) : entry.phases),
-    [entry.phases, repMs],
-  );
+  // An alternating rep loops a move on the left, then the same on the right.
+  const alternates = entry.sides === 'alternate';
+  const phases = useMemo(() => {
+    const loop = alternates ? [...entry.phases, ...entry.phases] : entry.phases;
+    return repMs ? scalePhases(loop, repMs) : loop;
+  }, [entry.phases, alternates, repMs]);
   const playing = message ? message.cmd !== 'pose' && message.playing : true;
 
   // Jumps to where the workout is once per key; between keys the clock runs
@@ -130,7 +135,12 @@ export function ExerciseAnimation({
   }, [running]);
 
   if (!Scene) return null;
-  const frame = frameAt(phases, time);
+  const looped = frameAt(phases, time);
+  const onRight = alternates && looped.phaseIndex >= entry.phases.length;
+  const frame = onRight
+    ? {...looped, phaseIndex: looped.phaseIndex - entry.phases.length}
+    : looped;
+  const shownSide = alternates ? (onRight ? 'right' : 'left') : side;
   return (
     <figure ref={container} className={cn('space-y-2', className)}>
       {/* Each scene's viewBox sets its height; reserve about one until it loads. */}
@@ -142,7 +152,7 @@ export function ExerciseAnimation({
         )}
       >
         <Suspense fallback={<div className="aspect-680/400 w-full" />}>
-          <Scene frame={frame} />
+          <Scene frame={frame} side={shownSide} />
         </Suspense>
       </div>
     </figure>
