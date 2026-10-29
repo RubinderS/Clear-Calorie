@@ -16,10 +16,21 @@ export type SequencePlanStep = PlannedSet & {
   part: StepPart;
 };
 
-/** A calm step, like meditation, starts straight away with no lead-in. */
+/** How an exercise uses its sides: together, one then the other, or swapping every rep. */
+export type Sides = 'both' | 'each' | 'alternate';
+
+/** Which side a step of a one-side-at-a-time exercise works. */
+export type Side = 'left' | 'right';
+
+/**
+ * A calm step, like meditation, starts straight away with no lead-in. A set
+ * done one side at a time is a left step then a right step; an alternating
+ * step's reps are one on each side.
+ */
+type SideFields = {side?: Side; alternate?: boolean};
 export type WorkoutStep =
-  | {kind: 'work'; durationMs: number; set: number; sets: number; part?: StepPart; calm?: boolean}
-  | {kind: 'set'; set: number; sets: number; reps: number; part?: StepPart; calm?: boolean}
+  | ({kind: 'work'; durationMs: number; set: number; sets: number; part?: StepPart; calm?: boolean} & SideFields)
+  | ({kind: 'set'; set: number; sets: number; reps: number; part?: StepPart; calm?: boolean} & SideFields)
   | {
       kind: 'rest';
       durationMs: number;
@@ -42,6 +53,8 @@ export type WorkoutState = {
   setsCompleted: number;
   /** Each finished set: its reps as set when it ended, or the time worked. */
   completed: CompletedSet[];
+  /** The left side of a set while the right is still to do. */
+  leftSide?: CompletedSet | null;
 };
 
 export type WorkoutCue =
@@ -113,6 +126,29 @@ export function buildSequenceSteps(
   });
 }
 
+/**
+ * Splits each set of an exercise done one side at a time into a left step and
+ * a right step, and marks alternating ones. `sidesOf` says how each step's
+ * exercise uses its sides.
+ */
+export function bySide(
+  steps: readonly WorkoutStep[],
+  sidesOf: (step: Exclude<WorkoutStep, {kind: 'rest'}>) => Sides,
+): WorkoutStep[] {
+  return steps.flatMap((step): WorkoutStep[] => {
+    if (step.kind === 'rest') return [step];
+    const sides = sidesOf(step);
+    if (sides === 'alternate') return [{...step, alternate: true}];
+    if (sides === 'each') {
+      return [
+        {...step, side: 'left'},
+        {...step, side: 'right'},
+      ];
+    }
+    return [step];
+  });
+}
+
 /** The exercise a step is, or during a break the one coming next. */
 export function stepPart(step: WorkoutStep): StepPart | undefined {
   return step.kind === 'rest' ? step.next : step.part;
@@ -146,11 +182,15 @@ export function resumeTimer(timer: Timer, now: number): Timer {
   return {...timer, startedAt: now};
 }
 
-/** A sequence step that follows straight on from another, with no break, starts at once. */
+/**
+ * A sequence step that follows straight on from another, with no break,
+ * starts at once. The second side of a set counts in, to allow a switch.
+ */
 export function leadInBeats(state: WorkoutState): number {
   const step = state.steps[state.index];
   if (step && step.kind !== 'rest' && step.calm) return 0;
   if (state.index === 0) return FIRST_LEAD_IN_BEATS;
+  if (step?.kind !== 'rest' && step?.side === 'right') return LEAD_IN_BEATS;
   return state.steps[state.index - 1].kind === 'rest' ? LEAD_IN_BEATS : 0;
 }
 
@@ -201,7 +241,17 @@ export function startWorkout(
     ),
     setsCompleted: 0,
     completed: [],
+    leftSide: null,
   };
+}
+
+/** A set done one side at a time counts what both sides managed. */
+function bothSides(left: CompletedSet, right: CompletedSet): CompletedSet {
+  return 'reps' in left && 'reps' in right
+    ? {reps: Math.min(left.reps, right.reps)}
+    : 'durationSec' in left && 'durationSec' in right
+      ? {durationSec: Math.min(left.durationSec, right.durationSec)}
+      : right;
 }
 
 /** The current step as a finished set, or null during a rest. */
@@ -247,7 +297,16 @@ function tempoFor(state: WorkoutState, index: number): number {
 /** Moves to the next step with its timer starting at `at`; finishes after the last step. */
 export function nextStep(state: WorkoutState, at: number): WorkoutState {
   if (state.done) return state;
-  const finished = finishedSet(state, at);
+  const step = state.steps[state.index];
+  const ended = finishedSet(state, at);
+  // The left side is held until the right is done, so the set counts once.
+  const leftSide = step.kind !== 'rest' && step.side === 'left' ? ended : null;
+  const finished =
+    leftSide || !ended
+      ? null
+      : state.leftSide
+        ? bothSides(state.leftSide, ended)
+        : ended;
   const setsCompleted = state.setsCompleted + (finished ? 1 : 0);
   const completed = finished
     ? [...state.completed, finished]
@@ -258,6 +317,7 @@ export function nextStep(state: WorkoutState, at: number): WorkoutState {
       ...state,
       setsCompleted,
       completed,
+      leftSide: null,
       timer: pauseTimer(state.timer, at),
       done: true,
     };
@@ -269,6 +329,7 @@ export function nextStep(state: WorkoutState, at: number): WorkoutState {
     tempoMs: tempoFor(state, index),
     setsCompleted,
     completed,
+    leftSide,
     timer: {accumulatedMs: 0, startedAt: at},
   };
 }
@@ -375,6 +436,15 @@ export function setEndCue(
   previous: WorkoutState,
   next: WorkoutState,
 ): WorkoutCue | null {
+  // Switching sides goes straight on to the other side's count-in.
+  const ended = previous.steps[previous.index];
+  if (
+    ended.kind !== 'rest' &&
+    ended.side === 'left' &&
+    next.index === previous.index + 1
+  ) {
+    return {type: 'setEnd', lastSet: false};
+  }
   if (next.setsCompleted <= previous.setsCompleted) return null;
   if (next.done) return {type: 'setEnd', lastSet: true};
   return next.steps[next.index].kind === 'rest' ||
@@ -469,12 +539,16 @@ export function animationSync(
   if (rep >= state.reps) {
     return {key: `pose:${state.index}:end`, message: {cmd: 'pose'}};
   }
+  // An alternating rep is two moves, one on each side.
+  const moves = step.alternate ? 2 : 1;
+  const moveMs = state.tempoMs / moves;
+  const move = Math.floor(intoReps / moveMs);
   return {
-    key: `sync:${state.index}:${rep}:${state.tempoMs}:${playing}`,
+    key: `sync:${state.index}:${move}:${state.tempoMs}:${playing}`,
     message: {
       cmd: 'sync',
-      repMs: state.tempoMs,
-      repElapsedMs: intoReps - rep * state.tempoMs,
+      repMs: moveMs,
+      repElapsedMs: intoReps - move * moveMs,
       playing,
     },
   };

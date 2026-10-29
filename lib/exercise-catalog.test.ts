@@ -137,3 +137,12 @@ test('pose modules share movements through moves/, never by importing each other
     assert.doesNotMatch(source, /(from|import) '\.\//, `${id} imports another pose; move what it shares to moves/`);
   }
 });
+
+test('exercises done one side at a time say how they switch', () => {
+  const sides = (id: string) => exerciseCatalog.get(id)?.sides;
+  assert.equal(sides('bulgarian-split-squat'), 'each');
+  assert.equal(sides('dumbbell-bulgarian-split-squat'), 'each');
+  assert.equal(sides('one-arm-dumbbell-row'), 'each');
+  assert.equal(sides('dumbbell-walking-lunge'), 'alternate');
+  assert.equal(sides('goblet-squat'), 'both');
+});

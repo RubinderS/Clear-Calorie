@@ -51,6 +51,7 @@ import {
   animationSync,
   buildSequenceSteps,
   buildWorkoutSteps,
+  bySide,
   clampReps,
   clampTempo,
   currentCue,
@@ -142,12 +143,15 @@ function savePrefs(prefs: WorkoutPrefs) {
 // Tempos saved since the page loaded, so a rerun doesn't use the stale prop.
 const savedTempos = new Map<string, number>();
 
-/** A built-in exercise's own rep time, to the stepper's step, else the app default. */
+/**
+ * A built-in exercise's own rep time, to the stepper's step, else the app
+ * default. An alternating rep is a move on each side, so takes two loops.
+ */
 function defaultTempo(catalogId: string | null | undefined): number {
-  const cycleMs = exerciseCatalog.get(catalogId)?.cycleMs;
-  return cycleMs
-    ? Math.round(cycleMs / TEMPO_STEP_MS) * TEMPO_STEP_MS
-    : DEFAULT_TEMPO_MS;
+  const entry = exerciseCatalog.get(catalogId);
+  if (!entry) return DEFAULT_TEMPO_MS;
+  const repMs = entry.sides === 'alternate' ? 2 * entry.cycleMs : entry.cycleMs;
+  return clampTempo(Math.round(repMs / TEMPO_STEP_MS) * TEMPO_STEP_MS);
 }
 
 function loadTempo(goal: PlannedExercise): number {
@@ -401,7 +405,7 @@ export function WorkoutSession({
       make: (startedAt) => ({
         ...prefs,
         initial: startWorkout(
-          markCalm(buildWorkoutSteps(setsOf(goal)), goal.catalogId),
+          markSteps(buildWorkoutSteps(setsOf(goal)), goal.catalogId),
           startedAt,
         ),
         sound,
@@ -533,7 +537,7 @@ function StrengthSetup({
       voice: prefs.cues === 'voice',
       make: (startedAt) => ({
         ...prefs,
-        initial: startWorkout(markCalm(buildWorkoutSteps(planned), goal.catalogId), startedAt, {
+        initial: startWorkout(markSteps(buildWorkoutSteps(planned), goal.catalogId), startedAt, {
           reps: sameSets ? reps : undefined,
           tempoMs,
         }),
@@ -580,6 +584,11 @@ function StrengthSetup({
             onChange={(value) => setRepsValue(clampReps(value))}
           />
         ) : null}
+        {sidesNote(goal.catalogId) && (
+          <p data-testid="sides-note" className="text-center text-sm text-muted-foreground">
+            {sidesNote(goal.catalogId)}
+          </p>
+        )}
         {/* Weight is changed when logging, so here it is only shown. */}
         <SetPlanTable target={planned} lastWeek={goal.lastWeekSets} />
         <Button className="h-12 w-full" onClick={start}>
@@ -599,13 +608,28 @@ function isCalmExercise(catalogId: string | null | undefined): boolean {
   return exerciseCatalog.get(catalogId)?.music === 'calm';
 }
 
-/** Calm exercises, like meditation, start straight away with no countdown. */
-function markCalm(steps: WorkoutStep[], goalCatalogId: string | null | undefined) {
-  return steps.map((step) =>
+/**
+ * Calm exercises, like meditation, start straight away with no countdown.
+ * Exercises done one side at a time get a step per side, or alternate.
+ */
+function markSteps(steps: WorkoutStep[], goalCatalogId: string | null | undefined) {
+  const calm = steps.map((step) =>
     step.kind !== 'rest' && isCalmExercise(stepPart(step)?.catalogId ?? goalCatalogId)
       ? {...step, calm: true}
       : step,
   );
+  return bySide(
+    calm,
+    (step) => exerciseCatalog.get(step.part?.catalogId ?? goalCatalogId)?.sides ?? 'both',
+  );
+}
+
+/** How a built-in exercise's reps are counted, when it's done one side at a time. */
+function sidesNote(catalogId: string | null | undefined): string | null {
+  const sides = exerciseCatalog.get(catalogId)?.sides;
+  if (sides === 'each') return 'Each set: all reps on your left side, then your right.';
+  if (sides === 'alternate') return 'Alternate sides: each rep is one on each side.';
+  return null;
 }
 
 /** The sequence's steps in order, each with its own exercise's tempo. */
@@ -643,7 +667,7 @@ function SequenceSetup({
       make: (startedAt) => ({
         ...prefs,
         initial: startWorkout(
-          markCalm(buildSequenceSteps(sequencePlan(steps)), goal.catalogId),
+          markSteps(buildSequenceSteps(sequencePlan(steps)), goal.catalogId),
           startedAt,
         ),
         sound,
@@ -900,12 +924,16 @@ function SetPair({set}: {set: ExerciseSet | undefined}) {
   );
 }
 
+const SIDE_LABELS = {left: 'Left side', right: 'Right side'} as const;
+
 function stepLabel(step: WorkoutStep): string | null {
   if (step.kind === 'rest') return step.next ? 'Break' : 'Rest';
-  if (step.part) return step.part.name;
+  const side = step.side ? SIDE_LABELS[step.side] : null;
   // A single timed set is the whole workout, already named in the title.
-  if (step.kind === 'work' && step.sets === 1) return null;
-  return `Set ${step.set} of ${step.sets}`;
+  const name =
+    step.part?.name ??
+    (step.kind === 'work' && step.sets === 1 ? null : `Set ${step.set} of ${step.sets}`);
+  return [name, side].filter(Boolean).join(' · ') || null;
 }
 
 function stepDetail(
@@ -933,7 +961,7 @@ function stepDetail(
 
 function stepAmount(step: Exclude<WorkoutStep, {kind: 'rest'}>, reps: number) {
   return step.kind === 'set'
-    ? `${reps} reps`
+    ? `${reps} reps${step.alternate ? ' each side' : ''}`
     : formatDuration(Math.round(step.durationMs / 1000));
 }
 
@@ -1084,7 +1112,7 @@ function ActiveWorkout({
   let caption = 'Remaining';
   if (cue?.type === 'leadIn') {
     display = String(cue.n);
-    caption = 'Get ready';
+    caption = step.kind !== 'rest' && step.side === 'right' ? 'Switch sides' : 'Get ready';
   } else if (cue?.type === 'go' && inSet) {
     display = 'Go';
     caption = `of ${state.reps} reps`;
@@ -1204,7 +1232,9 @@ function ActiveWorkout({
               ? 'Skip break'
               : 'Skip rest'
             : !isLastStep
-              ? 'Done'
+              ? step.side === 'left'
+                ? 'Switch sides'
+                : 'Done'
               : 'Finish'}
         </Button>
       </div>

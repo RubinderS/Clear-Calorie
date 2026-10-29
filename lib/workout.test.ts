@@ -11,6 +11,7 @@ import {
   setTempo,
   buildSequenceSteps,
   buildWorkoutSteps,
+  bySide,
   elapsedMs,
   formatClock,
   nextStep,
@@ -128,6 +129,72 @@ test('a calm step starts straight away with no lead-in', () => {
   assert.deepEqual(currentCue(state, 0)?.cue, {type: 'go'});
   assert.equal(remainingMs(state, 0), 60_000);
   assert.equal(tickWorkout(state, 60_000).done, true);
+});
+
+test('bySide splits each-side sets into left then right and marks alternating ones', () => {
+  const steps = buildWorkoutSteps(repSets(2, 8), 30_000);
+  assert.deepEqual(bySide(steps, () => 'each'), [
+    {kind: 'set', set: 1, sets: 2, reps: 8, side: 'left'},
+    {kind: 'set', set: 1, sets: 2, reps: 8, side: 'right'},
+    {kind: 'rest', durationMs: 30_000, nextSet: 2, sets: 2},
+    {kind: 'set', set: 2, sets: 2, reps: 8, side: 'left'},
+    {kind: 'set', set: 2, sets: 2, reps: 8, side: 'right'},
+  ]);
+  assert.deepEqual(bySide(steps, () => 'alternate')[0], {
+    kind: 'set', set: 1, sets: 2, reps: 8, alternate: true,
+  });
+  assert.deepEqual(bySide(steps, () => 'both'), steps);
+});
+
+test('a set done one side at a time logs once, with what both sides managed', () => {
+  const steps = bySide(buildWorkoutSteps(repSets(2, 10), 30_000), () => 'each');
+  let state = startWorkout(steps, 0, {tempoMs: 1000});
+  state = nextStep(setReps(state, 9), 5_000);
+  // The left side is held, not logged, and its reps carry to the right.
+  assert.equal(state.setsCompleted, 0);
+  assert.deepEqual(state.completed, []);
+  assert.equal(state.reps, 9);
+  state = nextStep(setReps(state, 8), 10_000);
+  assert.equal(state.setsCompleted, 1);
+  assert.deepEqual(state.completed, [{reps: 8}]);
+  assert.equal(state.steps[state.index].kind, 'rest');
+});
+
+test('the right side counts in for the switch and the left side ends on a tone', () => {
+  const steps = bySide(buildWorkoutSteps([{reps: 5}]), () => 'each');
+  const start = startWorkout(steps, 0, {tempoMs: 1000});
+  const leftEnd = LEAD_IN_MS + 5_000;
+  const right = tickWorkout(start, leftEnd);
+  assert.equal(right.index, 1);
+  assert.deepEqual(setEndCue(start, right), {type: 'setEnd', lastSet: false});
+  assert.deepEqual(currentCue(right, leftEnd)?.cue, {type: 'leadIn', n: LEAD_IN_BEATS});
+  assert.equal(remainingMs(right, leftEnd), LATER_LEAD_IN_MS + 5_000);
+  const done = tickWorkout(right, leftEnd + LATER_LEAD_IN_MS + 5_000);
+  assert.equal(done.done, true);
+  assert.deepEqual(done.completed, [{reps: 5}]);
+  assert.deepEqual(setEndCue(right, done), {type: 'setEnd', lastSet: true});
+});
+
+test('timed sides log the shorter of the two', () => {
+  const steps = bySide(buildWorkoutSteps([{durationSec: 30}]), () => 'each');
+  let state = startWorkout(steps, 0);
+  state = nextStep(state, LEAD_IN_MS + 25_000);
+  state = tickWorkout(state, LEAD_IN_MS + 25_000 + LATER_LEAD_IN_MS + 30_000);
+  assert.deepEqual(state.completed, [{durationSec: 25}]);
+});
+
+test('an alternating rep plays a move on each side', () => {
+  const steps = bySide(buildWorkoutSteps([{reps: 4}]), () => 'alternate');
+  const state = startWorkout(steps, 0, {tempoMs: 4000});
+  const first = animationSync(state, LEAD_IN_MS + 500).message;
+  const second = animationSync(state, LEAD_IN_MS + 2_500).message;
+  assert.deepEqual(first, {cmd: 'sync', repMs: 2000, repElapsedMs: 500, playing: true});
+  assert.deepEqual(second, {cmd: 'sync', repMs: 2000, repElapsedMs: 500, playing: true});
+  assert.notEqual(
+    animationSync(state, LEAD_IN_MS + 500).key,
+    animationSync(state, LEAD_IN_MS + 2_500).key,
+  );
+  assert.equal(repsDone(state, LEAD_IN_MS + 4_000), 1);
 });
 
 test('tickWorkout does not expire a paused countdown', () => {

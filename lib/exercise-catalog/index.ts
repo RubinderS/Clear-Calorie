@@ -69,6 +69,9 @@ export const catalogSourceSchema = z.object({
   }),
   // The music a workout plays behind it: gym beats, or a calm track for slow, quiet work.
   music: z.enum(['workout', 'calm']).default('workout'),
+  // One side at a time: 'each' does a side's reps then switches; 'alternate'
+  // swaps every rep, so a rep is one on each side. Reps are always per side.
+  sides: z.enum(['both', 'each', 'alternate']).default('both'),
   // Kept so old links resolve; never offered or matched for new ones.
   retired: z.boolean().default(false),
 });
@@ -95,6 +98,8 @@ export type CatalogEntry = {
   cycleMs: number;
   /** The music a workout plays behind it. */
   music: 'workout' | 'calm';
+  /** Whether it's done one side at a time; reps are then per side. */
+  sides: 'both' | 'each' | 'alternate';
   retired: boolean;
 };
 
@@ -127,7 +132,7 @@ export type Catalog = ReturnType<typeof createCatalog>;
 /** Validates the sources and builds the lookups. Throws on a bad or ambiguous entry. */
 export function createCatalog(sources: readonly CatalogSource[]) {
   const entries: CatalogEntry[] = sources.map((source) => {
-    const {config, type, aliases, areas, music, retired} =
+    const {config, type, aliases, areas, music, sides, retired} =
       catalogSourceSchema.parse(source);
     return {
       id: config.id,
@@ -142,6 +147,7 @@ export function createCatalog(sources: readonly CatalogSource[]) {
       phases: config.phases,
       cycleMs: cycleMs(config.phases),
       music,
+      sides,
       retired,
     };
   });

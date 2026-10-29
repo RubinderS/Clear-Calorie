@@ -157,6 +157,7 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     type: 'STRENGTH',
     aliases: ['single-arm dumbbell row', 'dumbbell row', 'one-arm row', 'single-arm row'],
     areas: {primary: ['back'], secondary: ['biceps', 'shoulders', 'forearms']},
+    sides: 'each',
   },
   {
     config: chestSupportedDumbbellRow,
@@ -181,6 +182,7 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     type: 'STRENGTH',
     aliases: ['band overhead triceps extension', 'band tricep extension', 'overhead band triceps extension', 'single-arm band triceps extension'],
     areas: {primary: ['triceps'], secondary: []},
+    sides: 'each',
   },
   {
     config: dumbbellOverheadTricepsExtension,
@@ -214,18 +216,21 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     type: 'STRENGTH',
     aliases: ['rear-foot elevated split squat', 'bulgarian squat'],
     areas: {primary: ['quads', 'glutes'], secondary: ['hamstrings', 'core']},
+    sides: 'each',
   },
   {
     config: dumbbellBulgarianSplitSquat,
     type: 'STRENGTH',
     aliases: ['dumbbell rear-foot elevated split squat', 'dumbbell split squat', 'weighted bulgarian split squat'],
     areas: {primary: ['quads', 'glutes'], secondary: ['hamstrings', 'core', 'forearms']},
+    sides: 'each',
   },
   {
     config: dumbbellWalkingLunge,
     type: 'STRENGTH',
     aliases: ['walking lunge', 'dumbbell lunge', 'lunge'],
     areas: {primary: ['quads', 'glutes'], secondary: ['hamstrings', 'calves', 'core']},
+    sides: 'alternate',
   },
   {
     config: meditation,

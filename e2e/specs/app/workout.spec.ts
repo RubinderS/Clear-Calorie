@@ -544,3 +544,55 @@ test('WO-13 a sequence runs its exercises in turn, with breaks that follow a cha
     ['Skipping', null, null, 30],
   ]);
 });
+
+test('WO-14 an exercise done one side at a time runs each side and logs the set once', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  await page.clock.install();
+  const goal = await seedExerciseGoal(db, user.id, {
+    name: 'Bulgarian split squat',
+    catalogId: 'bulgarian-split-squat',
+    sets: 2,
+    reps: 6,
+  });
+  const {workout} = await startGoal(page, 'Bulgarian split squat');
+  const c = controls(workout);
+  await expect(workout.getByTestId('sides-note')).toHaveText(
+    'Each set: all reps on your left side, then your right.',
+  );
+  await freezeClock(page);
+  await workout.getByRole('button', {name: 'Start 2 sets'}).click();
+
+  await expect(c.step).toHaveText('Set 1 of 2 · Left side');
+  await expect(workout.getByRole('button', {name: 'Switch sides'})).toBeVisible();
+  await workout.getByRole('button', {name: 'Switch sides'}).click();
+
+  // The right side goes straight on, with a count-in to switch.
+  await expect(c.step).toHaveText('Set 1 of 2 · Right side');
+  await expect(c.timer).toHaveText('3');
+  await expect(workout.getByText('Switch sides')).toBeVisible();
+  await c.fewerReps.click();
+  await c.next.click();
+
+  await expect(c.step).toHaveText('Rest');
+  await c.next.click(); // Skip rest
+  await expect(c.step).toHaveText('Set 2 of 2 · Left side');
+  await workout.getByRole('button', {name: 'Switch sides'}).click();
+  await expect(c.step).toHaveText('Set 2 of 2 · Right side');
+  await expect(c.next).toHaveText('Finish');
+  await c.next.click();
+
+  // Two sets, not four: each counts the reps both sides managed, and the
+  // change carries on to later sets as usual.
+  await expect(workout.getByLabel('Set 1 reps')).toHaveValue('5');
+  await expect(workout.getByLabel('Set 2 reps')).toHaveValue('5');
+  await expect(workout.getByLabel('Set 3 reps')).toHaveCount(0);
+  const logged = nextApiRequest(page, '/api/exercise-goals/log');
+  await workout.getByRole('button', {name: 'Done', exact: true}).click();
+  expect((await logged).postDataJSON()).toMatchObject({
+    goalId: goal.id,
+    exerciseSets: [{reps: 5}, {reps: 5}],
+  });
+});
