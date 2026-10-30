@@ -315,7 +315,7 @@ test('adds a sequence of built-in exercises in one change', () => {
     change.goal.steps.map((step) => [step.name, step.restSec]),
     [
       ['Swimming', 0],
-      ['Barbell back squat', 60],
+      ['Barbell back squat', 30],
       ['Bench press', 0],
     ],
   );
@@ -324,7 +324,7 @@ test('adds a sequence of built-in exercises in one change', () => {
   const steps = planChangeRows(change, catalog).find((row) => row.label === 'Steps');
   assert.deepEqual(steps?.lines, [
     '1. Swimming · 1 min',
-    'Break 1 min',
+    'Break 30s',
     '2. Barbell back squat · 10 reps',
     '3. Bench press · 8 reps',
   ]);

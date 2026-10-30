@@ -44,7 +44,7 @@ export type ExerciseSet = {
   catalogId?: string | null;
 };
 
-export const DEFAULT_BREAK_SEC = 60;
+export const DEFAULT_BREAK_SEC = 30;
 export const MAX_BREAK_SEC = 600;
 // Each step is logged as one set, so the log limit applies.
 export const MAX_SEQUENCE_STEPS = MAX_SETS;
