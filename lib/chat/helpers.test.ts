@@ -5,6 +5,7 @@ import {
   MAX_TOOL_RESULT_CHARS,
   describePageContext,
   resolveDates,
+  resolveLogDate,
   serializeToolResult,
   threadTitle,
   toModelHistory,
@@ -141,4 +142,20 @@ test('describes only known pages', () => {
 test('titles threads from the first message', () => {
   assert.equal(threadTitle('  How   was\nmy week? '), 'How was my week?');
   assert.equal(threadTitle('x'.repeat(80)).length, 58);
+});
+
+test('logs for today unless an earlier day is given', () => {
+  assert.deepEqual(resolveLogDate({}, today), {date: today, time: undefined});
+  assert.deepEqual(resolveLogDate({date: '2025-03-02', time: '19:30'}, today), {
+    date: '2025-03-02',
+    time: '19:30',
+  });
+});
+
+test('rejects future days and malformed dates or times', () => {
+  assert.throws(() => resolveLogDate({date: '2026-10-20'}, today), /future/);
+  assert.throws(() => resolveLogDate({date: '2026-02-30'}, today), /Invalid "date"/);
+  assert.throws(() => resolveLogDate({date: 'yesterday'}, today), /Invalid "date"/);
+  assert.throws(() => resolveLogDate({time: '7pm'}, today), /Invalid "time"/);
+  assert.throws(() => resolveLogDate({time: '24:00'}, today), /Invalid "time"/);
 });

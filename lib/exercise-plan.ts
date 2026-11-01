@@ -92,13 +92,27 @@ export async function deleteExerciseGoal(
   }
 }
 
+/**
+ * The goals planned today, or on an earlier yyyy-MM-dd `date` from the
+ * current plan: those on its weekday that existed by then.
+ */
 export async function getPlannedExerciseGoals(
   userId: string,
   timeZone: string,
+  date?: string,
 ) {
-  const weekday = getTodayWeekday(timeZone);
   const all = await goals.listExerciseGoals(userId);
-  return all.filter((goal) => isActiveOn(goal.daysMask, weekday));
+  if (!date) {
+    const weekday = getTodayWeekday(timeZone);
+    return all.filter((goal) => isActiveOn(goal.daysMask, weekday));
+  }
+  const range = getDateRange(date, timeZone);
+  if (!range) return [];
+  // parseISO keeps date-only keys at local midnight, so getDay() is the calendar weekday.
+  const weekday = parseISO(date).getDay();
+  return all.filter(
+    (goal) => isActiveOn(goal.daysMask, weekday) && goal.createdAt <= range.end,
+  );
 }
 
 /** Each goal's sets as ticked off on this weekday last week, by goal id. */

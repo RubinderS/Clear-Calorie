@@ -3,12 +3,17 @@ import {getServerSession} from 'next-auth/next';
 import {format} from 'date-fns';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
+import {isValidMetricValue, metricEntrySchema} from '@/lib/body-metrics';
 import {catalogLinksSchema, planChangeSchema} from '@/lib/chat/plan-change';
-import {parseActionPayload} from '@/lib/chat/view';
+import {parseActionPayload, type ActionPayload} from '@/lib/chat/view';
 import {
+  AlreadyTickedError,
   PlannedExerciseError,
   createExerciseLog,
   exerciseLogSchema,
+  logPastPlannedExercise,
+  plannedTickSchema,
+  type PastDay,
 } from '@/lib/exercise-log';
 import {
   ExerciseGoalNotFoundError,
@@ -23,7 +28,8 @@ import {
   resolveChatAction,
   setChatActionResult,
 } from '@/lib/data/chat';
-import {getTodayDate, getUserTimeZone, toZoned} from '@/lib/timezone';
+import {createBodyMetricLogs, findBodyMetric} from '@/lib/data/body-metrics';
+import {getLogTime, getTodayDate, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {createWeightLog, weightSchema} from '@/lib/weight';
 
 const decisionSchema = z.object({
@@ -32,6 +38,22 @@ const decisionSchema = z.object({
 
 class InvalidEntryError extends Error {}
 
+/** A 409 whose message tells the user what changed since the proposal. */
+class ConflictError extends Error {}
+
+/**
+ * When a log entry is logged: now for today, else on the proposed earlier
+ * day, with `pastDay` set. Older payloads without a date log now.
+ */
+function logTimeOf({date, time}: ActionPayload, timeZone: string) {
+  if (!date) return {};
+  const today = getTodayDate(timeZone);
+  const loggedAt = getLogTime(date, time, timeZone);
+  if (!loggedAt || date > today) throw new InvalidEntryError();
+  const pastDay: PastDay | undefined = date < today ? {date, loggedAt} : undefined;
+  return {loggedAt, pastDay};
+}
+
 /**
  * Creates the entry, or makes the plan change, a confirmed action describes,
  * with the same validation as the log and plan APIs.
@@ -39,29 +61,51 @@ class InvalidEntryError extends Error {}
 async function createEntry(
   userId: string,
   kind: string,
-  entry: unknown,
+  payload: ActionPayload,
 ): Promise<string> {
+  const {entry} = payload;
+  const timeZone = await getUserTimeZone();
   if (kind === 'food') {
     const parsed = foodSchema.safeParse(entry);
     if (!parsed.success) throw new InvalidEntryError();
-    return (await createFoodLog(userId, parsed.data)).id;
+    const {loggedAt} = logTimeOf(payload, timeZone);
+    return (await createFoodLog(userId, parsed.data, loggedAt)).id;
   }
   if (kind === 'exercise') {
     const parsed = exerciseLogSchema.safeParse(entry);
     if (!parsed.success) throw new InvalidEntryError();
-    const timeZone = await getUserTimeZone();
-    return (await createExerciseLog(userId, timeZone, parsed.data)).id;
+    const {pastDay} = logTimeOf(payload, timeZone);
+    return (await createExerciseLog(userId, timeZone, parsed.data, pastDay)).id;
+  }
+  if (kind === 'planned') {
+    const parsed = plannedTickSchema.safeParse(entry);
+    const {pastDay} = logTimeOf(payload, timeZone);
+    // Today's planned exercises are ticked off on the dashboard.
+    if (!parsed.success || !pastDay) throw new InvalidEntryError();
+    return (await logPastPlannedExercise(userId, timeZone, parsed.data, pastDay)).id;
   }
   if (kind === 'weight') {
     const parsed = weightSchema.safeParse(entry);
     if (!parsed.success) throw new InvalidEntryError();
-    return (await createWeightLog(userId, parsed.data)).id;
+    const {loggedAt} = logTimeOf(payload, timeZone);
+    return (await createWeightLog(userId, parsed.data, loggedAt)).id;
+  }
+  if (kind === 'metric') {
+    const parsed = metricEntrySchema.safeParse(entry);
+    if (!parsed.success) throw new InvalidEntryError();
+    const {metricId, value} = parsed.data;
+    const metric = await findBodyMetric(userId, metricId);
+    if (!metric) throw new ConflictError('This measurement was deleted since. Ask the coach again.');
+    if (metric.archivedAt) throw new ConflictError('This measurement is archived.');
+    if (!isValidMetricValue(metric, value)) throw new InvalidEntryError();
+    const {loggedAt} = logTimeOf(payload, timeZone);
+    const [log] = await createBodyMetricLogs([{metricId, value}], loggedAt ?? new Date());
+    return log.id;
   }
   if (kind === 'plan') {
     const parsed = planChangeSchema.safeParse(entry);
     if (!parsed.success) throw new InvalidEntryError();
     const change = parsed.data;
-    const timeZone = await getUserTimeZone();
     if (change.operation === 'add') {
       return (await saveExerciseGoal(userId, timeZone, change.goal)).id;
     }
@@ -108,11 +152,13 @@ export async function POST(
     return NextResponse.json({error: 'Not found'}, {status: 404});
   }
 
-  // Entries are logged for today, so a card from an earlier day can't be
-  // confirmed; it would count towards the wrong day. Plan changes aren't
-  // tied to a day.
+  // Entries are logged for the day their card names. Older cards without one
+  // were for the day they were proposed, but log now, so one from an earlier
+  // day can't be confirmed; it would count towards the wrong day. Plan
+  // changes aren't tied to a day.
+  const payload = parseActionPayload(action.payload);
   const isPlanAction = action.kind === 'plan' || action.kind === 'links';
-  if (confirm && action.status === 'pending' && !isPlanAction) {
+  if (confirm && action.status === 'pending' && !isPlanAction && !payload.date) {
     const timeZone = await getUserTimeZone();
     const proposedOn = format(toZoned(action.createdAt, timeZone), 'yyyy-MM-dd');
     if (proposedOn !== getTodayDate(timeZone)) {
@@ -142,11 +188,7 @@ export async function POST(
 
   let resultId: string;
   try {
-    resultId = await createEntry(
-      userId,
-      action.kind,
-      parseActionPayload(action.payload).entry,
-    );
+    resultId = await createEntry(userId, action.kind, payload);
   } catch (error) {
     // Put it back so the user can try again or dismiss it.
     await reopenChatAction(id);
@@ -155,6 +197,15 @@ export async function POST(
         {error: 'This exercise was changed or removed since. Ask the coach again.'},
         {status: 409},
       );
+    }
+    if (error instanceof AlreadyTickedError) {
+      return NextResponse.json(
+        {error: 'This exercise is already ticked off for that day.'},
+        {status: 409},
+      );
+    }
+    if (error instanceof ConflictError) {
+      return NextResponse.json({error: error.message}, {status: 409});
     }
     if (error instanceof PlannedExerciseError) {
       return NextResponse.json({error: error.message}, {status: 400});

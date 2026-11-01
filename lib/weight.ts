@@ -7,6 +7,7 @@ export const weightSchema = z.object({
 
 export type WeightInput = z.infer<typeof weightSchema>;
 
-export function createWeightLog(userId: string, input: WeightInput) {
-  return weightLogs.createWeightLog(userId, input.weight);
+/** Logs a weigh-in, now unless `loggedAt` is given. */
+export function createWeightLog(userId: string, input: WeightInput, loggedAt?: Date) {
+  return weightLogs.createWeightLog(userId, input.weight, loggedAt);
 }

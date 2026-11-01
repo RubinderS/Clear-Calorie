@@ -47,6 +47,25 @@ export function resolveDates(
   return {dates, truncated};
 }
 
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * The user-local yyyy-MM-dd day an entry is logged for: today when omitted,
+ * any earlier day, never a later one. Throws a message for the model on bad
+ * input, as does a time that isn't HH:mm.
+ */
+export function resolveLogDate(
+  {date, time}: {date?: string; time?: string},
+  today: string,
+): {date: string; time?: string} {
+  if (date && !isValidDate(date)) throw new ToolInputError(`Invalid "date": ${date}. Use yyyy-MM-dd.`);
+  if (date && date > today) {
+    throw new ToolInputError(`${date} is in the future. Entries can only be logged for today or earlier days.`);
+  }
+  if (time && !TIME_PATTERN.test(time)) throw new ToolInputError(`Invalid "time": ${time}. Use 24-hour HH:mm.`);
+  return {date: date ?? today, time: time || undefined};
+}
+
 /** Largest tool result sent back to the model, in characters. */
 export const MAX_TOOL_RESULT_CHARS = 16_000;
 

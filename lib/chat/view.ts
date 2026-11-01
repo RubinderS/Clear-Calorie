@@ -1,7 +1,14 @@
 import type {ChatAction} from '@/lib/data/types';
 import {findChatThreadWithItems, listChatThreads} from '@/lib/data/chat';
 
-export type ChatActionKind = 'food' | 'exercise' | 'weight' | 'plan' | 'links';
+export type ChatActionKind =
+  | 'food'
+  | 'exercise'
+  | 'planned'
+  | 'weight'
+  | 'metric'
+  | 'plan'
+  | 'links';
 export type ChatActionStatus = 'pending' | 'confirmed' | 'dismissed';
 
 /** A proposed log entry or plan change as the chat UI shows it. */
@@ -13,18 +20,28 @@ export type ChatActionView = {
   entry: Record<string, unknown>;
   /** The AI's assumptions, e.g. portion sizes. */
   note?: string;
+  /**
+   * The user-local yyyy-MM-dd day a log entry is for, and optionally its
+   * HH:mm time. Older entries without one were for the day they were proposed.
+   */
+  date?: string;
+  time?: string;
   createdAt: string;
 };
 
-export function parseActionPayload(payload: string): {
-  entry: Record<string, unknown>;
-  note?: string;
-} {
+export type ActionPayload = Pick<ChatActionView, 'entry' | 'note' | 'date' | 'time'>;
+
+const optionalString = (value: unknown) =>
+  typeof value === 'string' ? value : undefined;
+
+export function parseActionPayload(payload: string): ActionPayload {
   try {
     const parsed = JSON.parse(payload);
     return {
       entry: parsed?.entry && typeof parsed.entry === 'object' ? parsed.entry : {},
-      note: typeof parsed?.note === 'string' ? parsed.note : undefined,
+      note: optionalString(parsed?.note),
+      date: optionalString(parsed?.date),
+      time: optionalString(parsed?.time),
     };
   } catch {
     return {entry: {}};

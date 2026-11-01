@@ -58,6 +58,23 @@ export function getDateRange(
   return {start: startOfDay(zonedDate), end: endOfDay(zonedDate)};
 }
 
+/**
+ * When an entry for a yyyy-MM-dd date is logged, as a real UTC instant: now
+ * for today without a time, else the HH:mm time (midday by default) on that
+ * date in the given timezone. Null for an invalid date.
+ */
+export function getLogTime(
+  date: string,
+  time: string | undefined,
+  timeZone: string,
+): Date | null {
+  if (!getDateRange(date, timeZone)) return null;
+  if (!time && date === getTodayDate(timeZone)) return new Date();
+  const [year, month, day] = date.split('-').map(Number);
+  const [hours, minutes] = (time ?? '12:00').split(':').map(Number);
+  return new Date(TZDate.tz(timeZone, year, month - 1, day, hours, minutes).getTime());
+}
+
 /** Wraps a stored (UTC) Date so date-fns reads its fields in the given timezone. */
 export function toZoned(date: Date, timeZone: string): TZDate {
   return new TZDate(date, timeZone);

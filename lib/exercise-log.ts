@@ -1,13 +1,17 @@
 import {z} from 'zod';
 import {
   exerciseInputSchema,
+  exerciseSetsSchema,
   inputSets,
   isSameExerciseName,
+  isSequence,
+  setsOf,
   toExerciseFields,
   toSetRows,
 } from '@/lib/exercise';
 import {catalogIdFor} from '@/lib/exercise-catalog';
-import {getPlannedExerciseGoals} from '@/lib/exercise-plan';
+import {ExerciseGoalNotFoundError, getPlannedExerciseGoals} from '@/lib/exercise-plan';
+import {isUniqueViolation} from '@/lib/data/errors';
 import * as exerciseLogs from '@/lib/data/exercise-logs';
 
 export const exerciseLogSchema = z
@@ -18,20 +22,27 @@ export const exerciseLogSchema = z
 
 export type ExerciseLogInput = z.infer<typeof exerciseLogSchema>;
 
-/** Thrown when the exercise should be ticked off in today's plan instead. */
+/** Thrown when the exercise should be ticked off in the day's plan instead. */
 export class PlannedExerciseError extends Error {}
 
+/** An earlier day an entry is logged on, instead of now. */
+export type PastDay = {date: string; loggedAt: Date};
+
+/** Logs an exercise that wasn't planned, now or on an earlier `day`. */
 export async function createExerciseLog(
   userId: string,
   timeZone: string,
   input: ExerciseLogInput,
+  day?: PastDay,
 ) {
   const {name} = input;
 
-  const planned = await getPlannedExerciseGoals(userId, timeZone);
+  const planned = await getPlannedExerciseGoals(userId, timeZone, day?.date);
   if (planned.some((goal) => isSameExerciseName(goal.name, name))) {
     throw new PlannedExerciseError(
-      `"${name}" is in today's plan. Tick it off there instead.`,
+      day
+        ? `"${name}" was planned that day. Ask the coach to tick it off for that day instead.`
+        : `"${name}" is in today's plan. Tick it off there instead.`,
     );
   }
 
@@ -44,5 +55,58 @@ export async function createExerciseLog(
     durationMin: fields.durationMin ?? 0,
     userId,
     exerciseSets: toSetRows(sets),
+    loggedAt: day?.loggedAt,
   });
+}
+
+/** A planned exercise ticked off on an earlier day, as done then. */
+export const plannedTickSchema = z.object({
+  goalId: z.string().min(1),
+  name: z.string().trim().min(1),
+  exerciseSets: exerciseSetsSchema,
+});
+
+export type PlannedTick = z.infer<typeof plannedTickSchema>;
+
+/** Thrown when the planned exercise was already ticked off that day. */
+export class AlreadyTickedError extends Error {}
+
+/**
+ * Ticks off a planned exercise on an earlier day with the sets done. The goal
+ * must still exist and have been planned that day.
+ */
+export async function logPastPlannedExercise(
+  userId: string,
+  timeZone: string,
+  tick: PlannedTick,
+  day: PastDay,
+) {
+  const planned = await getPlannedExerciseGoals(userId, timeZone, day.date);
+  const goal = planned.find(({id}) => id === tick.goalId);
+  if (!goal) throw new ExerciseGoalNotFoundError();
+
+  // A sequence's sets are labelled from its steps.
+  const steps = setsOf(goal);
+  const sets = tick.exerciseSets.map((set, index) =>
+    isSequence(goal)
+      ? {...set, name: steps[index]?.name ?? null, catalogId: steps[index]?.catalogId ?? null}
+      : set,
+  );
+  const fields = toExerciseFields(sets);
+  try {
+    return await exerciseLogs.createExerciseLog({
+      userId,
+      exerciseGoalId: goal.id,
+      goalDate: day.date,
+      name: goal.name,
+      catalogId: goal.catalogId,
+      ...fields,
+      durationMin: fields.durationMin ?? 0,
+      exerciseSets: toSetRows(sets),
+      loggedAt: day.loggedAt,
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new AlreadyTickedError();
+    throw error;
+  }
 }

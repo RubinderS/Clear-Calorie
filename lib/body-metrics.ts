@@ -188,6 +188,15 @@ export const metricLogSchema = z.object({
     ),
 });
 
+/** One value the coach proposes logging, with what its card needs to show it. */
+export const metricEntrySchema = z.object({
+  metricId: z.string().min(1),
+  label: z.string(),
+  unit: z.string(),
+  decimals: z.number().int().min(0),
+  value: z.number(),
+});
+
 /** The range a metric's values must fall in. */
 export function metricRange(metric: {key: string | null}): {min: number; max: number} {
   if (isPresetKey(metric.key)) {

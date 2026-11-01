@@ -3,9 +3,14 @@ import {direction, inRange, where, type DateRange, type SortOrder} from './commo
 import {toPlain, toPlainAll} from './plain';
 import type {WeightLog} from './types';
 
-export async function createWeightLog(userId: string, weight: number): Promise<WeightLog> {
+/** Logs a weigh-in, now unless `loggedAt` is given. */
+export async function createWeightLog(
+  userId: string,
+  weight: number,
+  loggedAt?: Date,
+): Promise<WeightLog> {
   const {WeightLog} = await db();
-  const doc = await WeightLog.create({userId, weight});
+  const doc = await WeightLog.create({userId, weight, loggedAt});
   return toPlain(WeightLog, doc.toObject());
 }
 

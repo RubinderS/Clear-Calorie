@@ -12,7 +12,7 @@ export type ExerciseLogFields = Pick<
 
 export type NewExerciseLog = ExerciseLogFields &
   Pick<ExerciseLog, 'userId' | 'name' | 'catalogId'> &
-  Partial<Pick<ExerciseLog, 'exerciseGoalId' | 'goalDate'>> & {
+  Partial<Pick<ExerciseLog, 'exerciseGoalId' | 'goalDate' | 'loggedAt'>> & {
     exerciseSets: ExerciseSet[];
   };
 

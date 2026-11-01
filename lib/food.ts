@@ -37,12 +37,14 @@ export const foodSchema = z
 
 export type FoodInput = z.infer<typeof foodSchema>;
 
-export function createFoodLog(userId: string, input: FoodInput) {
+/** Logs food, now unless `loggedAt` is given. */
+export function createFoodLog(userId: string, input: FoodInput, loggedAt?: Date) {
   const {healthAlert, ...food} = input;
   return foodLogs.createFoodLog({
     ...food,
     healthAlertLevel: healthAlert?.level ?? null,
     healthAlertMessage: healthAlert?.message ?? null,
     userId,
+    loggedAt,
   });
 }

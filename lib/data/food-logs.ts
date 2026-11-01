@@ -10,7 +10,8 @@ export type FoodLogFields = Pick<
 
 export async function createFoodLog(
   data: FoodLogFields &
-    Pick<FoodLog, 'userId' | 'healthAlertLevel' | 'healthAlertMessage'>,
+    Pick<FoodLog, 'userId' | 'healthAlertLevel' | 'healthAlertMessage'> &
+    Partial<Pick<FoodLog, 'loggedAt'>>,
 ): Promise<FoodLog> {
   const {FoodLog} = await db();
   const doc = await FoodLog.create(data);

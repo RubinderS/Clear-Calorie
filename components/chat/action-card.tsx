@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import {useRouter} from 'next/navigation';
-import {format, isToday} from 'date-fns';
+import {format, isToday, isYesterday, parseISO} from 'date-fns';
 import {
   AlertTriangle,
   ArrowRight,
@@ -10,10 +10,12 @@ import {
   Check,
   Dumbbell,
   Link2,
+  Ruler,
   Scale,
   Utensils,
 } from 'lucide-react';
 import {Button} from '@/components/ui/button';
+import {formatMetricValue, metricEntrySchema} from '@/lib/body-metrics';
 import {formatExerciseDetail, type ExerciseSet} from '@/lib/exercise';
 import {
   catalogLinksSchema,
@@ -27,7 +29,9 @@ import {cn} from '@/lib/utils';
 const KIND = {
   food: {icon: Utensils, label: 'Log food'},
   exercise: {icon: Dumbbell, label: 'Log exercise'},
+  planned: {icon: Dumbbell, label: 'Tick off planned exercise'},
   weight: {icon: Scale, label: 'Log weight'},
+  metric: {icon: Ruler, label: 'Log measurement'},
   plan: {icon: CalendarDays, label: 'Change plan'},
   links: {icon: Link2, label: 'Match to built-in exercises'},
 } as const;
@@ -148,6 +152,20 @@ function LinksSummary({action}: {action: ChatActionView}) {
 
 const num = (value: unknown) => (typeof value === 'number' ? value : 0);
 
+/**
+ * The day a log entry is for, with its time when given; for plan changes and
+ * older entries without one, the day it was proposed.
+ */
+function cardDay(action: ChatActionView) {
+  const day = action.date ? parseISO(action.date) : new Date(action.createdAt);
+  const label = isToday(day)
+    ? 'today'
+    : isYesterday(day)
+      ? 'yesterday'
+      : format(day, 'EEE d MMM');
+  return action.time ? `${label} ${action.time}` : label;
+}
+
 function Summary({action}: {action: ChatActionView}) {
   const entry = action.entry;
   if (action.kind === 'plan') {
@@ -182,7 +200,17 @@ function Summary({action}: {action: ChatActionView}) {
       </>
     );
   }
-  if (action.kind === 'exercise') {
+  if (action.kind === 'metric') {
+    const parsed = metricEntrySchema.safeParse(entry);
+    return parsed.success ? (
+      <p className="font-medium">
+        {parsed.data.label}: {formatMetricValue(parsed.data.value, parsed.data)}
+      </p>
+    ) : (
+      <p className="text-sm text-muted-foreground">This measurement can&apos;t be shown.</p>
+    );
+  }
+  if (action.kind === 'exercise' || action.kind === 'planned') {
     const detail = formatExerciseDetail({
       type: String(entry.type ?? 'TIME'),
       durationMin: entry.durationMin as number | undefined,
@@ -267,7 +295,7 @@ export function ActionCard({
         <Icon aria-hidden className="size-4" />
         {label}
         <span className="font-normal normal-case tracking-normal">
-          · {isToday(new Date(action.createdAt)) ? 'today' : format(new Date(action.createdAt), 'EEE d MMM')}
+          · {cardDay(action)}
         </span>
       </div>
       <Summary action={action} />
