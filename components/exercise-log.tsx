@@ -72,6 +72,7 @@ export function ExerciseLog({
             panel="exercise"
             label="Add exercise"
             plannedExercises={plannedExercises}
+            disabled={!log.isToday}
             onLogged={log.showTodayAndRefresh}
           />
         }

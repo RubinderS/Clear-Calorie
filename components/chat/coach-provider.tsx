@@ -304,7 +304,7 @@ export function CoachProvider({
             >
               {/* On phones the chat picker gets a second row under the buttons;
                   inline it would be squeezed unreadably narrow. */}
-              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1 border-b border-border/50 px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] md:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto]">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1 border-b border-border/50 px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] md:h-16 md:py-0 md:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto]">
                 <Button
                   type="button"
                   variant="ghost"

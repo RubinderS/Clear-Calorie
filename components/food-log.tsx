@@ -105,6 +105,7 @@ export function FoodLog({
             panel="food"
             label="Add food"
             aiEnabled={aiEnabled}
+            disabled={!log.isToday}
             onLogged={log.showTodayAndRefresh}
           />
         }

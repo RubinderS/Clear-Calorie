@@ -148,10 +148,16 @@ type AddLogButtonProps = Omit<LogDialogProps, 'panel' | 'onClose'> & {
   panel: LogPanel;
   /** Accessible name, e.g. "Add food". */
   label: string;
+  disabled?: boolean;
 };
 
 /** Plus button for a log card that opens the matching log dialog. */
-export function AddLogButton({panel, label, ...dialogProps}: AddLogButtonProps) {
+export function AddLogButton({
+  panel,
+  label,
+  disabled,
+  ...dialogProps
+}: AddLogButtonProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -162,6 +168,7 @@ export function AddLogButton({panel, label, ...dialogProps}: AddLogButtonProps) 
         size="icon"
         aria-label={label}
         title={label}
+        disabled={disabled}
         onClick={() => setOpen(true)}
         className="h-9 w-9 shrink-0"
       >
