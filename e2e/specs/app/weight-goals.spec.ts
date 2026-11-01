@@ -79,16 +79,24 @@ test.describe('Weight', () => {
     await expect(page.getByText('No weight entries yet.')).toBeVisible();
   });
 
-  test('WT-05 delete any entry after confirming', async ({authedPage: page, db, user}) => {
-    const old = await seedWeight(db, user.id, {weight: 81, loggedAt: noonDaysAgo(4)});
-    await seedWeight(db, user.id, {weight: 80});
+  test("WT-05 delete today's entry after confirming; older ones can't be", async ({
+    authedPage: page,
+    db,
+    user,
+  }) => {
+    await seedWeight(db, user.id, {weight: 81, loggedAt: noonDaysAgo(4)});
+    const todays = await seedWeight(db, user.id, {weight: 80});
     await page.goto('/logs?tab=body');
 
-    const label = `Delete weight entry from ${weightDate(4)}`;
+    await expect(
+      page.getByRole('button', {name: `Delete weight entry from ${weightDate(4)}`}),
+    ).toBeDisabled();
+
+    const label = `Delete weight entry from ${weightDate(0)}`;
     const dismissed = onNextDialog(page, 'dismiss');
     await page.getByRole('button', {name: label}).click();
     expect(await dismissed).toBe(`${label}? This cannot be undone.`);
-    expect(await db.weightLog.count({where: {id: old.id}})).toBe(1);
+    expect(await db.weightLog.count({where: {id: todays.id}})).toBe(1);
 
     void onNextDialog(page, 'accept');
     const request = nextApiRequest(page, '/api/weight', 'DELETE');

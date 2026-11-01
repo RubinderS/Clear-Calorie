@@ -35,6 +35,26 @@ test.describe('Saved food', () => {
     expect(await db.savedFoodItem.count({where: {userId: user.id}})).toBe(1);
   });
 
+  test('POST with the item id renames it in place', async ({api, db, user}) => {
+    const item = await seedSavedFood(db, user.id, {name: 'Oats', calories: 300});
+    const response = await api.post('/api/saved-food', {
+      data: {id: item.id, name: 'Rolled oats', calories: 300},
+    });
+    expect(response.status()).toBe(201);
+    expect(await response.json()).toMatchObject({id: item.id, name: 'Rolled oats'});
+    expect(await db.savedFoodItem.count({where: {userId: user.id}})).toBe(1);
+  });
+
+  test("POST with another user's item id → 404", async ({api, db, makeUser}) => {
+    const other = await makeUser();
+    const item = await seedSavedFood(db, other.id, {name: 'Oats', calories: 300});
+    const response = await api.post('/api/saved-food', {
+      data: {id: item.id, name: 'Hijacked', calories: 1},
+    });
+    expect(response.status()).toBe(404);
+    expect(await db.savedFoodItem.count({where: {id: item.id, name: 'Oats'}})).toBe(1);
+  });
+
   test('FOOD-09 a different item with the same name is rejected', async ({
     api,
     db,

@@ -62,6 +62,9 @@ export function FoodForm({
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiAssumptions, setAiAssumptions] = useState<string | null>(null);
   const [healthAlert, setHealthAlert] = useState<HealthAlert | null>(null);
+  const [updating, setUpdating] = useState(false);
+  // Name of the saved item just updated, for the confirmation.
+  const [updatedName, setUpdatedName] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/saved-food')
@@ -121,6 +124,7 @@ export function FoodForm({
     setShowSuggestions(false);
     setError(null);
     setSaveError(null);
+    setUpdatedName(null);
     setAiError(null);
     setAiAssumptions(null);
     setHealthAlert(null);
@@ -205,10 +209,9 @@ export function FoodForm({
     setSaveError(null);
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const formData = new FormData(event.currentTarget);
+  /** The form's values, or null if they don't pass validation. */
+  function readForm(form: HTMLFormElement) {
+    const formData = new FormData(form);
     const data = {
       name: (formData.get('name') as string)?.trim(),
       calories: Number(formData.get('calories')),
@@ -220,40 +223,72 @@ export function FoodForm({
 
     if (data.saturatedFat > data.fat) {
       setError(SATURATED_FAT_ERROR);
-      return;
+      return null;
     }
     setError(null);
     setSaveError(null);
+    setUpdatedName(null);
+    return data;
+  }
+
+  /** Creates or updates the saved item; false if that failed. */
+  async function saveItem(data: Nutrition & {name: string}) {
+    const saveResponse = await fetch('/api/saved-food', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        id: selectedId ?? undefined,
+        ...data,
+        isPinned,
+      }),
+    });
+
+    if (!saveResponse.ok) {
+      const payload = await saveResponse.json().catch(() => null);
+      setSaveError(payload?.error ?? 'Failed to save food item');
+      return false;
+    }
+
+    const updated = await saveResponse.json();
+    setSavedFoods((prev) => {
+      const exists = prev.find((item) => item.id === updated.id);
+      if (exists) {
+        return prev.map((item) => (item.id === updated.id ? updated : item));
+      }
+      return [...prev, updated].sort((a, b) => a.name.localeCompare(b.name));
+    });
+    setSelectedId(updated.id);
+    return true;
+  }
+
+  /** Saves changes to the chosen saved item without logging it. */
+  async function handleUpdate(event: React.MouseEvent<HTMLButtonElement>) {
+    const form = event.currentTarget.form;
+    if (!form?.reportValidity()) return;
+    const data = readForm(form);
+    if (!data) return;
+
+    setUpdating(true);
+    try {
+      if (await saveItem(data)) setUpdatedName(data.name);
+    } catch {
+      setSaveError('Failed to save food item');
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const data = readForm(event.currentTarget);
+    if (!data) return;
 
     setLoading(true);
 
-    if (isSaved) {
-      const saveResponse = await fetch('/api/saved-food', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          id: selectedId ?? undefined,
-          ...data,
-          isPinned,
-        }),
-      });
-
-      if (!saveResponse.ok) {
-        const payload = await saveResponse.json().catch(() => null);
-        setSaveError(payload?.error ?? 'Failed to save food item');
-        setLoading(false);
-        return;
-      }
-
-      const updated = await saveResponse.json();
-      setSavedFoods((prev) => {
-        const exists = prev.find((item) => item.id === updated.id);
-        if (exists) {
-          return prev.map((item) => (item.id === updated.id ? updated : item));
-        }
-        return [...prev, updated].sort((a, b) => a.name.localeCompare(b.name));
-      });
-      setSelectedId(updated.id);
+    if (isSaved && !(await saveItem(data))) {
+      setLoading(false);
+      return;
     }
 
     const response = await fetch('/api/food', {
@@ -285,7 +320,12 @@ export function FoodForm({
         {headerAction}
       </CardHeader>
       <CardContent>
-        <form id="food-form" onSubmit={handleSubmit} className="space-y-4">
+        <form
+          id="food-form"
+          onSubmit={handleSubmit}
+          onInput={() => setUpdatedName(null)}
+          className="space-y-4"
+        >
           <div className="flex flex-col space-y-2">
             <Label htmlFor="name">Food name</Label>
             <div className="relative">
@@ -492,9 +532,36 @@ export function FoodForm({
               {saveError}
             </p>
           )}
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Saving...' : 'Log food'}
-          </Button>
+          {updatedName && (
+            <p role="status" className="text-sm text-muted-foreground">
+              Updated &quot;{updatedName}&quot;.
+            </p>
+          )}
+          {/* Only for a saved item picked from the suggestions. */}
+          {selectedId && isSaved ? (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loading || updating}
+                onClick={(event) => void handleUpdate(event)}
+                className="flex-1"
+              >
+                {updating ? 'Updating...' : 'Update item'}
+              </Button>
+              <Button
+                type="submit"
+                disabled={loading || updating}
+                className="flex-1"
+              >
+                {loading ? 'Saving...' : 'Log food'}
+              </Button>
+            </div>
+          ) : (
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? 'Saving...' : 'Log food'}
+            </Button>
+          )}
         </form>
       </CardContent>
     </Card>

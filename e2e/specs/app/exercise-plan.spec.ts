@@ -442,17 +442,17 @@ test('EP-15 build a sequence with breaks between its exercises', async ({
   await picker.fill('Shadow boxing drill');
   await picker.press('Enter');
 
-  // Cardio starts timed and strength for reps, with a minute's break between.
+  // Cardio starts timed and strength for reps, with a 30s break between.
   await expect(add.getByLabel('Step 1 time')).toHaveValue('0:45');
   await expect(add.getByLabel('Step 2 reps')).toHaveValue('12');
-  await expect(add.getByLabel('Break before step 2', {exact: true})).toHaveValue('60');
+  await expect(add.getByLabel('Break before step 2', {exact: true})).toHaveValue('30');
   await expect(add.getByLabel('Break before step 1', {exact: true})).toHaveCount(0);
 
   // A shorter break is what the next one starts with.
-  await add.getByLabel('Break before step 3', {exact: true}).selectOption('30');
+  await add.getByLabel('Break before step 3', {exact: true}).selectOption('15');
   await add.getByRole('button', {name: 'Repeat step 2'}).click();
   await expect(add.getByRole('group', {name: 'Step 3: Goblet squat'})).toBeVisible();
-  await expect(add.getByLabel('Break before step 3', {exact: true})).toHaveValue('30');
+  await expect(add.getByLabel('Break before step 3', {exact: true})).toHaveValue('15');
 
   // Breaks stay in place when exercises move, and can be removed and added back.
   await add.getByRole('button', {name: 'Remove break before step 4'}).click();
@@ -471,8 +471,8 @@ test('EP-15 build a sequence with breaks between its exercises', async ({
     type: 'SEQUENCE',
     steps: [
       {name: 'Jumping jack', catalogId: 'jumping-jack', durationSec: 45, weight: null, restSec: 0},
-      {name: 'Goblet squat', catalogId: 'goblet-squat', reps: 12, weight: null, restSec: 60},
-      {name: 'Shadow boxing drill', catalogId: null, durationSec: 45, weight: null, restSec: 30},
+      {name: 'Goblet squat', catalogId: 'goblet-squat', reps: 12, weight: null, restSec: 30},
+      {name: 'Shadow boxing drill', catalogId: null, durationSec: 45, weight: null, restSec: 15},
       {name: 'Goblet squat', catalogId: 'goblet-squat', reps: 12, weight: null, restSec: 0},
     ],
   });
@@ -483,7 +483,7 @@ test('EP-15 build a sequence with breaks between its exercises', async ({
   await expect(monday).toContainText('Cardio circuit');
   await expect(monday).toContainText('Sequence');
   await expect(monday).toContainText('Jumping jack, Goblet squat +1 · 4 steps');
-  await expect(monday).toContainText('Break 1 min · 2. Goblet squat · 12 reps');
+  await expect(monday).toContainText('Break 30s · 2. Goblet squat · 12 reps');
   const goal = await db.exerciseGoal.findFirstOrThrow({where: {userId: user.id}});
   expect(goal).toMatchObject({type: 'SEQUENCE', catalogId: null, setPlan: null, sets: 4});
 

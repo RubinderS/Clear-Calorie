@@ -10,12 +10,14 @@ type WeightDeleteButtonProps = {
   label: string;
   /** API route that deletes the entry by `?id=`. */
   endpoint?: string;
+  disabled?: boolean;
 };
 
 export function WeightDeleteButton({
   entryId,
   label,
   endpoint = '/api/weight',
+  disabled,
 }: WeightDeleteButtonProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -45,7 +47,7 @@ export function WeightDeleteButton({
       size="icon"
       aria-label={`Delete ${label}`}
       title={`Delete ${label}`}
-      disabled={isDeleting}
+      disabled={disabled || isDeleting}
       onClick={() => void handleDelete()}
       className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive dark:hover:bg-red-500/30 dark:hover:text-red-200"
     >

@@ -281,6 +281,47 @@ test.describe('Saved food suggestions', () => {
     await expect(form.suggestions).toHaveText([/Porridge/]);
     expect(await db.savedFoodItem.count({where: {userId: user.id, name: 'Pancakes'}})).toBe(0);
   });
+
+  test('FOOD-14 update a saved item without logging it', async ({
+    authedPage: page,
+    db,
+    user,
+  }) => {
+    const form = fields(await openFood(page));
+    const update = page.getByRole('button', {name: 'Update item'});
+    // Only offered for a saved item picked from the suggestions.
+    await expect(update).toHaveCount(0);
+
+    await form.name.focus();
+    await form.suggestions.filter({hasText: 'Porridge'}).click();
+    await form.calories.fill('280');
+    await form.protein.fill('12');
+    await form.pin.uncheck();
+
+    const item = await db.savedFoodItem.findFirst({where: {userId: user.id, name: 'Porridge'}});
+    const request = nextApiRequest(page, '/api/saved-food');
+    await update.click();
+    expect((await request).postDataJSON()).toMatchObject({
+      id: item!.id,
+      name: 'Porridge',
+      calories: 280,
+      protein: 12,
+      isPinned: false,
+    });
+    await expect(page.getByRole('dialog', {name: 'Log food'}).getByRole('status')).toHaveText(
+      'Updated "Porridge".',
+    );
+    expect(await db.savedFoodItem.findUnique({where: {id: item!.id}})).toMatchObject({
+      calories: 280,
+      protein: 12,
+      isPinned: false,
+    });
+    expect(await db.foodLog.count({where: {userId: user.id}})).toBe(0);
+
+    // The dialog stays open, and the suggestions show the change.
+    await form.name.fill('porr');
+    await expect(form.suggestions).toHaveText([/^Porridge\s*280 kcal/]);
+  });
 });
 
 test('FOOD-11 submit button shows progress', async ({authedPage: page}) => {

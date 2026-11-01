@@ -7,6 +7,7 @@ import {
   deleteSavedFood,
   findSavedFoodByName,
   listSavedFood,
+  updateSavedFood,
   upsertSavedFood,
 } from '@/lib/data/saved-items';
 
@@ -73,7 +74,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const item = await upsertSavedFood(session.user.id, data);
+    const item = id
+      ? await updateSavedFood(session.user.id, id, data)
+      : await upsertSavedFood(session.user.id, data);
+
+    if (!item) {
+      return NextResponse.json({error: 'Item not found'}, {status: 404});
+    }
 
     return NextResponse.json(item, {status: 201});
   } catch (err) {

@@ -40,6 +40,21 @@ export async function upsertSavedFood(
   return toPlain(SavedFoodItem, doc);
 }
 
+/** Updates the user's item by id, renaming it if the name changed. */
+export async function updateSavedFood(
+  userId: string,
+  id: string,
+  data: SavedFoodFields,
+): Promise<SavedFoodItem | null> {
+  const {SavedFoodItem} = await db();
+  const doc = await SavedFoodItem.findOneAndUpdate(
+    {_id: id, userId},
+    {$set: data},
+    {returnDocument: 'after'},
+  ).lean();
+  return doc && toPlain(SavedFoodItem, doc);
+}
+
 export async function deleteSavedFood(userId: string, id: string) {
   const {SavedFoodItem} = await db();
   await SavedFoodItem.deleteOne({_id: id, userId});

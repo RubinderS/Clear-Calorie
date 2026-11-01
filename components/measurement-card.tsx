@@ -1,5 +1,5 @@
 import {format} from 'date-fns';
-import {getTodayRange, toZoned} from '@/lib/timezone';
+import {getTodayDate, getTodayRange, toZoned} from '@/lib/timezone';
 import {rollingAverages} from '@/lib/body-metrics';
 import {
   Card,
@@ -68,6 +68,8 @@ export function MeasurementCard({
     .reverse()
     .map((entry) => ({date: day(entry.loggedAt, 'MMM dd'), value: entry.value}));
   const scrolls = entries.length > VISIBLE_ENTRIES;
+  // Like the food and exercise logs, only today's entries can be deleted.
+  const today = getTodayDate(timeZone);
   const {avg, prevAvg} = rollingAverages(
     entries,
     getTodayRange(timeZone).start,
@@ -152,6 +154,7 @@ export function MeasurementCard({
                           entryId={entry.id}
                           endpoint={deleteEndpoint}
                           label={`${entryName} from ${date}`}
+                          disabled={day(entry.loggedAt, 'yyyy-MM-dd') !== today}
                         />
                       </div>
                     </li>
