@@ -263,6 +263,93 @@ export function computeTopIssues(input: WeekInput, metrics: WeekMetrics): TopIss
 }
 
 // ---------------------------------------------------------------------------
+// Week foods: what was eaten, for picking foods to cut back on or keep
+// ---------------------------------------------------------------------------
+
+export type WeekFood = {
+  name: string;
+  entries: number;
+  /** Per entry, averaged over same-named entries. */
+  calories: number;
+  protein: number;
+  saturatedFat: number;
+  /** The strongest health alert on any of the entries. */
+  healthAlert: 'caution' | 'avoid' | null;
+};
+
+const MAX_WEEK_FOODS = 25;
+
+/** Same-named entries merged, most eaten first. */
+export function computeWeekFoods(input: WeekInput): WeekFood[] {
+  const byName = new Map<string, ReportFood[]>();
+  for (const entry of input.food) {
+    const key = entry.name.trim().toLowerCase();
+    byName.set(key, [...(byName.get(key) ?? []), entry]);
+  }
+  return [...byName.values()]
+    .map((entries) => {
+      const levels = entries.map((entry) => entry.healthAlertLevel);
+      return {
+        name: entries[0].name.trim(),
+        entries: entries.length,
+        calories: average(entries.map((entry) => entry.calories)),
+        protein: average(entries.map((entry) => entry.protein)),
+        saturatedFat: average(entries.map((entry) => entry.saturatedFat)),
+        healthAlert: levels.includes('avoid')
+          ? ('avoid' as const)
+          : levels.includes('caution')
+            ? ('caution' as const)
+            : null,
+      };
+    })
+    .sort((a, b) => b.entries - a.entries || b.calories - a.calories)
+    .slice(0, MAX_WEEK_FOODS);
+}
+
+export type FoodHighlight = {food: string; reason: string};
+
+export type FoodHighlights = {avoid: FoodHighlight[]; keep: FoodHighlight[]};
+
+export const MAX_FOOD_HIGHLIGHTS = 3;
+
+const highlightSchema = z.object({
+  food: z.string().trim().min(2).max(60),
+  reason: z.string().trim().min(1).max(240),
+});
+
+// "Boiled eggs" should match an entry logged as "2 boiled egg".
+const foodKey = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
+
+/**
+ * Keeps the AI's food picks that name something actually logged this week,
+ * dropping duplicates and any food picked for both lists.
+ */
+export function parseFoodHighlights(
+  raw: {avoid?: unknown; keep?: unknown},
+  foodEntries: readonly ReportFood[],
+): FoodHighlights {
+  const names = foodEntries.map((entry) => entry.name.toLowerCase());
+  const seen = new Set<string>();
+  const parse = (list: unknown): FoodHighlight[] => {
+    if (!Array.isArray(list)) return [];
+    const items: FoodHighlight[] = [];
+    for (const candidate of list) {
+      if (items.length >= MAX_FOOD_HIGHLIGHTS) break;
+      const parsed = highlightSchema.safeParse(candidate);
+      if (!parsed.success) continue;
+      const key = foodKey(parsed.data.food);
+      if (seen.has(key) || !names.some((name) => name.includes(key))) continue;
+      seen.add(key);
+      items.push(parsed.data);
+    }
+    return items;
+  };
+  // Avoid first: a food flagged as both is more useful as a warning.
+  const avoid = parse(raw.avoid);
+  return {avoid, keep: parse(raw.keep)};
+}
+
+// ---------------------------------------------------------------------------
 // Body metrics
 // ---------------------------------------------------------------------------
 

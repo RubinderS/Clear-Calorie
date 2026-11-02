@@ -535,6 +535,7 @@ export const TOOLS = {
           nextWeekFocus: view.nextWeekFocus,
           nextWeekFocusProgressSoFar: focusProgress ?? undefined,
           goalSuggestions: view.goalSuggestions,
+          foodHighlights: view.foodHighlights,
         },
       };
     },

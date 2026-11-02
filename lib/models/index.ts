@@ -246,6 +246,7 @@ const weeklyReportSchema = schema<T.WeeklyReport>('weekly_reports', {
   headline: String,
   narrative: String,
   goalSuggestions: optional(String),
+  foodHighlights: optional(String),
   model: String,
   promptVersion: Number,
   seenAt: optional(Date),

@@ -291,6 +291,9 @@ export type WeeklyReport = {
   // JSON: string[] of changes to the exercise plan or food goal that suit the
   // user's profile goal; null without a profile
   goalSuggestions: string | null;
+  // JSON: {avoid, keep} of [{food, reason}], this week's worst and best foods
+  // for the user's health notes and goal; null when none were picked
+  foodHighlights: string | null;
   model: string;
   promptVersion: number;
 

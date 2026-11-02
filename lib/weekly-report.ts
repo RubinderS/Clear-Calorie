@@ -45,16 +45,20 @@ import {
   lastCompletedWeekStart,
   parseFocusProposals,
   computeBodyMetricSummaries,
+  computeWeekFoods,
+  parseFoodHighlights,
   planAdherence,
   weekDates,
   type BodyMetricSummary,
   type DayBreakdown,
   type FocusItem,
   type FocusResult,
+  type FoodHighlights,
   type ReportExercise,
   type ReportGoals,
   type StrengthProgress,
   type TopIssue,
+  type WeekFood,
   type WeekInput,
   type WeekMetrics,
 } from '@/lib/weekly-report-metrics';
@@ -306,6 +310,8 @@ export type WeeklyReportPrompt = {
   foodPreferences: string | null;
   metrics: WeekMetrics & {planAdherencePercent: number | null};
   days: DayBreakdown[];
+  /** What was eaten, for picking foods to cut back on or keep. */
+  foods: WeekFood[];
   topIssues: TopIssue[];
   strengthProgress: StrengthProgress[];
   /** The user's own body measurements beyond weight. */
@@ -392,6 +398,7 @@ export async function generateWeeklyReport(
     foodPreferences,
     metrics: {...metrics, planAdherencePercent: planAdherence(metrics)},
     days: dailyBreakdown,
+    foods: computeWeekFoods(input),
     topIssues,
     strengthProgress,
     bodyMetrics,
@@ -424,6 +431,10 @@ export async function generateWeeklyReport(
     metrics,
     input.food,
   );
+  const foodHighlights = parseFoodHighlights(
+    {avoid: text.foodsToAvoid, keep: text.foodsToKeep},
+    input.food,
+  );
 
   try {
     await createWeeklyReport({
@@ -443,6 +454,10 @@ export async function generateWeeklyReport(
         goalSuggestions:
           profile && text.goalSuggestions?.length
             ? JSON.stringify(text.goalSuggestions)
+            : null,
+        foodHighlights:
+          foodHighlights.avoid.length || foodHighlights.keep.length
+            ? JSON.stringify(foodHighlights)
             : null,
         lastWeekFocusResults: focusResults
           ? JSON.stringify(focusResults)
@@ -506,6 +521,7 @@ export type WeeklyReportView = {
   /** Profile at generation time; null on reports without one. */
   profile: ProfileSummary | null;
   goalSuggestions: string[];
+  foodHighlights: FoodHighlights;
   lastWeekFocusResults: FocusResult[] | null;
   nextWeekFocus: FocusItem[];
   sections: WeeklyReportSection[];
@@ -521,6 +537,10 @@ export function toReportView(report: WeeklyReport): WeeklyReportView {
     bodyMetrics: parseJson<BodyMetricSummary[]>(report.bodyMetrics) ?? [],
     profile: parseJson<ProfileSummary>(report.profile),
     goalSuggestions: parseJson<string[]>(report.goalSuggestions) ?? [],
+    foodHighlights: parseJson<FoodHighlights>(report.foodHighlights) ?? {
+      avoid: [],
+      keep: [],
+    },
     lastWeekFocusResults: parseJson<FocusResult[]>(report.lastWeekFocusResults),
     nextWeekFocus: parseJson<FocusItem[]>(report.nextWeekFocus) ?? [],
     sections: parseJson<WeeklyReportSection[]>(report.narrative) ?? [],

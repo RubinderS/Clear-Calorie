@@ -448,12 +448,47 @@ function writeMockReport(prompt: WeeklyReportPrompt) {
       ]
     : [];
 
+  // Judged against the seeded health notes (cholesterol, so saturated fat) and
+  // the fat loss goal, like the real prompt asks.
+  const satFatShare = (grams: number) =>
+    Math.round((grams / goals.saturatedFatGoal) * 100);
+  const foodsToAvoid = prompt.foods
+    .filter(
+      (food) => food.healthAlert || food.saturatedFat >= goals.saturatedFatGoal * 0.4,
+    )
+    .sort((a, b) => b.saturatedFat - a.saturatedFat)
+    .slice(0, 3)
+    .map((food) => ({
+      // The main item, as the prompt asks for long multi-item names.
+      food: food.name.split(" with ")[0],
+      reason:
+        food.calories >= goals.calorieGoal * 0.4
+          ? `${food.saturatedFat} g saturated fat and ${Math.round(food.calories)} kcal each time, a big chunk of both your cholesterol and fat loss budgets.`
+          : `${food.saturatedFat} g saturated fat each time, about ${satFatShare(food.saturatedFat)}% of your daily limit while you're watching cholesterol.`,
+    }));
+  const foodsToKeep = prompt.foods
+    .filter(
+      (food) =>
+        !food.healthAlert && food.saturatedFat <= 5 && food.protein >= 15,
+    )
+    .sort((a, b) => b.protein - a.protein)
+    .slice(0, 3)
+    .map((food) => ({
+      food: food.name,
+      reason:
+        food.saturatedFat <= 1
+          ? `${Math.round(food.protein)} g protein for ${Math.round(food.calories)} kcal with almost no saturated fat, ideal for fat loss and cholesterol.`
+          : `${Math.round(food.protein)} g protein with only ${food.saturatedFat} g saturated fat, a filling choice that suits your cholesterol goal.`,
+    }));
+
   return {
     headline: satFatTop
       ? `A steady week, with "${satFatTop.name}" the one thing pushing saturated fat up.`
       : "A steady week, with nutrition and training on track.",
     sections,
     goalSuggestions,
+    foodsToAvoid,
+    foodsToKeep,
     nextWeekFocus: [
       {
         text: `Average at least ${proteinTarget} g protein a day`,

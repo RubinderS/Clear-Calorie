@@ -4,11 +4,13 @@ import {
   computeBodyMetricSummaries,
   computeStrengthProgress,
   computeTopIssues,
+  computeWeekFoods,
   computeWeekMetrics,
   currentWeekStart,
   evaluateFocus,
   lastCompletedWeekStart,
   parseFocusProposals,
+  parseFoodHighlights,
   planAdherence,
   weekDates,
   type FocusItem,
@@ -171,6 +173,52 @@ test('top issues rank same-named foods for nutrients over goal', () => {
     {name: 'Paneer bhurji', entries: 2, amount: 30, share: 0.83},
     {name: 'Eggs', entries: 1, amount: 6, share: 0.17},
   ]);
+});
+
+test('week foods merge same-named entries, most eaten first', () => {
+  const week = input({
+    food: [
+      food('2026-10-05', 'Apple', {calories: 90}),
+      food('2026-10-05', 'Pizza', {calories: 600, saturatedFat: 12, healthAlertLevel: 'caution'}),
+      food('2026-10-06', ' pizza ', {calories: 700, saturatedFat: 14, healthAlertLevel: 'avoid'}),
+    ],
+  });
+  assert.deepEqual(computeWeekFoods(week), [
+    {name: 'Pizza', entries: 2, calories: 650, protein: 0, saturatedFat: 13, healthAlert: 'avoid'},
+    {name: 'Apple', entries: 1, calories: 90, protein: 0, saturatedFat: 0, healthAlert: null},
+  ]);
+});
+
+test('food highlights keep only logged foods, once each', () => {
+  const entries = [
+    food('2026-10-05', '1 avocado, 2 boiled eggs, 1 slice toast'),
+    food('2026-10-06', 'Butter croissant'),
+    food('2026-10-06', 'Grilled salmon'),
+  ];
+  const highlights = parseFoodHighlights(
+    {
+      avoid: [
+        {food: 'Butter croissant', reason: 'High in saturated fat.'},
+        {food: 'Doughnut', reason: 'Never logged.'},
+        {food: 'butter croissants', reason: 'Duplicate.'},
+        {reason: 'No food.'},
+      ],
+      keep: [
+        {food: 'Boiled egg', reason: 'High in protein.'},
+        {food: 'Butter croissant', reason: 'Already in avoid.'},
+        {food: 'Grilled salmon', reason: 'Omega-3s.'},
+      ],
+    },
+    entries,
+  );
+  assert.deepEqual(highlights, {
+    avoid: [{food: 'Butter croissant', reason: 'High in saturated fat.'}],
+    keep: [
+      {food: 'Boiled egg', reason: 'High in protein.'},
+      {food: 'Grilled salmon', reason: 'Omega-3s.'},
+    ],
+  });
+  assert.deepEqual(parseFoodHighlights({avoid: 'pizza'}, entries), {avoid: [], keep: []});
 });
 
 test('strength progress compares to the most recent earlier session', () => {

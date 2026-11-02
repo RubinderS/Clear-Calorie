@@ -91,6 +91,13 @@ test('missing or malformed goal suggestions do not fail the report', () => {
   assert.deepEqual(report?.goalSuggestions, []);
 });
 
+test('passes food picks through and drops malformed lists', () => {
+  const avoid = [{food: 'Pizza', reason: 'High in saturated fat.'}];
+  const report = parseWeeklyReportText({...REPORT, foodsToAvoid: avoid, foodsToKeep: 'salmon'});
+  assert.deepEqual(report?.foodsToAvoid, avoid);
+  assert.deepEqual(report?.foodsToKeep, []);
+});
+
 test('splits server-sent events and keeps the unfinished line', () => {
   const {data, rest} = parseSseData(
     'data: {"a":1}\n\n: keep-alive\ndata: [DONE]\r\ndata: {"b"',

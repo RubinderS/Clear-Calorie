@@ -5,7 +5,10 @@ import {
   ChevronDown,
   CircleDashed,
   Target,
+  ThumbsDown,
+  ThumbsUp,
   TrendingUp,
+  Utensils,
   XCircle,
   type LucideIcon,
 } from 'lucide-react';
@@ -30,6 +33,8 @@ import {
   type BodyMetricSummary,
   type FocusMetric,
   type FocusStatus,
+  type FoodHighlight,
+  type FoodHighlights,
 } from '@/lib/weekly-report-metrics';
 
 // parseISO keeps date-only keys at local midnight; new Date() would read them as UTC.
@@ -283,6 +288,74 @@ function GoalCard({
   );
 }
 
+function FoodList({
+  title,
+  icon: Icon,
+  className,
+  items,
+}: {
+  title: string;
+  icon: LucideIcon;
+  className: string;
+  items: FoodHighlight[];
+}) {
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+      <ul className="divide-y divide-border/50">
+        {items.map((item) => (
+          <li
+            key={item.food}
+            className="flex items-start gap-2 py-2 text-sm first:pt-0 last:pb-0"
+          >
+            <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', className)} aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">{item.food}</p>
+              <p className="leading-relaxed text-muted-foreground">
+                {item.reason}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** This week's worst and best foods for the user's health notes and goal. */
+function FoodsCard({highlights}: {highlights: FoodHighlights}) {
+  const {avoid, keep} = highlights;
+  return (
+    <Card>
+      <CardHeader>
+        <CardDescription className="flex items-center gap-1.5">
+          <Utensils className="h-4 w-4" aria-hidden />
+          Foods this week
+        </CardDescription>
+        <CardTitle className="text-lg">What to cut back on and keep</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-6 md:grid-cols-2">
+        {avoid.length > 0 && (
+          <FoodList
+            title="Cut back on"
+            icon={ThumbsDown}
+            className="text-red-600 dark:text-red-400"
+            items={avoid}
+          />
+        )}
+        {keep.length > 0 && (
+          <FoodList
+            title="Keep eating"
+            icon={ThumbsUp}
+            className="text-primary"
+            items={keep}
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // Focus text already states the target ("Average 140 g protein"), so a row
 // only adds the outcome.
 function FocusRow({
@@ -344,6 +417,7 @@ export function WeeklyReport({
     bodyMetrics,
     profile,
     goalSuggestions,
+    foodHighlights,
   } = view;
   const results = lastWeekFocusResults ?? [];
 
@@ -406,6 +480,10 @@ export function WeeklyReport({
             )}
           </CardContent>
         </Card>
+      )}
+
+      {(foodHighlights.avoid.length > 0 || foodHighlights.keep.length > 0) && (
+        <FoodsCard highlights={foodHighlights} />
       )}
 
       {profile && (
