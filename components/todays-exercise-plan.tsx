@@ -11,7 +11,11 @@ import {
   toWorkValues,
   type WorkValues,
 } from '@/components/exercise-detail-fields';
-import {ExerciseAreaTag, ExerciseHowTo} from '@/components/exercise-animation';
+import {
+  ExerciseAnimation,
+  ExerciseAreaTag,
+  ExerciseHowTo,
+} from '@/components/exercise-animation';
 import {GoalNotes} from '@/components/goal-notes';
 import {SequenceTag} from '@/components/sequence-steps-field';
 import {Button} from '@/components/ui/button';
@@ -30,6 +34,7 @@ import {
   type WorkoutSound,
 } from '@/lib/workout-sound';
 import {dayFocus} from '@/lib/day-focus';
+import {exerciseCatalog} from '@/lib/exercise-catalog';
 import {
   formatExerciseDetail,
   goalCatalogIds,
@@ -193,23 +198,36 @@ export function TodaysExercisePlan({
   }
 
   if (review) {
+    const entry = exerciseCatalog.get(review.goal.catalogId);
     return (
       <Card>
         <CardHeader className="pr-14">
           <CardTitle className="truncate">{review.goal.name}</CardTitle>
           <CardDescription>Check what you did, then log it</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <LogReview
-            goal={review.goal}
-            result={review.result}
-            onConfirm={(details) => {
-              setReview(null);
-              onToggle(review.goal, true, details);
-            }}
-            onCancel={() => setReview(null)}
-          />
-          <GoalNotes goalId={review.goal.id} initialNotes={review.goal.notes} />
+        {/* On desktop the animation sits beside the fields, as in a workout;
+            stretched across the full width it shrank to a blurry strip. */}
+        <CardContent className="space-y-6 md:grid md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:items-start md:gap-8 md:space-y-0">
+          {/* Kept short on phones so the log fields stay in view below it. */}
+          {entry && (
+            <ExerciseAnimation
+              entry={entry}
+              className="mx-auto w-full max-w-sm md:max-w-none"
+              maxHeightClassName="[&>*]:max-h-[min(30vh,14rem)] md:[&>*]:max-h-[min(55vh,26rem)]"
+            />
+          )}
+          <div className={entry ? 'space-y-6' : 'col-span-full space-y-6'}>
+            <LogReview
+              goal={review.goal}
+              result={review.result}
+              onConfirm={(details) => {
+                setReview(null);
+                onToggle(review.goal, true, details);
+              }}
+              onCancel={() => setReview(null)}
+            />
+            <GoalNotes goalId={review.goal.id} initialNotes={review.goal.notes} />
+          </div>
         </CardContent>
       </Card>
     );
