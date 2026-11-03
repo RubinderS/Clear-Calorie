@@ -5,7 +5,10 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Toggler, type TogglerOption} from '@/components/ui/toggler';
 import {Decimal} from '@/lib/decimal';
+import {cn} from '@/lib/utils';
 import {
+  formatSetAmount,
+  isRepSet,
   MAX_SETS,
   setsOf,
   type ExerciseSet,
@@ -108,7 +111,24 @@ type SetRowsProps = {
   fixedCount?: boolean;
   /** Each set stays for reps or for a time, as the exercise is done, e.g. when logging. */
   fixedMode?: boolean;
+  /** Each set as done last week, shown in a column beside its row. */
+  lastWeek?: readonly ExerciseSet[] | null;
 };
+
+/** A set as done before, e.g. "10 reps × 10 kg"; "—" if missing. */
+function PreviousSet({set}: {set: ExerciseSet | undefined}) {
+  if (!set) return <span className="text-sm text-muted-foreground">—</span>;
+  return (
+    <span className="whitespace-nowrap text-sm tabular-nums">
+      <span className="font-medium">
+        {isRepSet(set) ? `${set.reps} reps` : formatSetAmount(set)}
+      </span>
+      {set.weight ? (
+        <span className="text-xs text-muted-foreground"> × {set.weight} kg</span>
+      ) : null}
+    </span>
+  );
+}
 
 export const SET_MODES: TogglerOption<SetMode>[] = [
   {value: 'reps', label: 'Reps'},
@@ -141,10 +161,16 @@ function SetRows({
   labels,
   fixedCount = false,
   fixedMode = false,
+  lastWeek,
 }: SetRowsProps) {
   function update(index: number, change: Partial<SetValues>) {
     onChange(sets.map((set, i) => (i === index ? {...set, ...change} : set)));
   }
+
+  // Last week's sets go under each set today on phones, and in their own
+  // column beside it on wider screens.
+  const previous = lastWeek?.length ? lastWeek : null;
+  const columns = 'grid gap-2 sm:grid-cols-[minmax(0,1fr)_8.5rem] sm:gap-3';
 
   return (
     <div
@@ -152,9 +178,18 @@ function SetRows({
       aria-label={labels ? 'Steps' : 'Sets'}
       className="space-y-4 sm:space-y-2"
     >
+      {previous ? (
+        <div
+          aria-hidden
+          className={cn(columns, 'text-xs font-medium text-muted-foreground max-sm:hidden')}
+        >
+          <span>Today</span>
+          <span className="pl-3">Last week</span>
+        </div>
+      ) : null}
       {sets.map((set, index) => {
         const label = labels ? `Step ${index + 1}` : `Set ${index + 1}`;
-        return (
+        const row = (
           // On phones the type and remove button share the first line, then
           // the amount and the weight each get a full-width line.
           <div
@@ -234,6 +269,20 @@ function SetRows({
             )}
           </div>
         );
+        if (!previous) return row;
+        return (
+          <div key={index} className={columns}>
+            {row}
+            {/* As tall as the inputs and level with them, below a sequence's step name. */}
+            <div
+              aria-label={`${label} last week`}
+              className="flex items-baseline justify-between gap-3 rounded-xl bg-muted/40 px-3 py-1.5 sm:h-11 sm:items-center sm:self-end sm:py-0"
+            >
+              <span className="text-xs text-muted-foreground sm:hidden">Last week</span>
+              <PreviousSet set={previous[index]} />
+            </div>
+          </div>
+        );
       })}
       {fixedCount ? null : (
         <Button
@@ -296,6 +345,8 @@ type ExerciseLogFieldsProps = {
   onChange: (value: WorkValues) => void;
   /** A sequence's exercises, one per step; its steps stay as planned. */
   stepNames?: readonly string[];
+  /** Each set as done on this weekday last week, for comparison. */
+  lastWeek?: readonly ExerciseSet[] | null;
 };
 
 /** What was done, set by set, each for reps or a time as the exercise is done. */
@@ -304,6 +355,7 @@ export function ExerciseLogFields({
   value,
   onChange,
   stepNames,
+  lastWeek,
 }: ExerciseLogFieldsProps) {
   return (
     <SetRows
@@ -313,6 +365,7 @@ export function ExerciseLogFields({
       labels={stepNames}
       fixedCount={stepNames !== undefined}
       fixedMode
+      lastWeek={lastWeek}
     />
   );
 }

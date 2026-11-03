@@ -424,6 +424,7 @@ function LogReview({
         value={values}
         onChange={setValues}
         stepNames={stepNames}
+        lastWeek={goal.lastWeekSets}
       />
       <Button type="submit" className="h-12 w-full">
         <Check />

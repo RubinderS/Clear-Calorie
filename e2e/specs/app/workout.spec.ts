@@ -103,6 +103,36 @@ test('WO-01 setup shows target weights and last week', async ({
   );
 });
 
+test('WO-01 log review shows last week beside each set', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  const goal = await seedExerciseGoal(db, user.id, {name: 'Bench', sets: 3, reps: 10, weight: 12});
+  await seedExercise(db, user.id, {
+    name: 'Bench',
+    type: 'STRENGTH',
+    exerciseGoalId: goal.id,
+    goalDate: daysAgoIn(7),
+    loggedAt: noonDaysAgo(7),
+    exerciseSets: [
+      {position: 1, reps: 10, weight: 10},
+      {position: 2, reps: 9, weight: 10},
+    ],
+  });
+  await page.goto('/dashboard');
+  const panel = await openQuickLog(page, 'exercise');
+  await panel.getByLabel('Mark Bench as done').click();
+  const review = card(panel, 'Bench');
+  await expect(review.getByText('Check what you did, then log it')).toBeVisible();
+
+  await expect(review.getByText('Today', {exact: true})).toBeVisible();
+  await expect(review.getByLabel('Set 1 last week')).toContainText(/10 reps.*10 kg/);
+  await expect(review.getByLabel('Set 2 last week')).toContainText(/9 reps.*10 kg/);
+  // A set not done last week shows a dash.
+  await expect(review.getByLabel('Set 3 last week')).toContainText('—');
+});
+
 test('WO-01 no last week column without a log', async ({
   authedPage: page,
   db,
