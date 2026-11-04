@@ -1,194 +1,171 @@
+<div align="center">
+
+<img src="docs/logo.svg" alt="ClearCalorie logo" width="96" height="96" />
+
 # ClearCalorie
 
-A Next.js web app for tracking calories, exercise, weight, and health goals.
+**A self-hosted calorie, exercise and health tracker with an AI coach.**
 
-## Features
+Log food and workouts, follow a weekly exercise plan with animated how-tos,
+and get an AI-written review of your week, all on your own server.
 
-- User authentication (sign up / sign in) with NextAuth.js
-- Dashboard with daily calorie summary and progress charts
-- Food logging with calories and macros
-- Exercise logging with sets, reps, weight and duration
-- Weight tracking over time
-- Daily nutrition goals
+![Next.js](https://img.shields.io/badge/Next.js_16-000?logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React_19-149eca?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06b6d4?logo=tailwindcss&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47a248?logo=mongodb&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ed?logo=docker&logoColor=white)
 
-## Tech Stack
+<img src="docs/screenshots/desktop-landing.png" alt="ClearCalorie landing page" width="900">
 
-- Next.js 16 (App Router, TypeScript)
-- Tailwind CSS 4
-- MongoDB with Mongoose, migrations by migrate-mongo
-- NextAuth.js (credentials provider)
-- Recharts for data visualization
+</div>
 
-## Getting Started
+## ✨ Features
 
-1. Install dependencies:
+- **📊 Daily dashboard.** Rings for calories, protein, carbs, fat and today's
+  exercise plan, a saturated fat limit, and weekly charts for calories,
+  protein, exercise and weight.
+- **🍽️ Food logging.** Calories and macros per entry, saved foods for quick
+  re-logging, and optional **AI estimates**: type "2 eggs on toast with butter"
+  and the AI fills in the numbers for you to review.
+- **🏋️ Exercise plan and workouts.** Plan exercises per weekday, run guided
+  sets with a tempo, voice or tone cues and music, and compare against last
+  week's sets.
+- **🐰 3D exercise animations.** Over 40 built-in exercises, each with a looping
+  3D how-to, the muscles it works, steps, form tips and common mistakes.
+- **⚖️ Body tracking.** Weight trend, waist and body fat measurements.
+- **📝 AI weekly reports.** Every Monday you get a review of last week:
+  numbers computed in code, a summary written by the AI, the foods to cut back
+  on, and up to three goals for the coming week that the next report follows up.
+- **💬 AI coach.** Chat about your own data. The coach looks up your logs,
+  plan, weight and reports, and can propose entries for you to confirm.
+- **🌗 Light and dark themes**, with layouts built for both desktop and mobile.
+
+The AI features work with any OpenAI-compatible API (OpenAI, OpenRouter, Groq,
+Gemini, Ollama, LM Studio) and are hidden unless you configure one.
+
+## 📸 Screenshots
+
+### Desktop
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/desktop-dashboard.png" alt="Dashboard"><p align="center"><b>Dashboard</b></p></td>
+    <td width="50%"><img src="docs/screenshots/desktop-reports.png" alt="Weekly report"><p align="center"><b>Weekly report</b></p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/desktop-coach.png" alt="AI coach"><p align="center"><b>AI coach</b></p></td>
+    <td width="50%" align="center"><img src="docs/screenshots/exercise-animation.gif" alt="3D exercise animation" width="360"><p align="center"><b>3D exercise how-to</b></p></td>
+  </tr>
+</table>
+
+### Mobile
+
+<table>
+  <tr>
+    <td width="25%"><img src="docs/screenshots/mobile-dashboard.png" alt="Mobile dashboard"></td>
+    <td width="25%"><img src="docs/screenshots/mobile-logs.png" alt="Mobile food log"></td>
+    <td width="25%"><img src="docs/screenshots/mobile-reports.png" alt="Mobile weekly report"></td>
+    <td width="25%"><img src="docs/screenshots/mobile-coach.png" alt="Mobile AI coach"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Dashboard</b></td>
+    <td align="center"><b>Food log</b></td>
+    <td align="center"><b>Weekly report</b></td>
+    <td align="center"><b>AI coach</b></td>
+  </tr>
+</table>
+
+## 🚀 Getting Started
+
+You need Node.js 22 and MongoDB 4.4 or later.
 
 ```bash
 npm install
+cp .env.example .env    # set NEXTAUTH_SECRET and DATABASE_URL, e.g. mongodb://localhost:27017/clearcalorie
+npm run db:migrate      # apply data migrations
+npm run db:seed         # optional: demo user with sample data
+npm run dev             # http://localhost:3000
 ```
 
-2. Set up environment variables:
+Demo login: `demo@example.com` / `password`
 
-```bash
-cp .env.example .env
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Start the development server |
+| `npm run build` / `npm start` | Build and run for production |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run unit tests |
+| `npm run test:e2e` | Build and run Playwright end-to-end tests |
+| `npm run db:migrate` | Apply pending migrations (`db:migrate:status`, `db:migrate:down`, `db:migrate:create -- <name>`) |
+| `npm run db:seed` | Seed the demo user |
+| `npm run db:reset` | Empty the database, migrate and seed |
+| `npm run reports:generate` | Write any due weekly reports now |
+
+## 🐳 Docker Compose
+
+The image bundles MongoDB, so a single container is all you need. It applies
+migrations on start and keeps its data in the mounted volume.
+
+```yaml
+services:
+  web:
+    image: ghcr.io/rubinders/clear-calorie:main
+    ports:
+      - '3000:3000'
+    environment:
+      NEXTAUTH_SECRET: change-me-to-a-random-secret-at-least-32-characters
+      # The exact origin users open in the browser
+      NEXTAUTH_URL: http://localhost:3000
+      # Optional: turns on AI estimates, weekly reports and the coach
+      # AI_BASE_URL: https://api.openai.com/v1
+      # AI_API_KEY: sk-xxxxxxxx
+      # AI_MODEL: gpt-4o-mini
+      # Optional: use your own MongoDB instead of the bundled one
+      # DATABASE_URL: mongodb://user:password@db.example.com:27017/clearcalorie
+    volumes:
+      - ~/clearcalorie:/app/data
+    restart: unless-stopped
+    stop_grace_period: 30s
 ```
 
-Edit `.env`: set a strong `NEXTAUTH_SECRET`, and point `DATABASE_URL` at your
-MongoDB (4.4 or later), with the database name in the path, e.g.
-`mongodb://localhost:27017/clearcalorie`. The `db:*` scripts read `.env` too.
-
-3. Apply the data migrations:
-
 ```bash
-npm run db:migrate
-```
-
-The app builds its indexes itself when it starts.
-
-4. Seed the database with a demo user (optional):
-
-```bash
-npm run db:seed
-```
-
-5. Start the development server:
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## AI Food Estimates (optional)
-
-When configured, the food form shows an **Estimate** button. Describe what you
-ate (e.g. "2 eggs on toast with butter" or "Coles chicken caesar wrap") and the
-AI fills in calories, protein, carbs, fat and saturated fat for you to review
-before logging. The prompt is tuned for Australian foods, brands and serving
-sizes.
-
-On the Goals page you can add **Health notes** (e.g. "high LDL cholesterol").
-When notes are set, each AI estimate also checks the food against them and shows
-a "Heads up" alert if it may not suit you. Notes are sent to the configured AI
-service with each estimate. The field is hidden when AI is off.
-
-The feature is off unless both `AI_BASE_URL` and `AI_MODEL` are set. It works
-with any OpenAI-compatible `/chat/completions` endpoint (OpenAI, OpenRouter,
-Groq, Gemini's OpenAI-compatible API, Ollama, LM Studio):
-
-```bash
-AI_BASE_URL="https://api.openai.com/v1"
-AI_API_KEY="sk-xxxxxxxx"   # optional for local servers
-AI_MODEL="gpt-4o-mini"
-```
-
-These are read at runtime, so the Docker image picks them up from the container
-environment without a rebuild (see `docker-compose.yml`). Requests are limited to
-20 per user every 10 minutes when Upstash rate limiting is configured.
-
-## Weekly Reports (optional)
-
-When AI is configured, a **Reports** page appears. Early each Monday (in the
-user's own timezone) the server writes a review of the previous Monday–Sunday
-week: calories and macros against goals, the foods that pushed saturated fat or
-other limits over, exercise plan adherence, strength progress and weight, all
-related to the user's health notes.
-
-- **Numbers come from code, words from the AI.** Metrics, top food sources and
-  strength progress are computed in `lib/weekly-report-metrics.ts`; the AI only
-  writes the summary and proposes up to three measurable goals for the next week
-  (e.g. "paneer at most once", "average 140 g protein").
-- **Each report follows up on the last.** The next report checks those goals
-  against the logs in code (met / improved / missed, with a streak) and the AI
-  writes the follow-up. The Reports page also shows progress on them so far
-  this week.
-- **Timing.** The browser's timezone is saved on the user when they open the
-  app, along with when they were last seen. A job inside the server checks
-  hourly and writes last week's report for users whose week has ended, skipping
-  users with no saved timezone, users inactive for 30 days and weeks with no
-  food, exercise or weight logged.
-
-Health notes and the week's food and exercise logs are sent to the configured
-AI service. Set `WEEKLY_REPORTS=off` to turn the hourly job off. To run it once
-by hand, or for one user and week:
-
-```bash
-npm run reports:generate
-npm run reports:generate -- --email you@example.com --week 2026-10-05 --timezone Australia/Sydney
-```
-
-## AI Coach (optional)
-
-When AI is configured, users can chat with a coach about their own data. It
-opens from an **Ask coach** button (a drawer on desktop, a full-screen sheet
-from the header icon on mobile) and on the **Coach** page, which keeps past
-chats.
-
-- **The model fetches what it needs.** The server offers the model tools
-  (`lib/chat/tools.ts`): daily totals, food and exercise logs, the exercise
-  plan, weight history, body measurements, goals and profile, and weekly
-  reports. Each tool queries only the signed-in user's rows; the model never
-  supplies a user id. Replies stream as they are written.
-- **Logging needs a tap.** Asked to log food, exercise or weight, the coach
-  proposes an entry (food is estimated as on the food form) and the user
-  confirms or dismisses it. Confirmed entries go through the same validation
-  as the log forms.
-- **Model requirements.** The chat needs a model that supports tool calling
-  and streaming on `/chat/completions` (e.g. OpenAI `gpt-4o-mini`, DeepSeek,
-  or a tool-capable Ollama model such as `llama3.1`).
-
-Chats are saved per user. Each message sends the conversation and the data its
-tools return to the configured AI service.
-
-## Demo Credentials
-
-- Email: `demo@example.com`
-- Password: `password`
-
-## Available Scripts
-
-- `npm run dev` — Start development server with Turbopack
-- `npm run build` — Build for production
-- `npm run start` — Start production server
-- `npm run lint` — Run ESLint
-- `npm test` — Run decimal arithmetic regression tests
-- `npm run db:migrate` — Apply pending data migrations (see `migrations/README.md`)
-- `npm run db:migrate:status` / `db:migrate:down` / `db:migrate:create -- <name>` — Inspect, undo the last, or add a migration
-- `npm run db:seed` — Seed the database with the demo user
-- `npm run db:reset` — Empty the database, migrate, and seed
-- `npm run reports:generate` — Write any due weekly reports now
-
-## Docker
-
-```bash
-cp .env.example .env   # set NEXTAUTH_SECRET and NEXTAUTH_URL
 docker compose up -d
 ```
 
-The image runs MongoDB alongside the app, stored in the mounted volume
-(`~/clearcalorie` by default), so there's nothing else to set up. On start it
-applies pending migrations, then the app builds its indexes. To use your own
-MongoDB instead, set `DATABASE_URL`; the bundled one then never starts.
+Then open [http://localhost:3000](http://localhost:3000). The repo's
+[docker-compose.yml](docker-compose.yml) lists every option, including rate
+limiting (Upstash) and verification emails (Resend).
 
-MongoDB 5+ needs a CPU with AVX (x86) or ARMv8.2 (ARM). On older hardware,
-such as a Raspberry Pi 4, use an external MongoDB 4.4 via `DATABASE_URL`.
+> The bundled MongoDB needs a CPU with AVX (x86) or ARMv8.2 (ARM). On older
+> hardware such as a Raspberry Pi 4, point `DATABASE_URL` at an external
+> MongoDB 4.4.
 
-## Numeric Calculations
+## ⚙️ Configuration
 
-Health totals, net calories, goal percentages, remaining amounts, chart bounds,
-and exercise rounding use `decimal.js` with 40 significant digits. Decimal
-accumulators are converted to numbers only for component, API, and chart
-boundaries. Food nutrition is still stored as MongoDB doubles;
-this prevents arithmetic rounding artifacts, not arbitrary-precision storage.
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | MongoDB connection string, with the database name in the path |
+| `NEXTAUTH_SECRET`, `NEXTAUTH_URL` | Session signing secret and the app's public origin |
+| `AI_BASE_URL`, `AI_MODEL`, `AI_API_KEY` | OpenAI-compatible endpoint for AI features. The coach needs a model with tool calling and streaming. `AI_API_KEY` is optional for local servers |
+| `WEEKLY_REPORTS` | Set to `off` to stop the hourly weekly-report job |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Rate limiting |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Verification emails |
 
-## Project Structure
+Health notes, food and exercise logs are sent to the configured AI service
+when you use AI estimates, weekly reports or the coach.
 
-- `app/` — Next.js App Router pages and layouts
-- `components/` — Reusable React components
-- `lib/` — Utility functions and auth configuration
-  - `lib/models/` — Mongoose schemas and indexes
-  - `lib/data/` — All database queries, returning plain records
-- `migrations/` — Data migrations (migrate-mongo)
-- `scripts/` — Seed, reset and weekly reports
-- `public/` — Static assets
-- `types/` — TypeScript declarations
+## 🧱 Tech Stack
+
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · MongoDB with
+Mongoose and migrate-mongo · NextAuth.js · Recharts · Three.js · Tone.js ·
+decimal.js for exact nutrition arithmetic.
+
+## 📁 Project Structure
+
+- `app/`: pages and API routes (App Router)
+- `components/`: React components, including the 3D exercise animations
+- `lib/`: auth, data access (`lib/data/`), models (`lib/models/`), AI chat tools and the exercise catalog
+- `migrations/`: data migrations ([migrations/README.md](migrations/README.md))
+- `scripts/`: seed, reset and weekly report scripts
+- `docs/`: how the exercise animations are built ([docs/exercise-animations.md](docs/exercise-animations.md))
