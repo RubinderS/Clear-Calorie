@@ -133,6 +133,21 @@ test('WO-01 log review shows last week beside each set', async ({
   await expect(review.getByLabel('Set 3 last week')).toContainText('—');
 });
 
+test('WO-01 log review shows the areas a built-in exercise works', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  await seedExerciseGoal(db, user.id, {name: 'Push-up', catalogId: 'push-up', sets: 2, reps: 10});
+  await page.goto('/dashboard');
+  const panel = await openQuickLog(page, 'exercise');
+  await panel.getByLabel('Mark Push-up as done').click();
+  const review = card(panel, 'Push-up');
+  await expect(review.getByRole('group', {name: 'Areas worked'})).toHaveText(
+    'Works Chest · also Triceps, Shoulders, Core',
+  );
+});
+
 test('WO-01 no last week column without a log', async ({
   authedPage: page,
   db,

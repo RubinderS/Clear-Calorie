@@ -14,6 +14,7 @@ import {
 import {
   ExerciseAnimation,
   ExerciseAreaTag,
+  ExerciseAreas,
   ExerciseHowTo,
 } from '@/components/exercise-animation';
 import {GoalNotes} from '@/components/goal-notes';
@@ -210,11 +211,14 @@ export function TodaysExercisePlan({
         <CardContent className="space-y-6 md:grid md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:items-start md:gap-8 md:space-y-0">
           {/* Kept short on phones so the log fields stay in view below it. */}
           {entry && (
-            <ExerciseAnimation
-              entry={entry}
-              className="mx-auto w-full max-w-sm md:max-w-none"
-              maxHeightClassName="[&>*]:max-h-[min(30vh,14rem)] md:[&>*]:max-h-[min(55vh,26rem)]"
-            />
+            <div className="space-y-2">
+              <ExerciseAnimation
+                entry={entry}
+                className="mx-auto w-full max-w-sm md:max-w-none"
+                maxHeightClassName="[&>*]:max-h-[min(30vh,14rem)] md:[&>*]:max-h-[min(55vh,26rem)]"
+              />
+              <ExerciseAreas entry={entry} className="text-center" />
+            </div>
           )}
           <div className={entry ? 'space-y-6' : 'col-span-full space-y-6'}>
             <LogReview
