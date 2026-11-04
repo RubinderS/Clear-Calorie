@@ -48,8 +48,12 @@ test('EL-02 past days are fetched and read-only', async ({authedPage: page, db, 
     logRow(page, 'Old swim').getByRole('button', {name: 'Delete Old swim'}),
   ).toBeDisabled();
 
-  await page.getByRole('button', {name: 'Previous day'}).click();
-  await expect(page.getByText('No exercise logged on this date.')).toBeVisible();
+  // The calendar starts at the first logged day.
+  await expect(page.getByLabel('View exercise logs for date')).toHaveAttribute(
+    'min',
+    daysAgoIn(2),
+  );
+  await expect(page.getByRole('button', {name: 'Previous day'})).toBeDisabled();
 });
 
 test.describe('EL-03 editing what was done', () => {

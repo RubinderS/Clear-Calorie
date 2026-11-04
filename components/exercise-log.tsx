@@ -35,6 +35,8 @@ type ExerciseLogProps = {
   entries: ExerciseEntry[];
   timeZone: string;
   today: string;
+  /** Date of the first entry ever logged, if any. */
+  firstDate?: string;
   /** Today's plan, ticked off from the add dialog. */
   plannedExercises?: PlannedExerciseStatus[];
 };
@@ -43,12 +45,14 @@ export function ExerciseLog({
   entries,
   timeZone,
   today,
+  firstDate,
   plannedExercises,
 }: ExerciseLogProps) {
   const log = useDailyLog({
     endpoint: '/api/exercise',
     initialEntries: entries,
     today,
+    firstDate,
   });
   const [editingEntry, setEditingEntry] = useState<ExerciseEntry | null>(null);
 

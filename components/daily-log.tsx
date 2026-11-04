@@ -32,6 +32,8 @@ type UseDailyLogOptions<T extends DailyLogEntry> = {
   endpoint: string;
   initialEntries: T[];
   today: string;
+  /** Earliest date with an entry; days before it can't be picked. */
+  firstDate?: string;
   onDeleted?: (entry: T) => void;
 };
 
@@ -39,8 +41,11 @@ export function useDailyLog<T extends DailyLogEntry>({
   endpoint,
   initialEntries,
   today,
+  firstDate,
   onDeleted,
 }: UseDailyLogOptions<T>) {
+  // No entries yet means today is the only day to show.
+  const minDate = firstDate && firstDate < today ? firstDate : today;
   const [selectedDate, setSelectedDate] = useState(today);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [entries, setEntries] = useState(initialEntries);
@@ -104,6 +109,7 @@ export function useDailyLog<T extends DailyLogEntry>({
 
   return {
     today,
+    minDate,
     selectedDate,
     setSelectedDate,
     isToday: selectedDate === today,
@@ -161,6 +167,7 @@ export function DailyLogCard<T extends DailyLogEntry>({
 }: DailyLogCardProps<T>) {
   const {
     today,
+    minDate,
     selectedDate,
     setSelectedDate,
     isToday,
@@ -191,6 +198,7 @@ export function DailyLogCard<T extends DailyLogEntry>({
             size="icon"
             aria-label="Previous day"
             title="Previous day"
+            disabled={selectedDate <= minDate}
             onClick={() => setSelectedDate((date) => shiftDate(date, -1))}
             className="h-9 w-9 shrink-0"
           >
@@ -200,9 +208,14 @@ export function DailyLogCard<T extends DailyLogEntry>({
             aria-label={dateInputLabel}
             type="date"
             value={selectedDate}
+            min={minDate}
             max={today}
             onChange={(event) => {
-              if (event.target.value) setSelectedDate(event.target.value);
+              const date = event.target.value;
+              // Typed dates can land outside min/max.
+              if (date && date >= minDate && date <= today) {
+                setSelectedDate(date);
+              }
             }}
             className="h-9 min-w-0 rounded-lg border border-input bg-background px-3 text-sm"
           />

@@ -135,9 +135,13 @@ async function renderTab(
   const {start: todayStart, end: todayEnd} = getTodayRange(timeZone);
   const loggedAt = {gte: todayStart, lte: todayEnd};
   const today = format(toZoned(new Date(), timeZone), 'yyyy-MM-dd');
+  const toDay = (date: Date) => format(toZoned(date, timeZone), 'yyyy-MM-dd');
 
   if (tab === 'exercise') {
-    const entries = await listExerciseLogs(userId, {loggedAt});
+    const [entries, [first]] = await Promise.all([
+      listExerciseLogs(userId, {loggedAt}),
+      listExerciseLogs(userId, {order: 'asc', take: 1}),
+    ]);
     const plannedExercises = await getTodaysPlanStatus(
       userId,
       timeZone,
@@ -148,22 +152,24 @@ async function renderTab(
         entries={entries}
         timeZone={timeZone}
         today={today}
+        firstDate={first && toDay(first.loggedAt)}
         plannedExercises={plannedExercises}
       />
     );
   }
 
-  const [entries, recent] = await Promise.all([
+  const [entries, recent, [first]] = await Promise.all([
     listFoodLogs(userId, {loggedAt}),
     // Two weeks before today for the 7-day average and its change.
     listFoodLogs(userId, {
       loggedAt: {gte: subDays(todayStart, 2 * ROLLING_AVERAGE_DAYS), lt: todayStart},
     }),
+    listFoodLogs(userId, {order: 'asc', take: 1}),
   ]);
   const calorieAverage = dailyRollingAverages(
     recent.map((entry) => ({
       value: entry.calories,
-      date: format(toZoned(entry.loggedAt, timeZone), 'yyyy-MM-dd'),
+      date: toDay(entry.loggedAt),
     })),
     today,
   );
@@ -173,6 +179,7 @@ async function renderTab(
       calorieAverage={calorieAverage}
       timeZone={timeZone}
       today={today}
+      firstDate={first && toDay(first.loggedAt)}
       aiEnabled={isAiEnabled()}
     />
   );

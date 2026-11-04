@@ -70,10 +70,12 @@ test('FL-03 empty day', async ({authedPage: page}) => {
 
 test('FL-04 browsing past days is read-only', async ({authedPage: page, db, user}) => {
   await seedFood(db, user.id, {name: 'Old pasta', calories: 650, loggedAt: noonDaysAgo(1)});
+  await seedFood(db, user.id, {name: 'First meal', calories: 300, loggedAt: noonDaysAgo(5)});
   await page.goto('/logs');
 
   const dateInput = page.getByLabel('View food logs for date');
   await expect(dateInput).toHaveValue(todayIn());
+  await expect(dateInput).toHaveAttribute('min', daysAgoIn(5));
   await expect(dateInput).toHaveAttribute('max', todayIn());
   await expect(page.getByRole('button', {name: 'Next day'})).toBeDisabled();
 

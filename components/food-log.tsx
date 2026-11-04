@@ -31,6 +31,8 @@ type FoodLogProps = {
   calorieAverage: {avg: number | null; prevAvg: number | null};
   timeZone: string;
   today: string;
+  /** Date of the first entry ever logged, if any. */
+  firstDate?: string;
   aiEnabled?: boolean;
 };
 
@@ -44,12 +46,14 @@ export function FoodLog({
   calorieAverage,
   timeZone,
   today,
+  firstDate,
   aiEnabled,
 }: FoodLogProps) {
   const log = useDailyLog({
     endpoint: '/api/food',
     initialEntries: entries,
     today,
+    firstDate,
   });
   const totalCalories = sumNumbers(log.entries.map((entry) => entry.calories));
   const [alertEntry, setAlertEntry] = useState<FoodEntry | null>(null);
