@@ -251,7 +251,10 @@ function ExercisePanel({
       {showCustom ? (
         <div ref={customRef} className="group-has-data-workout:hidden">
           <ExerciseForm
-            plannedNames={goals.map((goal) => goal.name)}
+            // Once ticked off, a planned exercise can be logged again as an extra.
+            plannedNames={goals
+              .filter((goal) => !plan.completedIds.has(goal.id))
+              .map((goal) => goal.name)}
             onLogCreated={onLogCreated}
             headerAction={hasPlan ? undefined : headerAction}
           />

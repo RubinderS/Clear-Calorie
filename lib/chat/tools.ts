@@ -684,7 +684,8 @@ export const TOOLS = {
       }
       const planned = await getPlannedExerciseGoals(ctx.userId, ctx.timeZone, pastDay);
       const plannedGoal = planned.find((goal) => isSameExerciseName(goal.name, name));
-      if (plannedGoal) {
+      // Once ticked off that day, more of a planned exercise is an extra.
+      if (plannedGoal && !(await findGoalTick(plannedGoal.id, date))) {
         return {
           result: {
             error: pastDay

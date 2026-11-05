@@ -11,6 +11,7 @@ import {
 } from '@/lib/exercise';
 import {catalogIdFor} from '@/lib/exercise-catalog';
 import {ExerciseGoalNotFoundError, getPlannedExerciseGoals} from '@/lib/exercise-plan';
+import {getTodayDate} from '@/lib/timezone';
 import {isUniqueViolation} from '@/lib/data/errors';
 import * as exerciseLogs from '@/lib/data/exercise-logs';
 
@@ -37,8 +38,18 @@ export async function createExerciseLog(
 ) {
   const {name} = input;
 
-  const planned = await getPlannedExerciseGoals(userId, timeZone, day?.date);
-  if (planned.some((goal) => isSameExerciseName(goal.name, name))) {
+  // Once a planned exercise is ticked off that day, more of it is an extra.
+  const date = day?.date ?? getTodayDate(timeZone);
+  const [planned, ticks] = await Promise.all([
+    getPlannedExerciseGoals(userId, timeZone, day?.date),
+    exerciseLogs.listExerciseLogs(userId, {goalDate: date, planned: true}),
+  ]);
+  const ticked = new Set(ticks.map((log) => log.exerciseGoalId));
+  if (
+    planned.some(
+      (goal) => !ticked.has(goal.id) && isSameExerciseName(goal.name, name),
+    )
+  ) {
     throw new PlannedExerciseError(
       day
         ? `"${name}" was planned that day. Ask the coach to tick it off for that day instead.`

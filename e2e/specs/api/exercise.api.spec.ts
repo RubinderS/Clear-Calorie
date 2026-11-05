@@ -74,7 +74,7 @@ test("XA-02 custom exercise named like today's plan is rejected", async ({
   db,
   user,
 }) => {
-  await seedExerciseGoal(db, user.id, {name: 'Squats', days: [weekdayIn()]});
+  const squats = await seedExerciseGoal(db, user.id, {name: 'Squats', days: [weekdayIn()]});
   const response = await api.post('/api/exercise', {
     data: {...TIME, name: '  squats '},
   });
@@ -82,6 +82,14 @@ test("XA-02 custom exercise named like today's plan is rejected", async ({
   expect(await response.json()).toEqual({
     error: `"squats" is in today's plan. Tick it off there instead.`,
   });
+
+  // Once ticked off today, more of it is logged as an extra.
+  expect(
+    (await api.post('/api/exercise-goals/log', {data: {goalId: squats.id}})).status(),
+  ).toBe(201);
+  expect(
+    (await api.post('/api/exercise', {data: {...TIME, name: 'Squats'}})).status(),
+  ).toBe(201);
 
   // A goal planned for another day doesn't block the name.
   await seedExerciseGoal(db, user.id, {
