@@ -437,9 +437,12 @@ export function WorkoutSession({
     };
   }, [waiting]);
 
+  const big = useBigScreen();
   // One notes box across every phase, so setup edits carry into the sets.
+  // On the big screen it sits under the animation, so nothing scrolls; that's
+  // done in CSS (see WithAnimation), so the box keeps any edit in progress.
   return (
-    <div className="space-y-6">
+    <div className={cn('flex flex-col gap-6', big && BIG_SESSION_GRID)}>
       {waiting ? (
         waiting.voice && <LoadingVoice onCancel={onCancel} />
       ) : session ? (
@@ -454,14 +457,24 @@ export function WorkoutSession({
       ) : (
         <StrengthSetup goal={goal} onStart={setWaiting} onCancel={onCancel} />
       )}
-      <GoalNotes
-        goalId={goal.id}
-        initialNotes={goal.notes}
-        onSaved={onNotesSaved}
-      />
+      <div className={cn(big && 'md:col-start-1 md:row-start-2')}>
+        <GoalNotes
+          goalId={goal.id}
+          initialNotes={goal.notes}
+          onSaved={onNotesSaved}
+        />
+      </div>
     </div>
   );
 }
+
+/**
+ * The big screen's workout, when it has an animation: the animation with the
+ * notes under it, and the controls beside both. WithAnimation's own grid
+ * steps aside (`contents`) so its columns land in this one.
+ */
+const BIG_SESSION_GRID =
+  'md:has-data-with-animation:grid md:has-data-with-animation:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:has-data-with-animation:items-center md:has-data-with-animation:gap-x-8 md:has-data-with-animation:gap-y-3';
 
 function LoadingVoice({onCancel}: {onCancel: () => void}) {
   return (
@@ -516,13 +529,14 @@ function WithAnimation({
   if (!entry) return children;
   return (
     <div
+      data-with-animation
       className={cn(
         'flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] md:items-center md:gap-8',
-        // The animation takes more of the width, as tall as the window allows.
-        big && 'md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]',
+        // On the big screen its columns join the session's grid, with the notes (see WorkoutSession).
+        big && 'md:contents',
       )}
     >
-      <div className="space-y-2">
+      <div className={cn('space-y-2', big && 'md:col-start-1 md:row-start-1 md:self-end')}>
         <ExerciseAnimation
           // A sequence moves on to other exercises, each with its own scene.
           key={entry.id}
@@ -532,14 +546,15 @@ function WithAnimation({
           className="mx-auto max-w-sm md:max-w-none"
           maxHeightClassName={
             big
-              ? '[&>*]:max-h-[calc((100dvh_-_6rem)/var(--big-zoom))]'
+              ? // As tall as the window allows, leaving room for the title, areas and notes.
+                '[&>*]:max-h-[calc(100dvh/var(--big-zoom)_-_15rem)]'
               : maxHeightClassName
           }
           dimmed={dimmed}
         />
         <ExerciseAreas entry={entry} className={cn('text-center', areasClassName)} />
       </div>
-      {children}
+      <div className={cn(big && 'md:col-start-2 md:row-span-2 md:row-start-1')}>{children}</div>
     </div>
   );
 }
@@ -1159,7 +1174,7 @@ function ActiveWorkout({
 
   // Tighter on phones, so the animation and every control fit on one screen.
   const controls = (
-    <div className="flex flex-col items-center gap-3 md:gap-6">
+    <div className={cn('flex flex-col items-center gap-3 md:gap-6', big && 'md:gap-4')}>
       <div className="text-center" aria-live="polite">
         {stepLabel(step) && (
           <p data-testid="step-label" className="text-xl font-semibold md:text-lg">
@@ -1174,11 +1189,15 @@ function ActiveWorkout({
       </div>
 
       {/* On phones, tempo and reps sit beside the timer rather than below it. */}
-      <div className="flex w-full items-center justify-center gap-3 md:flex-col md:gap-6">
+      <div className={cn('flex w-full items-center justify-center gap-3 md:flex-col md:gap-6', big && 'md:gap-4')}>
         <ProgressRing
           value={progress}
           strokeWidth={5}
-          className={cn('size-32 min-[380px]:size-36 md:size-52', big && 'md:size-72')}
+          className={cn(
+            'size-32 min-[380px]:size-36 md:size-52',
+            // As big as the window's height leaves room for, beside the other controls.
+            big && 'md:size-[clamp(9rem,calc(100dvh/var(--big-zoom)_-_33rem),18rem)]',
+          )}
           indicatorClassName={
             step.kind === 'rest' ? 'text-sky-500' : 'text-primary'
           }

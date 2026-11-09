@@ -17,7 +17,7 @@ import {
 import {
   BIG_SCREEN_FRAME,
   BigScreenProvider,
-  bigScreenZoom,
+  useBigScreenZoom,
   saveBigScreenPref,
   useBigScreenKeys,
   useIsDesktop,
@@ -246,6 +246,7 @@ function ExercisePanel({
   };
   const {big} = bigScreen;
   useBigScreenKeys(true, bigScreen);
+  const zoomStyle = useBigScreenZoom(big);
 
   useEffect(() => {
     if (showCustom && hasPlan) {
@@ -258,7 +259,7 @@ function ExercisePanel({
   return (
     <BigScreenProvider value={bigScreen}>
       <div data-big-screen={big || undefined} className={cn('group', big && BIG_SCREEN_FRAME)}>
-        <div className={cn('space-y-4', big && 'p-6')} style={bigScreenZoom(big)}>
+        <div className={cn('space-y-4', big && 'p-6')} style={zoomStyle}>
           {hasPlan && (
             <TodaysExercisePlan
               goals={goals}

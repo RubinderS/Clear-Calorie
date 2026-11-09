@@ -18,7 +18,7 @@ import {
   BIG_SCREEN_FRAME,
   BigScreenProvider,
   BigScreenToggle,
-  bigScreenZoom,
+  useBigScreenZoom,
   useBigScreenKeys,
   useIsDesktop,
 } from '@/components/workout-big-screen';
@@ -276,6 +276,7 @@ export function ExerciseHowTo({
   const bigScreen = {big: open && bigOn && desktop, setBig: setBigOn};
   const {big} = bigScreen;
   useBigScreenKeys(open, bigScreen);
+  const zoomStyle = useBigScreenZoom(big);
   const entry = exerciseCatalog.get(catalogId);
   if (!entry) return null;
   return (
@@ -303,7 +304,7 @@ export function ExerciseHowTo({
         <BigScreenProvider value={bigScreen}>
           {/* The same content either way; on the big screen the animation sits beside it. */}
           <div
-            style={bigScreenZoom(big)}
+            style={zoomStyle}
             className={cn(
               'space-y-4 p-5',
               big && 'grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-center gap-8 space-y-0 p-8',

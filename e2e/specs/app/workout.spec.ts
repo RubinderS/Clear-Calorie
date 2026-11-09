@@ -21,6 +21,11 @@ async function fillsWindow(page: Page, locator: Locator) {
   return !!box && box.width >= viewport.width - 1 && box.height >= viewport.height - 1;
 }
 
+/** Whether everything in the element shows without scrolling it. */
+async function fitsWithoutScrolling(locator: Locator) {
+  return locator.evaluate((el) => el.scrollHeight <= el.clientHeight + 1);
+}
+
 /** Opens the dashboard exercise dialog and starts the named planned goal. */
 async function startGoal(page: Page, name: string) {
   await page.goto('/dashboard');
@@ -753,6 +758,8 @@ test('WO-17 a whole workout on the big screen, from the plan to the log', async 
     await expect(control).toBeVisible();
   }
   await expect(workout.getByRole('button', {name: 'Exit big screen'})).toBeVisible();
+  // Everything fits in the window, notes included, with nothing to scroll.
+  await expect.poll(() => fitsWithoutScrolling(frame)).toBe(true);
   await c.cuesOff.click();
   // The timer only moves when the test says, so no set ends on its own.
   await freezeClock(page);
@@ -761,6 +768,7 @@ test('WO-17 a whole workout on the big screen, from the plan to the log', async 
   for (const control of [c.timer, c.slower, c.moreReps, c.pause, c.next, c.music]) {
     await expect(control).toBeVisible();
   }
+  await expect.poll(() => fitsWithoutScrolling(frame)).toBe(true);
   await c.moreReps.click();
   await expect(c.detail).toHaveText('11 reps');
 

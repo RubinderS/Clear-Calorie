@@ -21,8 +21,25 @@ import {cn} from '@/lib/utils';
 // Tailwind's md breakpoint, where the big screen is offered.
 const DESKTOP_QUERY = '(min-width: 48rem)';
 const PREF_KEY = 'clearcalorie:workout-big-screen';
-/** How much bigger everything is on the big screen. */
+/** How much bigger everything is on the big screen, at most. */
 export const BIG_SCREEN_ZOOM = 1.35;
+/**
+ * The window height, in CSS pixels before zoom, the big screen's layout is
+ * made to fit. Shorter windows zoom less (never below 1), so everything
+ * still fits without scrolling.
+ */
+const BIG_SCREEN_FIT_HEIGHT = 800;
+
+/** The zoom that fits the big screen's layout in a window this tall. */
+export function bigScreenZoomFor(windowHeight: number): number {
+  const zoom = Math.floor((windowHeight / BIG_SCREEN_FIT_HEIGHT) * 100) / 100;
+  return Math.min(BIG_SCREEN_ZOOM, Math.max(1, zoom));
+}
+
+function subscribeResize(onChange: () => void) {
+  window.addEventListener('resize', onChange);
+  return () => window.removeEventListener('resize', onChange);
+}
 
 function subscribe(onChange: () => void) {
   const query = window.matchMedia(DESKTOP_QUERY);
@@ -117,11 +134,18 @@ export function useBigScreenKeys(enabled: boolean, state: BigScreenState) {
 export const BIG_SCREEN_FRAME =
   'fixed inset-0 z-50 m-0 h-dvh max-h-none w-screen max-w-none overflow-y-auto rounded-none border-0 bg-background shadow-none hover:shadow-none';
 
-/** Scales the big screen's content; `--big-zoom` lets sizes in vh undo it. */
-export function bigScreenZoom(big: boolean): CSSProperties | undefined {
-  return big
-    ? ({zoom: BIG_SCREEN_ZOOM, '--big-zoom': BIG_SCREEN_ZOOM} as CSSProperties)
-    : undefined;
+/**
+ * Scales the big screen's content as far as the window's height allows;
+ * `--big-zoom` lets sizes in vh undo it, so `100dvh / var(--big-zoom)` is
+ * the height there is to fill.
+ */
+export function useBigScreenZoom(big: boolean): CSSProperties | undefined {
+  const zoom = useSyncExternalStore(
+    subscribeResize,
+    () => bigScreenZoomFor(window.innerHeight),
+    () => BIG_SCREEN_ZOOM,
+  );
+  return big ? ({zoom, '--big-zoom': zoom} as CSSProperties) : undefined;
 }
 
 /** Turns the big screen on or off; desktop only. */
