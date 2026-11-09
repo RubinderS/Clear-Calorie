@@ -20,9 +20,12 @@ import {
   setsOf,
   toExerciseFields,
   toPlanFields,
+  toSequenceFields,
   toSetRows,
   type ExerciseSet,
+  type SequenceStep,
 } from "@/lib/exercise";
+import { catalogIdFor } from "@/lib/exercise-catalog";
 import {
   generateWeeklyReport,
   type ReportWriter,
@@ -190,98 +193,132 @@ const DINNERS = [FOODS.salmon, FOODS.rice, FOODS.pizza, FOODS.salad];
 const SNACKS = [FOODS.apple, FOODS.almonds, FOODS.shake, FOODS.yogurt];
 
 type GoalSeed = {
-  key: string;
   name: string;
-  type: "TIME" | "STRENGTH";
-  durationMin?: number;
-  sets?: number;
-  reps?: number;
-  weight?: number;
-  // Sets that differ, e.g. weight going up each set; overrides sets/reps/weight
-  setPlan?: ExerciseSet[];
   days: readonly number[];
   // Days ago the goal was added to the plan
   createdDaysAgo: number;
-};
+} & ({ sets: ExerciseSet[] } | { steps: SequenceStep[] });
 
-// Mixes TIME and STRENGTH goals, short and very long names, and goals added
-// part-way through the history (so earlier days plan fewer exercises).
+const [SUN, MON, TUE, WED, THU, FRI, SAT] = [0, 1, 2, 3, 4, 5, 6];
+const LIFTING_DAYS = [MON, TUE, WED, FRI, SAT];
+const CARDIO_DAYS = [THU, SUN];
+const EVERY_DAY = [SUN, MON, TUE, WED, THU, FRI, SAT];
+
+const repSets = (count: number, reps: number, weight?: number) =>
+  Array.from({ length: count }, (): ExerciseSet => ({ reps, weight: weight ?? null }));
+const timedSets = (count: number, durationSec: number) =>
+  Array.from({ length: count }, (): ExerciseSet => ({ durationSec, weight: null }));
+
+type Move = { name: string; reps?: number; durationSec?: number; restSec?: number };
+
+// A circuit's moves repeated for each round, each linked to the catalog by
+// name. A move with no catalog match, like the low jack, stays custom.
+function circuit(rounds: number, moves: readonly Move[]): SequenceStep[] {
+  return Array.from({ length: rounds }, () => moves)
+    .flat()
+    .map((move, index) => ({
+      name: move.name,
+      catalogId: catalogIdFor(move.name),
+      reps: move.reps ?? null,
+      durationSec: move.durationSec ?? null,
+      weight: null,
+      restSec: index === 0 ? 0 : (move.restSec ?? 0),
+    }));
+}
+
+// restSec is the break before a move.
+const CIRCUIT_1: readonly Move[] = [
+  { name: "Jumping jack", durationSec: 40 },
+  { name: "High knees", durationSec: 40 },
+  { name: "Mountain climber", durationSec: 40, restSec: 10 },
+  { name: "Shadow boxing", durationSec: 40 },
+  { name: "Butt kicks", durationSec: 40, restSec: 10 },
+];
+const CIRCUIT_2: readonly Move[] = [
+  { name: "Low jack", durationSec: 40 },
+  { name: "Running man", durationSec: 40 },
+  { name: "Standing hamstring curl", durationSec: 40, restSec: 20 },
+  { name: "Jump squat", reps: 12 },
+  { name: "Burpee", reps: 8, restSec: 20 },
+];
+const WARM_UP_B: readonly Move[] = [
+  { name: "Jumping jack", durationSec: 40 },
+  { name: "Running man", durationSec: 40 },
+  { name: "Standing hamstring curl", durationSec: 40, restSec: 10 },
+  { name: "Jump squat", reps: 12 },
+  { name: "Burpee", reps: 8, restSec: 10 },
+];
+
+const goal = (
+  name: string,
+  days: readonly number[],
+  plan: { sets: ExerciseSet[] } | { steps: SequenceStep[] },
+  createdDaysAgo = HISTORY_DAYS,
+): GoalSeed => ({ name, days, createdDaysAgo, ...plan });
+
+// A weekly split: chest and triceps Monday, back and biceps Tuesday, legs
+// Wednesday, cardio Thursday, arms and shoulders Friday, full body Saturday
+// and cardio Sunday. Warm-ups come first, so the half of today's plan the seed
+// ticks off starts with them. The big lifts go up in weight each set.
+// Meditation was added part-way through, so earlier days plan one fewer.
 const GOALS: readonly GoalSeed[] = [
-  {
-    key: "run",
-    name: "Morning run",
-    type: "TIME",
-    durationMin: 30,
-    days: [1, 3, 5],
-    createdDaysAgo: HISTORY_DAYS,
-  },
-  {
-    key: "squat",
-    name: "Barbell back squat with a two-second pause at the bottom and controlled tempo",
-    type: "STRENGTH",
-    sets: 4,
-    reps: 8,
-    weight: 135,
-    days: [2, 4],
-    createdDaysAgo: HISTORY_DAYS,
-  },
-  {
-    key: "walk",
-    name: "Evening walk around the neighbourhood park, along the river and back home again",
-    type: "TIME",
-    durationMin: 20,
-    days: [0, 1, 2, 3, 4, 5, 6],
-    createdDaysAgo: HISTORY_DAYS,
-  },
-  {
-    key: "pushups",
-    name: "Push-ups",
-    type: "STRENGTH",
-    sets: 3,
-    reps: 15,
-    days: [1, 2, 3, 4, 5],
-    createdDaysAgo: HISTORY_DAYS,
-  },
-  {
-    key: "rdl",
-    name: "Single-arm dumbbell Romanian deadlift to overhead press complex (alternating sides)",
-    type: "STRENGTH",
-    sets: 3,
-    reps: 10,
-    weight: 25,
-    days: [0, 6],
-    createdDaysAgo: 18,
-  },
-  {
-    key: "plank",
-    name: "Plank",
-    type: "TIME",
-    durationMin: 3,
-    days: [1, 3, 5, 0],
-    createdDaysAgo: 10,
-  },
-  {
-    key: "yoga",
-    name: "Yoga flow",
-    type: "TIME",
-    durationMin: 45,
-    days: [0, 1, 2, 3, 4, 5, 6],
-    createdDaysAgo: 3,
-  },
-  // Every day and last in the list, so today it is always planned and left
-  // for the workout, with a different weight per set and last week's log.
-  {
-    key: "bench",
-    name: "Dumbbell bench press",
-    type: "STRENGTH",
-    setPlan: [
-      { reps: 10, weight: 20 },
-      { reps: 8, weight: 22.5 },
-      { reps: 6, weight: 25 },
+  goal("Warm-up A", LIFTING_DAYS, { steps: circuit(1, CIRCUIT_1) }),
+  goal("Warm-up B", LIFTING_DAYS, { steps: circuit(1, WARM_UP_B) }),
+  goal("Cardio circuit 1", CARDIO_DAYS, { steps: circuit(2, CIRCUIT_1) }),
+  goal("Cardio circuit 2", CARDIO_DAYS, { steps: circuit(2, CIRCUIT_2) }),
+  // Monday
+  goal("Barbell bench press", [MON], {
+    sets: [
+      { reps: 10, weight: 115 },
+      { reps: 8, weight: 125 },
+      { reps: 6, weight: 135 },
     ],
-    days: [0, 1, 2, 3, 4, 5, 6],
-    createdDaysAgo: HISTORY_DAYS,
-  },
+  }),
+  goal("Incline dumbbell press", [MON, FRI], { sets: repSets(3, 10, 40) }),
+  goal("Dumbbell fly", [MON], { sets: repSets(3, 12, 25) }),
+  goal("Dumbbell overhead triceps extension", [MON], { sets: repSets(3, 12, 35) }),
+  goal("Band triceps pushdown", [MON, FRI], { sets: repSets(3, 15) }),
+  // Tuesday
+  goal("Pull-up", [TUE], { sets: repSets(4, 8) }),
+  goal("Barbell bent-over row", [TUE], {
+    sets: [
+      { reps: 10, weight: 95 },
+      { reps: 8, weight: 105 },
+      { reps: 8, weight: 115 },
+    ],
+  }),
+  goal("One-arm dumbbell row", [TUE, SAT], { sets: repSets(3, 10, 50) }),
+  goal("Band face pull", [TUE], { sets: repSets(3, 15) }),
+  goal("Dumbbell lateral raise", [TUE, FRI], { sets: repSets(3, 12, 15) }),
+  goal("Dumbbell curl", [TUE, FRI], { sets: repSets(3, 10, 25) }),
+  goal("Hammer curl", [TUE, FRI], { sets: repSets(3, 10, 25) }),
+  goal("Dumbbell wrist curl", [TUE, FRI], { sets: repSets(3, 15, 20) }),
+  // Wednesday
+  goal("Barbell squat", [WED], {
+    sets: [
+      { reps: 8, weight: 135 },
+      { reps: 8, weight: 155 },
+      { reps: 6, weight: 175 },
+      { reps: 6, weight: 185 },
+    ],
+  }),
+  goal("Romanian deadlift", [WED], { sets: repSets(3, 8, 135) }),
+  goal("Bulgarian split squat", [WED, SAT], { sets: repSets(3, 10, 30) }),
+  goal("Dumbbell walking lunge", [WED], { sets: repSets(3, 12, 30) }),
+  goal("Goblet squat", [WED], { sets: repSets(3, 12, 50) }),
+  goal("Dumbbell calf raise", [WED], { sets: repSets(4, 15, 40) }),
+  goal("Hanging knee raise", [WED, SAT], { sets: repSets(3, 12) }),
+  goal("Wall sit", [WED, SAT], { sets: timedSets(3, 45) }),
+  // Friday
+  goal("Dumbbell shoulder press", [FRI], { sets: repSets(3, 10, 35) }),
+  goal("Band triceps extension", [FRI], { sets: repSets(3, 12) }),
+  // Saturday
+  goal("Push-up", [SAT], { sets: repSets(3, 15) }),
+  goal("Chin-up", [SAT], { sets: repSets(3, 8) }),
+  goal("Dumbbell Romanian deadlift", [SAT], { sets: repSets(3, 10, 50) }),
+  // Every day
+  goal("Plank", EVERY_DAY, { sets: timedSets(3, 60) }),
+  goal("Meditation", EVERY_DAY, { sets: timedSets(1, 600) }, 10),
 ];
 
 // Removed from the plan 12 days ago; its days were frozen into ExercisePlanDay
@@ -650,21 +687,23 @@ async function main() {
 
   // Exercise plan
   const goals = await Promise.all(
-    GOALS.map(async ({ key, days, createdDaysAgo, setPlan, ...goal }) => ({
-      key,
-      ...toPlain(
+    GOALS.map(async ({ days, createdDaysAgo, ...goal }) =>
+      toPlain(
         models.ExerciseGoal,
         (
           await models.ExerciseGoal.create({
-            ...goal,
-            ...(setPlan && toPlanFields(setPlan)),
+            name: goal.name,
+            // As the app saves them: a sequence links each step instead.
+            ...("steps" in goal
+              ? { ...toSequenceFields(goal.steps), catalogId: null }
+              : { ...toPlanFields(goal.sets), catalogId: catalogIdFor(goal.name) }),
             userId: user.id,
             daysMask: days.length === 7 ? EVERYDAY_MASK : daysToMask(days),
             createdAt: dayAt(createdDaysAgo, 30),
           })
         ).toObject(),
       ),
-    })),
+    ),
   );
 
   // Freeze the plan for the days before the swim goal was deleted, as
@@ -724,6 +763,7 @@ async function main() {
       exerciseGoalId: goal.id,
       goalDate: dateKey(daysAgo),
       name: goal.name,
+      catalogId: goal.catalogId,
       loggedAt: dayAt(daysAgo, minutesAgo),
       exerciseSets: toSetRows(sets),
     });
