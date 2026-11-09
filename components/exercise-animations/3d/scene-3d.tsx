@@ -54,6 +54,11 @@ const VIEW_DIRECTION = {
   side: new THREE.Vector3(0.9, 0.32, 1).normalize(),
 };
 const FOV = 30;
+/**
+ * The drawn height, in CSS pixels, above which outlines stop growing. A base
+ * outline (0.01 of clip space) is 0.5% of the canvas height, about 2px here.
+ */
+const OUTLINE_MAX_AT = 400;
 
 /**
  * Every point the scene reaches over a whole rep: the rabbit's joints, its
@@ -105,6 +110,8 @@ type Stage = {
   pose(frame: AnimationFrame): void;
   setSide(side: Side | undefined): void;
   fit(aspect: number): void;
+  /** Keeps outlines a fixed width for a canvas drawn `height` CSS pixels tall. */
+  setDrawnHeight(height: number): void;
   render(): void;
   dispose(): void;
 };
@@ -124,7 +131,7 @@ function createStage(host: HTMLElement, spec: Spec3D, id: string, view: 'front' 
   scene.add(new THREE.HemisphereLight('#ffffff', '#b9b2a6', 1.6));
   const sun = new THREE.DirectionalLight('#ffffff', 1.8);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.radius = 4;
   scene.add(sun, sun.target);
 
@@ -157,6 +164,9 @@ function createStage(host: HTMLElement, spec: Spec3D, id: string, view: 'front' 
       new THREE.RingGeometry(reach * 0.62, reach * 0.62 + 0.02, 64),
       new THREE.MeshBasicMaterial({color: '#888780', transparent: true, opacity: 0.35}),
     );
+    // Flat shapes, so no outline.
+    floor.material.userData.outlineParameters = {visible: false};
+    (ring.material as THREE.Material).userData.outlineParameters = {visible: false};
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(centre.x, 0.002, centre.z);
     scene.add(floor, ring);
@@ -195,6 +205,9 @@ function createStage(host: HTMLElement, spec: Spec3D, id: string, view: 'front' 
     fit(aspect) {
       controls.target.copy(frame(camera, bounds, VIEW_DIRECTION[view], aspect));
       controls.update();
+    },
+    setDrawnHeight(height) {
+      kit.scaleOutlines(Math.min(1, OUTLINE_MAX_AT / height));
     },
     render,
     dispose() {
@@ -264,6 +277,7 @@ export function scene3D(id: string, spec: Spec3D): ExerciseScene {
         const zoom = (host as HTMLElement & {currentCSSZoom?: number}).currentCSSZoom ?? 1;
         stage.renderer.setPixelRatio(Math.min(window.devicePixelRatio * zoom, 3));
         stage.renderer.setSize(width, height, false);
+        stage.setDrawnHeight(height * zoom);
         stage.fit(width / height);
         stage.render();
       };

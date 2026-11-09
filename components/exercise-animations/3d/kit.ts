@@ -16,10 +16,17 @@ export type Kit = {
     scale?: [number, number, number],
     detail?: [number, number],
   ): THREE.Mesh;
+  /**
+   * Scales every outline from its base thickness. Outline thickness is a
+   * share of the canvas height, so a large canvas scales it down to keep the
+   * lines a crisp, fixed width rather than a thick grey band.
+   */
+  scaleOutlines(scale: number): void;
   dispose(): void;
 };
 
-const OUTLINE: [number, number, number] = [0.17, 0.17, 0.16];
+/** Near-black ink, so thin lines read as crisp edges rather than grey. */
+const OUTLINE: [number, number, number] = [0.1, 0.1, 0.095];
 
 /** Three tones of light and shade, for the cartoon look. */
 function toonGradient(): THREE.DataTexture {
@@ -35,13 +42,20 @@ export function createKit(): Kit {
   const gradientMap = toonGradient();
   const materials: THREE.Material[] = [];
   const geometries: THREE.BufferGeometry[] = [];
+  const outlined: {material: THREE.Material; thickness: number}[] = [];
+  let outlineScale = 1;
   return {
     toon(colour, outline = 0.01) {
       const material = new THREE.MeshToonMaterial({color: colour, gradientMap});
       material.userData.outlineParameters =
-        outline === false ? {visible: false} : {thickness: outline, color: OUTLINE};
+        outline === false ? {visible: false} : {thickness: outline * outlineScale, color: OUTLINE};
+      if (outline !== false) outlined.push({material, thickness: outline});
       materials.push(material);
       return material;
+    },
+    scaleOutlines(scale) {
+      outlineScale = scale;
+      for (const {material, thickness} of outlined) material.userData.outlineParameters.thickness = thickness * scale;
     },
     flat(colour, opacity = 1) {
       const material = new THREE.MeshBasicMaterial({color: colour, transparent: opacity < 1, opacity});
