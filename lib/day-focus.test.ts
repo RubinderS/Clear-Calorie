@@ -129,3 +129,95 @@ test('needs at least half the exercises to be built-in', () => {
   assert.equal(dayFocus([null, null, 'barbell-bench-press']), null);
   assert.equal(dayFocus([null, null, null, null, 'barbell-bench-press']), null);
 });
+
+test('names each day of a weekly split, warm-ups and finishers included', () => {
+  const cardioCircuit1 = ['jumping-jack', 'high-knees', 'mountain-climber', 'shadow-boxing', 'butt-kicks'];
+  // Low jack isn't built-in.
+  const cardioCircuit2 = [null, 'running-man', 'standing-hamstring-curl', 'jump-squat', 'burpee'];
+  const warmUpA = ['jumping-jack', 'high-knees', 'mountain-climber', 'shadow-boxing', 'butt-kicks'];
+  const warmUpB = ['jumping-jack', 'running-man', 'standing-hamstring-curl', 'jump-squat', 'burpee'];
+  const warmUps = [warmUpA, warmUpB];
+
+  assert.equal(
+    dayFocus([
+      'barbell-bench-press',
+      'incline-dumbbell-press',
+      'dumbbell-fly',
+      'dumbbell-overhead-triceps-extension',
+      'band-triceps-pushdown',
+      'plank',
+      ...warmUps,
+      'meditation',
+    ]),
+    'Chest day',
+  );
+  assert.equal(
+    dayFocus([
+      'pull-up',
+      'barbell-bent-over-row',
+      'one-arm-dumbbell-row',
+      'band-face-pull',
+      'dumbbell-lateral-raise',
+      'dumbbell-curl',
+      'hammer-curl',
+      'dumbbell-wrist-curl',
+      'plank',
+      ...warmUps,
+      'meditation',
+    ]),
+    'Back day',
+  );
+  assert.equal(
+    dayFocus([
+      'barbell-squat',
+      'romanian-deadlift',
+      'bulgarian-split-squat',
+      'dumbbell-walking-lunge',
+      'goblet-squat',
+      'dumbbell-calf-raise',
+      'hanging-knee-raise',
+      'wall-sit',
+      'plank',
+      ...warmUps,
+      'meditation',
+    ]),
+    'Leg day',
+  );
+  assert.equal(
+    dayFocus([cardioCircuit1, cardioCircuit2, 'plank', 'meditation']),
+    'Cardio day',
+  );
+  assert.equal(
+    dayFocus([
+      'incline-dumbbell-press',
+      'dumbbell-shoulder-press',
+      'dumbbell-lateral-raise',
+      'dumbbell-curl',
+      'hammer-curl',
+      'band-triceps-pushdown',
+      'band-triceps-extension',
+      'dumbbell-wrist-curl',
+      'plank',
+      ...warmUps,
+      'meditation',
+    ]),
+    'Arm day',
+  );
+  // An even upper/lower split; the warm-ups' jump squat and hamstring curl
+  // mustn't tip it into a leg day.
+  assert.equal(
+    dayFocus([
+      'push-up',
+      'chin-up',
+      'one-arm-dumbbell-row',
+      'bulgarian-split-squat',
+      'dumbbell-romanian-deadlift',
+      'hanging-knee-raise',
+      'wall-sit',
+      'plank',
+      ...warmUps,
+      'meditation',
+    ]),
+    'Full body day',
+  );
+});

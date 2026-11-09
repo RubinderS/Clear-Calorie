@@ -90,14 +90,19 @@ export function dayFocus(
   }
 
   // Each exercise has one vote, shared across the groups it mainly works,
-  // leaving out finishers when it also works something else.
+  // leaving out finishers when it also works something else. A cardio move
+  // votes only as a finisher, even when it mainly works the legs too, as a
+  // jump squat does, so a warm-up can't tip an even split into a leg day.
   const votes = new Map<string, number>();
   const accessoryVotes = new Map<string, number>();
   const patterns = new Map<Pattern, number>();
   for (const {entry, weight} of entries) {
     const groups = new Set(entry.areas.primary.map((area) => FOCUS_GROUPS[area]));
-    const main = [...groups].filter((group) => !ACCESSORY_GROUPS.has(group));
-    const [target, voted] = main.length > 0 ? [votes, main] : [accessoryVotes, [...groups]];
+    const main = groups.has('Cardio')
+      ? []
+      : [...groups].filter((group) => !ACCESSORY_GROUPS.has(group));
+    const accessory = [...groups].filter((group) => ACCESSORY_GROUPS.has(group));
+    const [target, voted] = main.length > 0 ? [votes, main] : [accessoryVotes, accessory];
     for (const group of voted) {
       target.set(group, (target.get(group) ?? 0) + weight / voted.length);
     }
