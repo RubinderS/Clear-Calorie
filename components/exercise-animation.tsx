@@ -15,6 +15,14 @@ import {EXERCISE_ANIMATIONS} from '@/components/exercise-animations';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
 import {
+  BIG_SCREEN_FRAME,
+  BigScreenProvider,
+  BigScreenToggle,
+  bigScreenZoom,
+  useBigScreenKeys,
+  useIsDesktop,
+} from '@/components/workout-big-screen';
+import {
   frameAt,
   scalePhases,
   type ExerciseScene,
@@ -263,6 +271,11 @@ export function ExerciseHowTo({
   compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [bigOn, setBigOn] = useState(false);
+  const desktop = useIsDesktop();
+  const bigScreen = {big: open && bigOn && desktop, setBig: setBigOn};
+  const {big} = bigScreen;
+  useBigScreenKeys(open, bigScreen);
   const entry = exerciseCatalog.get(catalogId);
   if (!entry) return null;
   return (
@@ -278,18 +291,45 @@ export function ExerciseHowTo({
         <CircleHelp />
         <span className={compact ? 'max-sm:hidden' : undefined}>How to</span>
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} label={`How to do ${entry.name}`}>
-        <div className="space-y-4 p-5">
-          <h2 className="pr-8 text-lg font-semibold">{entry.name}</h2>
-          <ExerciseAnimation entry={entry} />
-          <ExerciseAreas entry={entry} />
-          {/* One step per phase of the rep, in the order the animation plays them */}
-          <TipList title="Steps" items={entry.phases.map((phase) => phase.cue)} numbered />
-          <div>
-            <TipList title="Form tips" items={entry.formTips} collapsible />
-            <TipList title="Common mistakes" items={entry.commonMistakes} collapsible />
+      <Dialog
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          setBigOn(false);
+        }}
+        label={`How to do ${entry.name}`}
+        className={cn(big && BIG_SCREEN_FRAME)}
+      >
+        <BigScreenProvider value={bigScreen}>
+          {/* The same content either way; on the big screen the animation sits beside it. */}
+          <div
+            style={bigScreenZoom(big)}
+            className={cn(
+              'space-y-4 p-5',
+              big && 'grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-center gap-8 space-y-0 p-8',
+            )}
+          >
+            <div className={cn('space-y-4', big && 'col-start-1 row-span-2 row-start-1')}>
+              <h2 className="pr-8 text-lg font-semibold">{entry.name}</h2>
+              <ExerciseAnimation
+                entry={entry}
+                maxHeightClassName={
+                  big ? '[&>*]:max-h-[calc((100dvh_-_10rem)/var(--big-zoom))]' : undefined
+                }
+              />
+              <ExerciseAreas entry={entry} />
+            </div>
+            <div className={cn('space-y-4', big && 'col-start-2 row-start-1')}>
+              {/* One step per phase of the rep, in the order the animation plays them */}
+              <TipList title="Steps" items={entry.phases.map((phase) => phase.cue)} numbered />
+              <div>
+                <TipList title="Form tips" items={entry.formTips} collapsible />
+                <TipList title="Common mistakes" items={entry.commonMistakes} collapsible />
+              </div>
+              <BigScreenToggle className="-ml-3" />
+            </div>
           </div>
-        </div>
+        </BigScreenProvider>
       </Dialog>
     </>
   );

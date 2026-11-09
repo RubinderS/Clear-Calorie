@@ -258,6 +258,11 @@ export function scene3D(id: string, spec: Spec3D): ExerciseScene {
       const resize = () => {
         const {width, height} = host.getBoundingClientRect();
         if (!width || !height) return;
+        // Under CSS zoom (the workout big screen) the canvas is drawn larger
+        // than its layout size; render at that size so outlines stay crisp
+        // instead of being stretched into a grey blur.
+        const zoom = (host as HTMLElement & {currentCSSZoom?: number}).currentCSSZoom ?? 1;
+        stage.renderer.setPixelRatio(Math.min(window.devicePixelRatio * zoom, 3));
         stage.renderer.setSize(width, height, false);
         stage.fit(width / height);
         stage.render();

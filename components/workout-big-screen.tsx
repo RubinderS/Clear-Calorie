@@ -1,16 +1,28 @@
 'use client';
 
-import {useEffect, useRef, useSyncExternalStore, type ReactNode} from 'react';
-import {Maximize2} from 'lucide-react';
-import {ExerciseAnimation, ExerciseAreas} from '@/components/exercise-animation';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+  type CSSProperties,
+} from 'react';
+import {Maximize2, Minimize2} from 'lucide-react';
 import {Button} from '@/components/ui/button';
-import {Dialog} from '@/components/ui/dialog';
-import {exerciseCatalog} from '@/lib/exercise-catalog';
-import type {AnimationSync, Side} from '@/lib/workout';
 import {cn} from '@/lib/utils';
+
+/*
+ * The big screen is the same workout screen, filling the window and scaled
+ * up so it can be followed from across the room. It's the same elements, not
+ * a copy, so every control is there and nothing restarts when it's toggled.
+ */
 
 // Tailwind's md breakpoint, where the big screen is offered.
 const DESKTOP_QUERY = '(min-width: 48rem)';
+const PREF_KEY = 'clearcalorie:workout-big-screen';
+/** How much bigger everything is on the big screen. */
+export const BIG_SCREEN_ZOOM = 1.35;
 
 function subscribe(onChange: () => void) {
   const query = window.matchMedia(DESKTOP_QUERY);
@@ -27,112 +39,106 @@ export function useIsDesktop() {
   );
 }
 
+/** Whether workouts start on the big screen: on until turned off. */
+export function loadBigScreenPref(): boolean {
+  try {
+    return localStorage.getItem(PREF_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+export function saveBigScreenPref(on: boolean) {
+  try {
+    localStorage.setItem(PREF_KEY, on ? 'on' : 'off');
+  } catch {}
+}
+
+export type BigScreenState = {big: boolean; setBig: (big: boolean) => void};
+
+const BigScreenContext = createContext<BigScreenState | null>(null);
+export const BigScreenProvider = BigScreenContext.Provider;
+
+/** The big screen around this one, if there is one to toggle. */
+export function useBigScreenState(): BigScreenState | null {
+  return useContext(BigScreenContext);
+}
+
+/** Whether the screen around this one is on the big screen. */
+export function useBigScreen(): boolean {
+  return useContext(BigScreenContext)?.big ?? false;
+}
+
+// Windows listening for the keys, innermost (last opened) last: only it acts,
+// so F11 in a How to opened over the exercise panel toggles the How to.
+const listening: {current: BigScreenState}[] = [];
+
+function onBigScreenKey(event: KeyboardEvent) {
+  const current = listening.at(-1)?.current;
+  if (!current) return;
+  if (event.key === 'F11' && !event.repeat) {
+    event.preventDefault();
+    current.setBig(!current.big);
+  } else if (event.key === 'Escape' && current.big) {
+    // Caught first, so the dialog it's in doesn't also close.
+    event.preventDefault();
+    event.stopPropagation();
+    current.setBig(false);
+  }
+}
+
 /**
- * F11 toggles the big screen in place of the browser's own full screen, but
- * only while enabled (a workout or log review is showing) and on desktop.
+ * While enabled (a workout window is showing) on desktop, F11 toggles the big
+ * screen in place of the browser's own full screen. On it, Escape leaves it
+ * rather than closing the window it's in.
  */
-export function useBigScreenKey(enabled: boolean, onToggle: () => void) {
+export function useBigScreenKeys(enabled: boolean, state: BigScreenState) {
   const desktop = useIsDesktop();
-  const toggle = useRef(onToggle);
+  const latest = useRef(state);
   useEffect(() => {
-    toggle.current = onToggle;
+    latest.current = state;
   });
   useEffect(() => {
     if (!enabled || !desktop) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'F11' || event.repeat) return;
-      event.preventDefault();
-      toggle.current();
+    if (listening.length === 0) {
+      window.addEventListener('keydown', onBigScreenKey, {capture: true});
     }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    listening.push(latest);
+    return () => {
+      listening.splice(listening.indexOf(latest), 1);
+      if (listening.length === 0) {
+        window.removeEventListener('keydown', onBigScreenKey, {capture: true});
+      }
+    };
   }, [enabled, desktop]);
 }
 
-/** Opens the big screen; shown on desktop only. */
-export function BigScreenButton({
-  onClick,
-  className,
-}: {
-  onClick: () => void;
-  className?: string;
-}) {
+/** Classes that make a card or dialog fill the window on the big screen. */
+export const BIG_SCREEN_FRAME =
+  'fixed inset-0 z-50 m-0 h-dvh max-h-none w-screen max-w-none overflow-y-auto rounded-none border-0 bg-background shadow-none hover:shadow-none';
+
+/** Scales the big screen's content; `--big-zoom` lets sizes in vh undo it. */
+export function bigScreenZoom(big: boolean): CSSProperties | undefined {
+  return big
+    ? ({zoom: BIG_SCREEN_ZOOM, '--big-zoom': BIG_SCREEN_ZOOM} as CSSProperties)
+    : undefined;
+}
+
+/** Turns the big screen on or off; desktop only. */
+export function BigScreenToggle({className}: {className?: string}) {
+  const state = useContext(BigScreenContext);
+  if (!state) return null;
+  const {big, setBig} = state;
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="ghost"
       size="sm"
       className={cn('max-md:hidden', className)}
-      onClick={onClick}
+      onClick={() => setBig(!big)}
     >
-      <Maximize2 />
-      Big screen
+      {big ? <Minimize2 /> : <Maximize2 />}
+      {big ? 'Exit big screen' : 'Big screen'}
     </Button>
-  );
-}
-
-/**
- * Fills the window with the exercise's animation beside a large readout, so
- * a workout can be followed from across the room. Desktop only: on phones the
- * regular view already fills the screen.
- */
-export function BigScreen({
-  open,
-  onClose,
-  title,
-  catalogId,
-  sync,
-  side,
-  dimmed,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  catalogId: string | null | undefined;
-  sync?: {key: string; message: AnimationSync};
-  side?: Side;
-  dimmed?: boolean;
-  /** The readout beside the animation: counts, targets and controls. */
-  children: ReactNode;
-}) {
-  const desktop = useIsDesktop();
-  const entry = exerciseCatalog.get(catalogId);
-  return (
-    <Dialog
-      open={open && desktop}
-      onClose={onClose}
-      label={`${title}, big screen`}
-      className="h-dvh max-h-none w-screen max-w-none rounded-none"
-    >
-      <div
-        data-testid="big-screen"
-        className={cn(
-          'grid h-full items-center gap-10 p-10',
-          entry && 'grid-cols-[minmax(0,3fr)_minmax(0,2fr)]',
-        )}
-      >
-        {entry && (
-          <div className="space-y-3">
-            <ExerciseAnimation
-              // A sequence moves on to other exercises, each with its own scene.
-              key={entry.id}
-              entry={entry}
-              sync={sync}
-              side={side}
-              dimmed={dimmed}
-              maxHeightClassName="[&>*]:max-h-[calc(100dvh-9rem)]"
-            />
-            <ExerciseAreas entry={entry} className="text-center text-lg" />
-          </div>
-        )}
-        <div className="flex min-w-0 flex-col items-center gap-8 text-center">
-          <h2 className="wrap-break-word text-3xl font-semibold text-muted-foreground">
-            {title}
-          </h2>
-          {children}
-        </div>
-      </div>
-    </Dialog>
   );
 }

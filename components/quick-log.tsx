@@ -14,6 +14,15 @@ import {
   usePlannedExerciseToggle,
   type PlannedExercise,
 } from '@/components/todays-exercise-plan';
+import {
+  BIG_SCREEN_FRAME,
+  BigScreenProvider,
+  bigScreenZoom,
+  saveBigScreenPref,
+  useBigScreenKeys,
+  useIsDesktop,
+} from '@/components/workout-big-screen';
+import {cn} from '@/lib/utils';
 
 export type PlannedExerciseStatus = PlannedExercise & {completed: boolean};
 
@@ -223,6 +232,20 @@ function ExercisePanel({
   const plan = usePlannedExerciseToggle(
     goals.filter((goal) => goal.completed).map((goal) => goal.id),
   );
+  // The whole panel fills the window, so a workout can be followed from
+  // across the room, from the plan through each exercise and its log.
+  const desktop = useIsDesktop();
+  const [bigOn, setBigOn] = useState(false);
+  const bigScreen = {
+    big: bigOn && desktop,
+    setBig(next: boolean) {
+      setBigOn(next);
+      // Remembered, so the next workout starts the same way.
+      saveBigScreenPref(next);
+    },
+  };
+  const {big} = bigScreen;
+  useBigScreenKeys(true, bigScreen);
 
   useEffect(() => {
     if (showCustom && hasPlan) {
@@ -231,46 +254,51 @@ function ExercisePanel({
   }, [showCustom, hasPlan]);
 
   // A workout in progress has the panel to itself; custom logging waits.
+  // Both wrappers are always there, so toggling the big screen restarts nothing.
   return (
-    <div className="group space-y-4">
-      {hasPlan && (
-        <TodaysExercisePlan
-          goals={goals}
-          completedIds={plan.completedIds}
-          pendingId={plan.pendingId}
-          error={plan.error}
-          onToggle={(goal, checked, details) =>
-            void plan.toggle(goal, checked, details).then((changed) => {
-              if (changed) onPlanChange?.();
-            })
-          }
-          hideCompleted
-          headerAction={headerAction}
-        />
-      )}
-      {showCustom ? (
-        <div ref={customRef} className="group-has-data-workout:hidden">
-          <ExerciseForm
-            // Once ticked off, a planned exercise can be logged again as an extra.
-            plannedNames={goals
-              .filter((goal) => !plan.completedIds.has(goal.id))
-              .map((goal) => goal.name)}
-            onLogCreated={onLogCreated}
-            headerAction={hasPlan ? undefined : headerAction}
-          />
+    <BigScreenProvider value={bigScreen}>
+      <div data-big-screen={big || undefined} className={cn('group', big && BIG_SCREEN_FRAME)}>
+        <div className={cn('space-y-4', big && 'p-6')} style={bigScreenZoom(big)}>
+          {hasPlan && (
+            <TodaysExercisePlan
+              goals={goals}
+              completedIds={plan.completedIds}
+              pendingId={plan.pendingId}
+              error={plan.error}
+              onToggle={(goal, checked, details) =>
+                void plan.toggle(goal, checked, details).then((changed) => {
+                  if (changed) onPlanChange?.();
+                })
+              }
+              hideCompleted
+              headerAction={headerAction}
+            />
+          )}
+          {showCustom ? (
+            <div ref={customRef} className="group-has-data-workout:hidden">
+              <ExerciseForm
+                // Once ticked off, a planned exercise can be logged again as an extra.
+                plannedNames={goals
+                  .filter((goal) => !plan.completedIds.has(goal.id))
+                  .map((goal) => goal.name)}
+                onLogCreated={onLogCreated}
+                headerAction={hasPlan ? undefined : headerAction}
+              />
+            </div>
+          ) : (
+            <div className="px-6 pb-6 group-has-data-workout:hidden">
+              <Button
+                variant="outline"
+                className="h-11 w-full"
+                onClick={() => setShowCustom(true)}
+              >
+                <Plus />
+                Log custom exercise
+              </Button>
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="px-6 pb-6 group-has-data-workout:hidden">
-          <Button
-            variant="outline"
-            className="h-11 w-full"
-            onClick={() => setShowCustom(true)}
-          >
-            <Plus />
-            Log custom exercise
-          </Button>
-        </div>
-      )}
-    </div>
+      </div>
+    </BigScreenProvider>
   );
 }

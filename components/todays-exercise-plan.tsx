@@ -28,7 +28,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {WorkoutSession, type WorkoutResult} from '@/components/workout-session';
-import {BigScreen, BigScreenButton, useBigScreenKey} from '@/components/workout-big-screen';
+import {
+  BigScreenToggle,
+  loadBigScreenPref,
+  useBigScreenState,
+} from '@/components/workout-big-screen';
 import {
   createWorkoutSound,
   loadWorkoutVoice,
@@ -39,9 +43,7 @@ import {dayFocus} from '@/lib/day-focus';
 import {exerciseCatalog} from '@/lib/exercise-catalog';
 import {
   formatExerciseDetail,
-  formatSetAmount,
   goalCatalogIds,
-  isRepSet,
   isSequence,
   setsOf,
   type ExerciseSet,
@@ -161,9 +163,9 @@ export function TodaysExercisePlan({
     goal: PlannedExercise;
     result?: WorkoutResult;
   } | null>(null);
-  const [reviewBigScreen, setReviewBigScreen] = useState(false);
-  // A workout listens for F11 itself; here it's only while logging.
-  useBigScreenKey(review !== null, () => setReviewBigScreen((open) => !open));
+  // The window this is in may fill the screen (see workout-big-screen).
+  const bigScreen = useBigScreenState();
+  const big = bigScreen?.big ?? false;
   const hasGoals = goals.length > 0;
   // Workouts wait for the voice before starting, so get it loading early.
   useEffect(() => {
@@ -171,9 +173,12 @@ export function TodaysExercisePlan({
   }, [hasGoals]);
   const doneCount = goals.filter((goal) => completedIds.has(goal.id)).length;
   const focus = dayFocus(goals.map(goalCatalogIds));
+  // On the big screen, done exercises get their own column instead of hiding.
+  const split = big && hideCompleted;
   const visibleGoals = hideCompleted
     ? goals.filter((goal) => !completedIds.has(goal.id))
     : goals;
+  const doneGoals = goals.filter((goal) => completedIds.has(goal.id));
 
   if (workout) {
     return (
@@ -206,45 +211,26 @@ export function TodaysExercisePlan({
 
   if (review) {
     const entry = exerciseCatalog.get(review.goal.catalogId);
-    function closeReview() {
-      setReview(null);
-      setReviewBigScreen(false);
-    }
     return (
-      <Card>
+      <Card data-log-review>
         <CardHeader className="pr-14">
           <CardTitle className="truncate">{review.goal.name}</CardTitle>
           <CardDescription>Check what you did, then log it</CardDescription>
-          <BigScreenButton className="w-fit" onClick={() => setReviewBigScreen(true)} />
         </CardHeader>
-        {/* On desktop, the target full-window, readable from across the room. */}
-        <BigScreen
-          open={reviewBigScreen}
-          onClose={() => setReviewBigScreen(false)}
-          title={review.goal.name}
-          catalogId={review.goal.catalogId}
-        >
-          <PlannedSets goal={review.goal} />
-          <Button
-            variant="outline"
-            className="h-16 px-8 text-xl"
-            onClick={() => setReviewBigScreen(false)}
-          >
-            <X />
-            Back to logging
-          </Button>
-        </BigScreen>
         {/* On desktop the animation sits beside the fields, as in a workout;
             stretched across the full width it shrank to a blurry strip. */}
         <CardContent className="space-y-6 md:grid md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:items-start md:gap-8 md:space-y-0">
           {/* Kept short on phones so the log fields stay in view below it. */}
-          {/* The big screen shows it instead: one 3D scene at a time. */}
-          {entry && !reviewBigScreen && (
+          {entry && (
             <div className="space-y-2">
               <ExerciseAnimation
                 entry={entry}
                 className="mx-auto w-full max-w-sm md:max-w-none"
-                maxHeightClassName="[&>*]:max-h-[min(30vh,14rem)] md:[&>*]:max-h-[min(55vh,26rem)]"
+                maxHeightClassName={
+                  big
+                    ? '[&>*]:max-h-[calc((100dvh_-_12rem)/var(--big-zoom))]'
+                    : '[&>*]:max-h-[min(30vh,14rem)] md:[&>*]:max-h-[min(55vh,26rem)]'
+                }
               />
               <ExerciseAreas entry={entry} className="text-center" />
             </div>
@@ -254,10 +240,10 @@ export function TodaysExercisePlan({
               goal={review.goal}
               result={review.result}
               onConfirm={(details) => {
-                closeReview();
+                setReview(null);
                 onToggle(review.goal, true, details);
               }}
-              onCancel={closeReview}
+              onCancel={() => setReview(null)}
             />
             <GoalNotes goalId={review.goal.id} initialNotes={review.goal.notes} />
           </div>
@@ -266,7 +252,92 @@ export function TodaysExercisePlan({
     );
   }
 
-  return (
+  function startWorkout(goal: PlannedExercise) {
+    // Workouts start on the big screen unless the user turned it off.
+    if (loadBigScreenPref()) bigScreen?.setBig(true);
+    // Timed workouts start without another tap, so their countdown voice
+    // and music must be unlocked by this one. Strength exercises and
+    // sequences have a setup screen.
+    let sound: WorkoutSound | null = null;
+    if (goal.type !== 'TIME') {
+      unlockAudio();
+    } else {
+      sound = createWorkoutSound();
+    }
+    setWorkout({goal, sound});
+  }
+
+  function goalRow(goal: PlannedExercise) {
+    const checked = completedIds.has(goal.id);
+    return (
+      <li
+        key={goal.id}
+        className="flex items-center rounded-xl border border-border/50 bg-muted/30 transition-colors hover:bg-muted/50"
+      >
+        {/* Only the checkbox toggles completion; a wrapping label
+            made taps on the name tick exercises off by mistake. */}
+        <div className="flex min-w-0 flex-1 items-start gap-3 p-3">
+          <input
+            id={`planned-${goal.id}`}
+            type="checkbox"
+            checked={checked}
+            disabled={pendingId === goal.id}
+            onChange={(event) =>
+              event.target.checked ? setReview({goal}) : onToggle(goal, false)
+            }
+            aria-label={`Mark ${goal.name} as done`}
+            className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-input accent-primary disabled:cursor-wait disabled:opacity-50"
+          />
+          <span className="min-w-0 flex-1">
+            {/* Wraps rather than truncates: the How to and Start
+                buttons leave little room for the name on phones. */}
+            <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span
+                className={
+                  checked
+                    ? 'wrap-break-word font-medium text-muted-foreground line-through'
+                    : 'wrap-break-word font-medium'
+                }
+              >
+                {goal.name}
+              </span>
+              {isSequence(goal) ? (
+                <SequenceTag />
+              ) : (
+                <ExerciseAreaTag catalogId={goal.catalogId} />
+              )}
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              {formatExerciseDetail(goal)}
+            </span>
+            {/* Hidden on phones, where the rows are already busy. */}
+            {goal.notes && (
+              <span className="mt-0.5 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground max-md:hidden">
+                {goal.notes}
+              </span>
+            )}
+          </span>
+        </div>
+        <ExerciseHowTo catalogId={goal.catalogId} className="mr-1 shrink-0" compact />
+        {!checked && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mr-3"
+            aria-label={`Start ${goal.name}`}
+            disabled={pendingId === goal.id}
+            onClick={() => startWorkout(goal)}
+          >
+            <Play />
+            Start
+          </Button>
+        )}
+      </li>
+    );
+  }
+
+  const plan = (
     <Card>
       <CardHeader className="pr-14">
         <CardTitle>{focus ?? "Today's plan"}</CardTitle>
@@ -275,7 +346,11 @@ export function TodaysExercisePlan({
             {doneCount} of {goals.length} done
           </CardDescription>
         )}
-        {headerAction}
+        {/* Centred together: the logs link otherwise sits at the top. */}
+        <div className="flex flex-wrap items-center gap-x-2 [&>*]:self-center">
+          {headerAction}
+          <BigScreenToggle />
+        </div>
       </CardHeader>
       <CardContent>
         {goals.length === 0 ? (
@@ -293,91 +368,7 @@ export function TodaysExercisePlan({
             All planned exercises done.
           </p>
         ) : (
-          <ul className="space-y-2">
-            {visibleGoals.map((goal) => {
-              const checked = completedIds.has(goal.id);
-              const inputId = `planned-${goal.id}`;
-              return (
-                <li
-                  key={goal.id}
-                  className="flex items-center rounded-xl border border-border/50 bg-muted/30 transition-colors hover:bg-muted/50"
-                >
-                  {/* Only the checkbox toggles completion; a wrapping label
-                      made taps on the name tick exercises off by mistake. */}
-                  <div className="flex min-w-0 flex-1 items-start gap-3 p-3">
-                    <input
-                      id={inputId}
-                      type="checkbox"
-                      checked={checked}
-                      disabled={pendingId === goal.id}
-                      onChange={(event) =>
-                        event.target.checked
-                          ? setReview({goal})
-                          : onToggle(goal, false)
-                      }
-                      aria-label={`Mark ${goal.name} as done`}
-                      className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-input accent-primary disabled:cursor-wait disabled:opacity-50"
-                    />
-                    <span className="min-w-0 flex-1">
-                      {/* Wraps rather than truncates: the How to and Start
-                          buttons leave little room for the name on phones. */}
-                      <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <span
-                          className={
-                            checked
-                              ? 'wrap-break-word font-medium text-muted-foreground line-through'
-                              : 'wrap-break-word font-medium'
-                          }
-                        >
-                          {goal.name}
-                        </span>
-                        {isSequence(goal) ? (
-                          <SequenceTag />
-                        ) : (
-                          <ExerciseAreaTag catalogId={goal.catalogId} />
-                        )}
-                      </span>
-                      <span className="block text-xs text-muted-foreground">
-                        {formatExerciseDetail(goal)}
-                      </span>
-                      {/* Hidden on phones, where the rows are already busy. */}
-                      {goal.notes && (
-                        <span className="mt-0.5 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground max-md:hidden">
-                          {goal.notes}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  <ExerciseHowTo catalogId={goal.catalogId} className="mr-1 shrink-0" compact />
-                  {!checked && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mr-3"
-                      aria-label={`Start ${goal.name}`}
-                      disabled={pendingId === goal.id}
-                      onClick={() => {
-                        // Timed workouts start without another tap, so their
-                        // countdown voice and music must be unlocked by this one.
-                        // Strength exercises and sequences have a setup screen.
-                        let sound: WorkoutSound | null = null;
-                        if (goal.type !== 'TIME') {
-                          unlockAudio();
-                        } else {
-                          sound = createWorkoutSound();
-                        }
-                        setWorkout({goal, sound});
-                      }}
-                    >
-                      <Play />
-                      Start
-                    </Button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          <ul className="space-y-2">{visibleGoals.map(goalRow)}</ul>
         )}
         {error && (
           <p role="alert" className="mt-3 text-sm text-red-500">
@@ -387,31 +378,26 @@ export function TodaysExercisePlan({
       </CardContent>
     </Card>
   );
-}
+  if (!split) return plan;
 
-/** Today's target, a set per line, large enough to read from across the room. */
-function PlannedSets({goal}: {goal: PlannedExercise}) {
-  const sequence = isSequence(goal);
+  // Two columns, so a workout can be followed through without leaving the big screen.
   return (
-    <ol className="w-full max-w-2xl space-y-3 text-left text-4xl tabular-nums">
-      {setsOf(goal).map((set, index) => (
-        <li
-          key={index}
-          className="flex items-baseline justify-between gap-6 border-b border-border/50 pb-3"
-        >
-          <span className="min-w-0 wrap-break-word text-muted-foreground">
-            {sequence ? (set.name ?? `Step ${index + 1}`) : `Set ${index + 1}`}
-          </span>
-          <span className="shrink-0 font-semibold">
-            {formatSetAmount(set)}
-            {isRepSet(set) && ' reps'}
-            {set.weight ? (
-              <span className="font-normal text-muted-foreground"> × {set.weight} kg</span>
-            ) : null}
-          </span>
-        </li>
-      ))}
-    </ol>
+    <div className="grid grid-cols-2 items-start gap-6">
+      {plan}
+      <Card data-done-today>
+        <CardHeader>
+          <CardTitle>Done today</CardTitle>
+          <CardDescription>Untick one to log it again</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {doneGoals.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nothing done yet.</p>
+          ) : (
+            <ul className="space-y-2">{doneGoals.map(goalRow)}</ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -489,16 +475,14 @@ function LogReview({
         <Check />
         Done
       </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="w-full"
-        onClick={onCancel}
-      >
-        <X />
-        Cancel without logging
-      </Button>
+      {/* As in a workout: the big screen toggle beside cancel. */}
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <BigScreenToggle />
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+          <X />
+          Cancel without logging
+        </Button>
+      </div>
     </form>
   );
 }

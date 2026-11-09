@@ -13,7 +13,6 @@ import {
   Check,
   CircleHelp,
   Loader2,
-  Minimize2,
   Minus,
   Music,
   Pause,
@@ -24,12 +23,7 @@ import {
 } from 'lucide-react';
 import {ExerciseAnimation, ExerciseAreas} from '@/components/exercise-animation';
 import {GoalNotes} from '@/components/goal-notes';
-import {
-  BigScreen,
-  BigScreenButton,
-  useBigScreenKey,
-  useIsDesktop,
-} from '@/components/workout-big-screen';
+import {BigScreenToggle, useBigScreen} from '@/components/workout-big-screen';
 import {Button} from '@/components/ui/button';
 import {ProgressRing} from '@/components/ui/progress-ring';
 import {Toggler, type TogglerOption} from '@/components/ui/toggler';
@@ -118,8 +112,7 @@ const CUE_OPTIONS: TogglerOption<Cues>[] = [
   {value: 'off', label: 'Off'},
 ];
 
-/** bigScreen: whether a workout opens full-window on desktop. */
-type WorkoutPrefs = {cues: Cues; music: boolean; bigScreen: boolean};
+type WorkoutPrefs = {cues: Cues; music: boolean};
 
 /**
  * How a cue sounds, or null for silence. With cues off but music on, tones
@@ -138,11 +131,9 @@ function loadPrefs(): WorkoutPrefs {
       // Older prefs saved a mode of "tones" or "count".
       cues: cues?.value ?? (saved?.mode === 'tones' ? 'tones' : 'voice'),
       music: saved?.music === true,
-      // On until turned off, so a workout can be followed from across the room.
-      bigScreen: saved?.bigScreen !== false,
     };
   } catch {
-    return {cues: 'voice', music: false, bigScreen: true};
+    return {cues: 'voice', music: false};
   }
 }
 
@@ -479,9 +470,19 @@ function LoadingVoice({onCancel}: {onCancel: () => void}) {
       <p role="status" className="text-sm text-muted-foreground">
         Loading voice…
       </p>
+      <CancelRow label="Cancel" onCancel={onCancel} />
+    </div>
+  );
+}
+
+/** Cancel, with the big screen toggle beside it on desktop. */
+function CancelRow({label, onCancel}: {label: string; onCancel: () => void}) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      <BigScreenToggle />
       <Button variant="ghost" size="sm" onClick={onCancel}>
         <X />
-        Cancel
+        {label}
       </Button>
     </div>
   );
@@ -510,10 +511,17 @@ function WithAnimation({
   areasClassName?: string;
   children: ReactNode;
 }) {
+  const big = useBigScreen();
   const entry = exerciseCatalog.get(catalogId);
   if (!entry) return children;
   return (
-    <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] md:items-center md:gap-8">
+    <div
+      className={cn(
+        'flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] md:items-center md:gap-8',
+        // The animation takes more of the width, as tall as the window allows.
+        big && 'md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]',
+      )}
+    >
       <div className="space-y-2">
         <ExerciseAnimation
           // A sequence moves on to other exercises, each with its own scene.
@@ -522,7 +530,11 @@ function WithAnimation({
           sync={sync}
           side={side}
           className="mx-auto max-w-sm md:max-w-none"
-          maxHeightClassName={maxHeightClassName}
+          maxHeightClassName={
+            big
+              ? '[&>*]:max-h-[calc((100dvh_-_6rem)/var(--big-zoom))]'
+              : maxHeightClassName
+          }
           dimmed={dimmed}
         />
         <ExerciseAreas entry={entry} className={cn('text-center', areasClassName)} />
@@ -617,10 +629,7 @@ function StrengthSetup({
           <Play />
           Start {planned.length} {planned.length === 1 ? 'set' : 'sets'}
         </Button>
-        <Button variant="ghost" size="sm" className="w-full" onClick={onCancel}>
-          <X />
-          Cancel
-        </Button>
+        <CancelRow label="Cancel" onCancel={onCancel} />
       </div>
     </WithAnimation>
   );
@@ -730,10 +739,7 @@ function SequenceSetup({
           <Play />
           Start {steps.length} {steps.length === 1 ? 'step' : 'steps'}
         </Button>
-        <Button variant="ghost" size="sm" className="w-full" onClick={onCancel}>
-          <X />
-          Cancel
-        </Button>
+        <CancelRow label="Cancel" onCancel={onCancel} />
       </div>
     </WithAnimation>
   );
@@ -1003,14 +1009,11 @@ function ActiveWorkout({
   const [state, setState] = useState(initial);
   const [cues, setCues] = useState(session.cues);
   const [musicOn, setMusicOn] = useState(session.music);
-  const [bigScreen, setBigScreen] = useState(session.bigScreen);
-  const desktop = useIsDesktop();
-  const bigScreenOpen = bigScreen && desktop && !state.done;
-  useBigScreenKey(!state.done, () => changeBigScreen(!bigScreen));
   const [now, setNow] = useState(() => initial.timer.startedAt ?? 0);
   const stateRef = useRef(initial);
   const lastCueKey = useRef<string | null>(null);
   const completed = useRef(false);
+  const big = useBigScreen();
 
   const step = state.steps[state.index];
   const running = isRunning(state.timer) && !state.done;
@@ -1032,11 +1035,6 @@ function ActiveWorkout({
     unlockAudio();
     setMusicOn(!musicOn);
     savePrefs({...loadPrefs(), music: !musicOn});
-  }
-
-  function changeBigScreen(next: boolean) {
-    setBigScreen(next);
-    savePrefs({...loadPrefs(), bigScreen: next});
   }
 
   function changeCues(next: Cues) {
@@ -1159,21 +1157,6 @@ function ActiveWorkout({
     caption = `of ${state.reps} reps · ${SIDE_LABELS[cue.side]}`;
   }
 
-  const nextLabel =
-    step.kind === 'rest'
-      ? step.next
-        ? 'Skip break'
-        : 'Skip rest'
-      : !isLastStep
-        ? step.side === 'left'
-          ? 'Switch sides'
-          : 'Done'
-        : 'Finish';
-  const catalogId = stepPart(step)?.catalogId ?? goal.catalogId;
-  const sync = animationSync(state, now);
-  const side = step.kind !== 'rest' ? step.side : undefined;
-  const dimmed = step.kind === 'rest' && !state.done;
-
   // Tighter on phones, so the animation and every control fit on one screen.
   const controls = (
     <div className="flex flex-col items-center gap-3 md:gap-6">
@@ -1195,14 +1178,17 @@ function ActiveWorkout({
         <ProgressRing
           value={progress}
           strokeWidth={5}
-          className="size-32 min-[380px]:size-36 md:size-52"
+          className={cn('size-32 min-[380px]:size-36 md:size-52', big && 'md:size-72')}
           indicatorClassName={
             step.kind === 'rest' ? 'text-sky-500' : 'text-primary'
           }
         >
           <span
             role="timer"
-            className="text-4xl font-semibold tabular-nums tracking-tight md:text-5xl"
+            className={cn(
+              'text-4xl font-semibold tabular-nums tracking-tight md:text-5xl',
+              big && 'md:text-7xl',
+            )}
           >
             {display}
           </span>
@@ -1280,7 +1266,15 @@ function ActiveWorkout({
         </Button>
         <Button className="h-12" onClick={() => advance(nextStep)}>
           {step.kind === 'rest' ? <SkipForward /> : <Check />}
-          {nextLabel}
+          {step.kind === 'rest'
+            ? step.next
+              ? 'Skip break'
+              : 'Skip rest'
+            : !isLastStep
+              ? step.side === 'left'
+                ? 'Switch sides'
+                : 'Done'
+              : 'Finish'}
         </Button>
       </div>
 
@@ -1293,74 +1287,21 @@ function ActiveWorkout({
         hideCues={isCalmExercise(goal.catalogId)}
       />
 
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <BigScreenButton onClick={() => changeBigScreen(true)} />
-        <Button variant="ghost" size="sm" onClick={cancel}>
-          <X />
-          Cancel without logging
-        </Button>
-      </div>
+      <CancelRow label="Cancel without logging" onCancel={cancel} />
     </div>
   );
   return (
-    <>
-      {/* On desktop, the same workout full-window, readable from across the room. */}
-      <BigScreen
-        open={bigScreenOpen}
-        onClose={() => changeBigScreen(false)}
-        title={goal.name}
-        catalogId={catalogId}
-        sync={sync}
-        side={side}
-        dimmed={dimmed}
-      >
-        <div aria-live="polite" className="space-y-2">
-          {stepLabel(step) && <p className="text-5xl font-semibold">{stepLabel(step)}</p>}
-          {stepDetail(step, state, goal) && (
-            <p className="text-3xl text-muted-foreground">{stepDetail(step, state, goal)}</p>
-          )}
-        </div>
-        <ProgressRing
-          value={progress}
-          strokeWidth={4}
-          className="size-[min(32vw,48dvh)]"
-          indicatorClassName={step.kind === 'rest' ? 'text-sky-500' : 'text-primary'}
-        >
-          <span className="text-[min(10vw,16dvh)] font-semibold leading-none tabular-nums tracking-tight">
-            {display}
-          </span>
-          <span className="mt-3 text-2xl font-medium uppercase tracking-wide text-muted-foreground">
-            {running ? caption : 'Paused'}
-          </span>
-        </ProgressRing>
-        <div className="grid w-full max-w-xl grid-cols-2 gap-4">
-          <Button variant="outline" className="h-16 text-xl" onClick={() => advance(togglePause)}>
-            {running ? <Pause /> : <Play />}
-            {running ? 'Pause' : 'Resume'}
-          </Button>
-          <Button className="h-16 text-xl" onClick={() => advance(nextStep)}>
-            {step.kind === 'rest' ? <SkipForward /> : <Check />}
-            {nextLabel}
-          </Button>
-        </div>
-        <Button variant="ghost" onClick={() => changeBigScreen(false)}>
-          <Minimize2 />
-          Exit big screen
-        </Button>
-      </BigScreen>
-      <WithAnimation
-        // The big screen shows it instead: one 3D scene at a time.
-        catalogId={bigScreenOpen ? null : catalogId}
-        sync={sync}
-        side={side}
-        dimmed={dimmed}
-        // Phones need the room for the animation and controls.
-        areasClassName="max-md:hidden"
-        // On phones the animation gets whatever height the controls leave.
-        maxHeightClassName="[&>*]:max-h-[clamp(4rem,calc(100dvh_-_32rem),24rem)] md:[&>*]:max-h-[min(70vh,30rem)]"
-      >
-        {controls}
-      </WithAnimation>
-    </>
+    <WithAnimation
+      catalogId={stepPart(step)?.catalogId ?? goal.catalogId}
+      sync={animationSync(state, now)}
+      side={step.kind !== 'rest' ? step.side : undefined}
+      dimmed={step.kind === 'rest' && !state.done}
+      // Phones need the room for the animation and controls.
+      areasClassName="max-md:hidden"
+      // On phones the animation gets whatever height the controls leave.
+      maxHeightClassName="[&>*]:max-h-[clamp(4rem,calc(100dvh_-_32rem),24rem)] md:[&>*]:max-h-[min(70vh,30rem)]"
+    >
+      {controls}
+    </WithAnimation>
   );
 }
