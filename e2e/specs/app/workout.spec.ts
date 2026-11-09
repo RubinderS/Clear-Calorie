@@ -292,7 +292,7 @@ test('WO-04/05/06/07 a full strength workout', async ({authedPage: page, db, use
   await page.clock.runFor(27_000);
   await expect(c.step).toHaveText('Rest');
   await expect(c.detail).toHaveText('Next: set 2 of 3');
-  await expect(c.timer).toHaveText('1:00');
+  await expect(c.timer).toHaveText('0:30');
   await expect(c.next).toHaveText('Skip rest');
 
   // Tempo can be changed while resting, ready for the next set.
@@ -305,10 +305,10 @@ test('WO-04/05/06/07 a full strength workout', async ({authedPage: page, db, use
 
   // WO-06: rest can be adjusted, but not cut below 15 seconds.
   await workout.getByRole('button', {name: '+15s'}).click();
-  await expect(c.timer).toHaveText('1:15');
+  await expect(c.timer).toHaveText('0:45');
   await workout.getByRole('button', {name: '−15s'}).click();
-  await expect(c.timer).toHaveText('1:00');
-  await page.clock.runFor(46_000);
+  await expect(c.timer).toHaveText('0:30');
+  await page.clock.runFor(16_000);
   await expect(c.timer).toHaveText('0:14');
   await expect(workout.getByRole('button', {name: '−15s'})).toBeDisabled();
   await page.clock.runFor(14_000);

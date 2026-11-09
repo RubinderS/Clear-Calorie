@@ -77,7 +77,7 @@ export type WorkoutCue =
   | {type: 'side'; side: Side; n: number}
   | {type: 'setEnd'; lastSet: boolean};
 
-export const DEFAULT_REST_MS = 60_000;
+export const DEFAULT_REST_MS = 30_000;
 export const REST_ADJUST_MS = 15_000;
 // Slow enough for each "3, 2, 1" to be spoken in full before the next.
 export const LEAD_IN_BEAT_MS = 2_000;
