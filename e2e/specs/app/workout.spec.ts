@@ -4,6 +4,18 @@ import {daysAgoIn, noonDaysAgo} from '../../fixtures/dates';
 import {seedExercise, seedExerciseGoal} from '../../fixtures/db';
 import {card, openQuickLog} from '../../fixtures/ui';
 
+const PREFS_KEY = 'clearcalorie:workout-prefs';
+
+// Desktop workouts open full-window by default; these tests drive the regular
+// view, so it starts off unless a test turns it on (see WO-17).
+test.beforeEach(async ({page}) => {
+  await page.addInitScript((key) => {
+    if (localStorage.getItem(key) === null) {
+      localStorage.setItem(key, JSON.stringify({bigScreen: false}));
+    }
+  }, PREFS_KEY);
+});
+
 /** Opens the dashboard exercise dialog and starts the named planned goal. */
 async function startGoal(page: Page, name: string) {
   await page.goto('/dashboard');
@@ -207,7 +219,7 @@ test('WO-03 start saves sound preferences and tempo', async ({
   expect((await tempoSaved).postDataJSON()).toEqual({id: goal.id, tempoMs: 3500});
   expect(
     await page.evaluate(() => localStorage.getItem('clearcalorie:workout-prefs')),
-  ).toBe(JSON.stringify({cues: 'off', music: true}));
+  ).toBe(JSON.stringify({cues: 'off', music: true, bigScreen: false}));
 
   // With cues off the set begins without loading the voice.
   await expect(c.step).toHaveText('Set 1 of 2');
@@ -384,7 +396,7 @@ test('WO-08 cancelling a workout logs nothing', async ({authedPage: page, db, us
   await expect(c.tones).toBeChecked();
   expect(
     await page.evaluate(() => localStorage.getItem('clearcalorie:workout-prefs')),
-  ).toBe(JSON.stringify({cues: 'tones', music: false}));
+  ).toBe(JSON.stringify({cues: 'tones', music: false, bigScreen: false}));
   await workout.getByRole('button', {name: 'Cancel without logging'}).click();
 
   const plan = card(panel, "Today's plan");
@@ -694,4 +706,78 @@ test('WO-16 an alternating rep shows the switch to the other side', async ({
   await page.clock.runFor(2_000);
   await expect(c.timer).toHaveText('1');
   await expect(workout.getByText('of 6 reps · Left side')).toBeVisible();
+});
+
+test('WO-17 the big screen shows the workout full-window on desktop', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  await page.addInitScript(() => localStorage.clear());
+  await seedExerciseGoal(db, user.id, {name: 'Push-up', catalogId: 'push-up', sets: 2, reps: 10});
+  const {panel, workout} = await startGoal(page, 'Push-up');
+  await workout.getByRole('radio', {name: 'Off'}).click();
+  await workout.getByRole('button', {name: 'Start 2 sets'}).click();
+
+  // It opens on its own, with the animation and a large count.
+  const big = page.getByRole('dialog', {name: 'Push-up, big screen'});
+  await expect(big).toBeVisible();
+  await expect(big.getByRole('img', {name: 'Push-up'})).toBeVisible();
+  await expect(big.getByText('Set 1 of 2')).toBeVisible();
+  await expect(big.getByText('10 reps', {exact: true})).toBeVisible();
+  await big.getByRole('button', {name: 'Pause'}).click();
+  await expect(big.getByText('Paused')).toBeVisible();
+
+  // Leaving it is remembered, and the regular view takes over.
+  await big.getByRole('button', {name: 'Exit big screen'}).click();
+  await expect(big).toBeHidden();
+  await expect(workout.getByRole('img', {name: 'Push-up'})).toBeVisible();
+  expect(
+    JSON.parse((await page.evaluate((key) => localStorage.getItem(key), PREFS_KEY))!),
+  ).toMatchObject({bigScreen: false});
+  await workout.getByRole('button', {name: 'Big screen'}).click();
+  await expect(big).toBeVisible();
+  await big.getByRole('button', {name: 'Exit big screen'}).click();
+  // F11 toggles it during a workout too.
+  await page.keyboard.press('F11');
+  await expect(big).toBeVisible();
+  await page.keyboard.press('F11');
+  await expect(big).toBeHidden();
+  await workout.getByRole('button', {name: 'Cancel without logging'}).click();
+
+  // Logging shows today's target, set by set.
+  await panel.getByLabel('Mark Push-up as done').click();
+  await card(panel, 'Push-up').getByRole('button', {name: 'Big screen'}).click();
+  await expect(big.getByRole('listitem')).toHaveText([/^Set 1\s*10 reps$/, /^Set 2\s*10 reps$/]);
+  await big.getByRole('button', {name: 'Back to logging'}).click();
+  await expect(big).toBeHidden();
+  // F11 toggles it while logging, in place of the browser's full screen.
+  await page.keyboard.press('F11');
+  await expect(big).toBeVisible();
+  await page.keyboard.press('F11');
+  await expect(big).toBeHidden();
+
+  // Elsewhere F11 is left to the browser.
+  await card(panel, 'Push-up').getByRole('button', {name: 'Cancel without logging'}).click();
+  const defaultPrevented = page.evaluate(
+    () =>
+      new Promise<boolean>((resolve) =>
+        window.addEventListener('keydown', (event) => resolve(event.defaultPrevented), {
+          once: true,
+        }),
+      ),
+  );
+  await page.keyboard.press('F11');
+  expect(await defaultPrevented).toBe(false);
+});
+
+test('WO-17 phones keep the regular view @mobile', async ({authedPage: page, db, user}) => {
+  await seedExerciseGoal(db, user.id, {name: 'Push-up', catalogId: 'push-up', sets: 2, reps: 10});
+  await page.addInitScript((key) => localStorage.removeItem(key), PREFS_KEY);
+  const {workout} = await startGoal(page, 'Push-up');
+  await workout.getByRole('radio', {name: 'Off'}).click();
+  await workout.getByRole('button', {name: 'Start 2 sets'}).click();
+  await expect(controls(workout).step).toHaveText('Set 1 of 2');
+  await expect(page.getByTestId('big-screen')).toHaveCount(0);
+  await expect(workout.getByRole('button', {name: 'Big screen'})).toBeHidden();
 });

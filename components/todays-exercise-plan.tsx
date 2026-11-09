@@ -28,6 +28,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {WorkoutSession, type WorkoutResult} from '@/components/workout-session';
+import {BigScreen, BigScreenButton, useBigScreenKey} from '@/components/workout-big-screen';
 import {
   createWorkoutSound,
   loadWorkoutVoice,
@@ -38,7 +39,9 @@ import {dayFocus} from '@/lib/day-focus';
 import {exerciseCatalog} from '@/lib/exercise-catalog';
 import {
   formatExerciseDetail,
+  formatSetAmount,
   goalCatalogIds,
+  isRepSet,
   isSequence,
   setsOf,
   type ExerciseSet,
@@ -158,6 +161,9 @@ export function TodaysExercisePlan({
     goal: PlannedExercise;
     result?: WorkoutResult;
   } | null>(null);
+  const [reviewBigScreen, setReviewBigScreen] = useState(false);
+  // A workout listens for F11 itself; here it's only while logging.
+  useBigScreenKey(review !== null, () => setReviewBigScreen((open) => !open));
   const hasGoals = goals.length > 0;
   // Workouts wait for the voice before starting, so get it loading early.
   useEffect(() => {
@@ -200,17 +206,40 @@ export function TodaysExercisePlan({
 
   if (review) {
     const entry = exerciseCatalog.get(review.goal.catalogId);
+    function closeReview() {
+      setReview(null);
+      setReviewBigScreen(false);
+    }
     return (
       <Card>
         <CardHeader className="pr-14">
           <CardTitle className="truncate">{review.goal.name}</CardTitle>
           <CardDescription>Check what you did, then log it</CardDescription>
+          <BigScreenButton className="w-fit" onClick={() => setReviewBigScreen(true)} />
         </CardHeader>
+        {/* On desktop, the target full-window, readable from across the room. */}
+        <BigScreen
+          open={reviewBigScreen}
+          onClose={() => setReviewBigScreen(false)}
+          title={review.goal.name}
+          catalogId={review.goal.catalogId}
+        >
+          <PlannedSets goal={review.goal} />
+          <Button
+            variant="outline"
+            className="h-16 px-8 text-xl"
+            onClick={() => setReviewBigScreen(false)}
+          >
+            <X />
+            Back to logging
+          </Button>
+        </BigScreen>
         {/* On desktop the animation sits beside the fields, as in a workout;
             stretched across the full width it shrank to a blurry strip. */}
         <CardContent className="space-y-6 md:grid md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:items-start md:gap-8 md:space-y-0">
           {/* Kept short on phones so the log fields stay in view below it. */}
-          {entry && (
+          {/* The big screen shows it instead: one 3D scene at a time. */}
+          {entry && !reviewBigScreen && (
             <div className="space-y-2">
               <ExerciseAnimation
                 entry={entry}
@@ -225,10 +254,10 @@ export function TodaysExercisePlan({
               goal={review.goal}
               result={review.result}
               onConfirm={(details) => {
-                setReview(null);
+                closeReview();
                 onToggle(review.goal, true, details);
               }}
-              onCancel={() => setReview(null)}
+              onCancel={closeReview}
             />
             <GoalNotes goalId={review.goal.id} initialNotes={review.goal.notes} />
           </div>
@@ -357,6 +386,32 @@ export function TodaysExercisePlan({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** Today's target, a set per line, large enough to read from across the room. */
+function PlannedSets({goal}: {goal: PlannedExercise}) {
+  const sequence = isSequence(goal);
+  return (
+    <ol className="w-full max-w-2xl space-y-3 text-left text-4xl tabular-nums">
+      {setsOf(goal).map((set, index) => (
+        <li
+          key={index}
+          className="flex items-baseline justify-between gap-6 border-b border-border/50 pb-3"
+        >
+          <span className="min-w-0 wrap-break-word text-muted-foreground">
+            {sequence ? (set.name ?? `Step ${index + 1}`) : `Set ${index + 1}`}
+          </span>
+          <span className="shrink-0 font-semibold">
+            {formatSetAmount(set)}
+            {isRepSet(set) && ' reps'}
+            {set.weight ? (
+              <span className="font-normal text-muted-foreground"> × {set.weight} kg</span>
+            ) : null}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
