@@ -284,6 +284,26 @@ function SetRows({
           </div>
         );
       })}
+      {/* Sets done last week beyond today's, so none of last week's go missing. */}
+      {previous?.slice(sets.length).map((set, offset) => {
+        const index = sets.length + offset;
+        const label = labels ? `Step ${index + 1}` : `Set ${index + 1}`;
+        return (
+          <div key={`previous-${index}`} className={columns}>
+            <p className="text-sm font-medium text-muted-foreground sm:flex sm:h-11 sm:items-center sm:self-end">
+              {label}
+              <span className="ml-2 text-xs font-normal">Not logged today</span>
+            </p>
+            <div
+              aria-label={`${label} last week`}
+              className="flex items-baseline justify-between gap-3 rounded-xl bg-muted/40 px-3 py-1.5 sm:h-11 sm:items-center sm:self-end sm:py-0"
+            >
+              <span className="text-xs text-muted-foreground sm:hidden">Last week</span>
+              <PreviousSet set={set} />
+            </div>
+          </div>
+        );
+      })}
       {fixedCount ? null : (
         <Button
           type="button"
