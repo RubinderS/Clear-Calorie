@@ -31,6 +31,7 @@ import {WorkoutSession, type WorkoutResult} from '@/components/workout-session';
 import {
   BigScreenToggle,
   loadBigScreenPref,
+  useBigScreenBack,
   useBigScreenState,
 } from '@/components/workout-big-screen';
 import {
@@ -166,6 +167,9 @@ export function TodaysExercisePlan({
   // The window this is in may fill the screen (see workout-big-screen).
   const bigScreen = useBigScreenState();
   const big = bigScreen?.big ?? false;
+  // On the big screen, Escape in a log review goes back to the plan; the
+  // workout's own screens handle it while one is running.
+  useBigScreenBack(review !== null && workout === null, () => setReview(null));
   const hasGoals = goals.length > 0;
   // Workouts wait for the voice before starting, so get it loading early.
   useEffect(() => {

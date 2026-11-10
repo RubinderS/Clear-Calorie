@@ -23,7 +23,11 @@ import {
 } from 'lucide-react';
 import {ExerciseAnimation, ExerciseAreas} from '@/components/exercise-animation';
 import {GoalNotes} from '@/components/goal-notes';
-import {BigScreenToggle, useBigScreen} from '@/components/workout-big-screen';
+import {
+  BigScreenToggle,
+  useBigScreen,
+  useBigScreenBack,
+} from '@/components/workout-big-screen';
 import {Button} from '@/components/ui/button';
 import {ProgressRing} from '@/components/ui/progress-ring';
 import {Toggler, type TogglerOption} from '@/components/ui/toggler';
@@ -438,6 +442,9 @@ export function WorkoutSession({
   }, [waiting]);
 
   const big = useBigScreen();
+  // On the big screen, Escape before the workout starts goes back to the plan.
+  // Once it has, ActiveWorkout handles it, stopping the sound as Cancel does.
+  useBigScreenBack(session === null, onCancel);
   // One notes box across every phase, so setup edits carry into the sets.
   // On the big screen it sits under the animation, so nothing scrolls; that's
   // done in CSS (see WithAnimation), so the box keeps any edit in progress.
@@ -1124,6 +1131,7 @@ function ActiveWorkout({
     sound?.stop();
     onCancel();
   }
+  useBigScreenBack(true, cancel);
 
   useEffect(() => {
     if (!state.done || completed.current) return;

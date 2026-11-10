@@ -73,6 +73,12 @@ export function saveBigScreenPref(on: boolean) {
 
 export type BigScreenState = {big: boolean; setBig: (big: boolean) => void};
 
+/** A window's state, plus a screen inside it that Escape goes back from. */
+type KeyTarget = BigScreenState & {back?: () => void};
+
+// For a component outside any big screen, so its hooks still run.
+const NO_BIG_SCREEN: BigScreenState = {big: false, setBig() {}};
+
 const BigScreenContext = createContext<BigScreenState | null>(null);
 export const BigScreenProvider = BigScreenContext.Provider;
 
@@ -86,9 +92,10 @@ export function useBigScreen(): boolean {
   return useContext(BigScreenContext)?.big ?? false;
 }
 
-// Windows listening for the keys, innermost (last opened) last: only it acts,
-// so F11 in a How to opened over the exercise panel toggles the How to.
-const listening: {current: BigScreenState}[] = [];
+// Windows and screens listening for the keys, innermost (last opened) last:
+// only it acts, so F11 in a How to opened over the exercise panel toggles the
+// How to, and Escape in a workout goes back to the plan.
+const listening: {current: KeyTarget}[] = [];
 
 function onBigScreenKey(event: KeyboardEvent) {
   const current = listening.at(-1)?.current;
@@ -100,7 +107,10 @@ function onBigScreenKey(event: KeyboardEvent) {
     // Caught first, so the dialog it's in doesn't also close.
     event.preventDefault();
     event.stopPropagation();
-    current.setBig(false);
+    // A held key shouldn't go back and then leave the big screen too.
+    if (event.repeat) return;
+    if (current.back) current.back();
+    else current.setBig(false);
   }
 }
 
@@ -109,7 +119,7 @@ function onBigScreenKey(event: KeyboardEvent) {
  * screen in place of the browser's own full screen. On it, Escape leaves it
  * rather than closing the window it's in.
  */
-export function useBigScreenKeys(enabled: boolean, state: BigScreenState) {
+export function useBigScreenKeys(enabled: boolean, state: KeyTarget) {
   const desktop = useIsDesktop();
   const latest = useRef(state);
   useEffect(() => {
@@ -128,6 +138,19 @@ export function useBigScreenKeys(enabled: boolean, state: BigScreenState) {
       }
     };
   }, [enabled, desktop]);
+}
+
+/**
+ * While active, a screen opened inside a big screen (a workout, a log
+ * review): Escape there runs `back` rather than leaving the big screen, so a
+ * second Escape is what leaves it.
+ */
+export function useBigScreenBack(active: boolean, back: () => void) {
+  const state = useContext(BigScreenContext);
+  useBigScreenKeys(active && state !== null, {
+    ...(state ?? NO_BIG_SCREEN),
+    back,
+  });
 }
 
 /** Classes that make a card or dialog fill the window on the big screen. */
