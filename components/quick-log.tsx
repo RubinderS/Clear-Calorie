@@ -136,6 +136,7 @@ export function LogDialog({
       >
         <ExercisePanel
           goals={plannedExercises}
+          onClose={onClose}
           onLogCreated={logCreated}
           onPlanChange={onLogged}
           headerAction={logsLink('exercise')}
@@ -217,11 +218,13 @@ function LogsLink({
 
 function ExercisePanel({
   goals,
+  onClose,
   onLogCreated,
   onPlanChange,
   headerAction,
 }: {
   goals: PlannedExerciseStatus[];
+  onClose: () => void;
   onLogCreated: () => void;
   onPlanChange?: () => void;
   headerAction: React.ReactNode;
@@ -245,7 +248,10 @@ function ExercisePanel({
     },
   };
   const {big} = bigScreen;
-  useBigScreenKeys(true, bigScreen);
+  // Escape on the plan closes the panel, big screen and all, in one press;
+  // a workout or log review opened over it goes back to the plan first.
+  // Closing isn't turning the big screen off, so the next workout keeps it.
+  useBigScreenKeys(true, {...bigScreen, back: onClose});
   const zoomStyle = useBigScreenZoom(big);
 
   useEffect(() => {

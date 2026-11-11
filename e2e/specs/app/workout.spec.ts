@@ -772,8 +772,8 @@ test('WO-17 a whole workout on the big screen, from the plan to the log', async 
   await c.moreReps.click();
   await expect(c.detail).toHaveText('11 reps');
 
-  // Escape leaves it without closing the panel, and the workout keeps going.
-  await page.keyboard.press('Escape');
+  // Leaving it closes nothing, and the workout keeps going.
+  await workout.getByRole('button', {name: 'Exit big screen'}).click();
   await expect(frame).toHaveCount(0);
   await expect(c.step).toHaveText('Set 1 of 2');
   await expect(c.detail).toHaveText('11 reps');
@@ -802,10 +802,7 @@ test('WO-17 a whole workout on the big screen, from the plan to the log', async 
   await expect(panel.getByText('All planned exercises done.')).toBeVisible();
   await expect(frame).toBeVisible();
 
-  // Escape leaves the big screen first, then closes the panel; then F11 is the browser's.
-  await page.keyboard.press('Escape');
-  await expect(frame).toHaveCount(0);
-  await expect(panel).toBeVisible();
+  // On the plan, one Escape leaves the big screen and closes the panel; then F11 is the browser's.
   await page.keyboard.press('Escape');
   await expect(panel).toBeHidden();
   await page.evaluate(() =>
