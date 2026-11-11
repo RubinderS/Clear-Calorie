@@ -1,9 +1,8 @@
-// Empties the database in DATABASE_URL, then migrates, indexes and loads the
-// food database the way a fresh install starts. `npm run db:reset` seeds the demo data after.
+// Empties the database in DATABASE_URL, then migrates and indexes it the way
+// a fresh install starts. `npm run db:reset` seeds the demo data after.
 import {connectDb, disconnectDb} from '@/lib/db';
 import {runMigrations} from '@/lib/migrations';
 import {syncIndexes} from '@/lib/models';
-import {syncFoodDatabase} from '@/lib/food-dataset';
 
 async function main() {
   const {connection} = await connectDb();
@@ -12,7 +11,6 @@ async function main() {
   const applied = await runMigrations(process.env.DATABASE_URL!);
   console.log(`Applied ${applied.length} migration(s)`);
   await syncIndexes();
-  await syncFoodDatabase();
 }
 
 main()

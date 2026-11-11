@@ -26,11 +26,8 @@ The user describes food they ate. Estimate the total nutrition for everything de
 - Calories are kilocalories (kcal). If the user gives kilojoules (kJ), convert to kcal (1 kcal = 4.184 kJ).
 - Saturated fat must not exceed total fat.
 - The name must include the quantity of each food item, e.g. "2 eggs, 2 slices toast (70g), 1 flat white (250ml)". Use the amount the user gave; otherwise use the amount you assumed.
-- Also list each food separately in "items"; the totals are the sums of the items. Split combined dishes into their parts, each with its own amount: "daal chawal" is daal and rice, "roti sabzi" is roti and vegetable curry, "eggs on toast" is eggs and toast. Keep a dish as one item when it has no usual parts (e.g. lasagne, a slice of pizza, a meat pie).
-- For each item, "food" is the food in the user's own words without the amount, keeping words that describe it (e.g. "chawal", "fried chicken breast", "brown rice"). "search" is 1 to 3 phrases naming it the way a food composition database does: generic, no brands, most specific first (e.g. "egg chicken whole hard-boiled", "rice white cooked", "curry lentils dhal"). "amount" and "unit" are the amount the user gave or you assumed, with a household unit ("egg", "slice", "cup", "tablespoon", "roti") or "g" or "ml".
 Respond with only a JSON object with these keys:
-{"name": short food name with the quantity of each item (max 100 chars), "calories": number, "protein": grams, "carbs": grams, "fat": grams, "saturatedFat": grams, "assumptions": one short sentence describing assumed portions,
- "items": [{"label": the item with its quantity, e.g. "2 boiled eggs", "food": string, "search": [string], "amount": number, "unit": string, "grams": its weight in grams, "calories": number, "protein": grams, "carbs": grams, "fat": grams, "saturatedFat": grams}]}`;
+{"name": short food name with the quantity of each item (max 100 chars), "calories": number, "protein": grams, "carbs": grams, "fat": grams, "saturatedFat": grams, "assumptions": one short sentence describing assumed portions}`;
 
 function buildHealthPrompt(healthNotes: string) {
   return `
@@ -51,45 +48,22 @@ const healthAlertSchema = z.object({
   message: z.string().trim().optional().default(''),
 });
 
-const nutritionShape = {
+const estimateSchema = z.object({
+  name: z.string().trim().min(1),
   calories: nutrient,
   protein: nutrient.default(0),
   carbs: nutrient.default(0),
   fat: nutrient.default(0),
   saturatedFat: nutrient.default(0),
-};
-
-const estimateItemSchema = z.object({
-  label: z.string().trim().min(1).transform((value) => value.slice(0, 100)),
-  food: z.string().trim().min(1).transform((value) => value.slice(0, 100)),
-  search: z
-    .array(z.string().trim().min(1))
-    .min(1)
-    .transform((phrases) => phrases.slice(0, 3).map((phrase) => phrase.slice(0, 100))),
-  amount: z.coerce.number().finite().positive().nullish().catch(null),
-  unit: z.string().trim().max(30).nullish().catch(null),
-  grams: z.coerce.number().finite().positive(),
-  ...nutritionShape,
-});
-
-const estimateSchema = z.object({
-  name: z.string().trim().min(1),
-  ...nutritionShape,
   assumptions: z.string().trim().optional().default(''),
   // A bad health check must never cost the user their nutrition estimate.
   healthAlert: healthAlertSchema.optional().catch(undefined),
-  // Nor bad items: without them the meal totals are used as they are.
-  items: z.array(estimateItemSchema).min(1).max(15).optional().catch(undefined),
 });
 
 export type HealthAlert = {level: 'caution' | 'avoid'; message: string};
 
-/** One food in the AI's estimate, with its own nutrition. */
-export type EstimatedItem = z.infer<typeof estimateItemSchema>;
-
-export type FoodEstimate = Omit<z.infer<typeof estimateSchema>, 'healthAlert' | 'items'> & {
+export type FoodEstimate = Omit<z.infer<typeof estimateSchema>, 'healthAlert'> & {
   healthAlert?: HealthAlert;
-  items?: EstimatedItem[];
 };
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
@@ -101,7 +75,7 @@ export function parseEstimate(raw: unknown): FoodEstimate | null {
   const parsed = estimateSchema.safeParse(raw);
   if (!parsed.success) return null;
 
-  const {healthAlert, items, ...estimate} = parsed.data;
+  const {healthAlert, ...estimate} = parsed.data;
   const fat = round1(estimate.fat);
   const result: FoodEstimate = {
     name: estimate.name.slice(0, 100),
@@ -119,7 +93,6 @@ export function parseEstimate(raw: unknown): FoodEstimate | null {
       message: healthAlert.message.slice(0, 200),
     };
   }
-  if (items) result.items = items;
   return result;
 }
 
@@ -202,60 +175,6 @@ export async function estimateFood(
     throw new AiError('AI returned an invalid response');
   }
   return estimate;
-}
-
-const PICK_FOODS_PROMPT = `You match foods a user ate to entries in AUSNUT, the Australian food composition database.
-You receive JSON: "items", each with what the user ate ("label", "food"), the other foods in the same meal ("otherFoods") and candidate database entries ("candidates", each with an "id" and "name").
-For each item choose the candidate that is the same food as eaten: same food, same form and cooking method where the user said it.
-- Details the user didn't mention don't make it a different food: choose the most typical entry (e.g. for "scrambled eggs", "Egg, chicken, scrambled, with cow's milk"; for "toast", plain white bread toasted).
-- Prefer a plain food over a dish, unless the user ate that dish (e.g. "daal" is a lentil curry/dhal dish).
-- Never choose an entry that also contains the item's "otherFoods": they are counted separately (e.g. for the rice in "daal chawal", not a rice and lentil dish).
-- If no candidate is the same food, use null. A different food that is merely similar is worse than null.
-Respond with only a JSON object: {"picks": [{"item": the item's index, "id": a candidate id from that item, or null}]}`;
-
-export type PickFoodsItem = {
-  label: string;
-  food: string;
-  otherFoods: string[];
-  candidates: {id: string; name: string}[];
-};
-
-const picksSchema = z.object({
-  picks: z.array(
-    z.object({
-      item: z.coerce.number().int().min(0),
-      id: z.string().trim().nullish(),
-    }),
-  ),
-});
-
-/**
- * Which candidate each item is, by id, or null when none fits. An id that
- * wasn't one of that item's candidates counts as null.
- */
-export async function pickFoods(items: PickFoodsItem[]): Promise<(string | null)[]> {
-  const raw = await requestJson(
-    PICK_FOODS_PROMPT,
-    JSON.stringify({items: items.map((item, index) => ({index, ...item}))}),
-    {temperature: 0},
-  );
-  const picks = parsePicks(raw, items);
-  if (!picks) throw new AiError('AI returned an invalid response');
-  return picks;
-}
-
-/** The model's picks, keeping only ids it was offered for that item. Null when unusable. */
-export function parsePicks(raw: unknown, items: PickFoodsItem[]): (string | null)[] | null {
-  const parsed = picksSchema.safeParse(raw);
-  if (!parsed.success) return null;
-
-  const picks: (string | null)[] = items.map(() => null);
-  for (const {item, id} of parsed.data.picks) {
-    if (item < items.length && id && items[item].candidates.some((c) => c.id === id)) {
-      picks[item] = id;
-    }
-  }
-  return picks;
 }
 
 // Bump when the weekly report prompt or output shape changes; stored per report.

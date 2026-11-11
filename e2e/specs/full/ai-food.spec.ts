@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import type {Locator, Page} from '@playwright/test';
 import {test, expect, nextApiRequest, nextApiResponse} from '../../fixtures/test';
-import {seedDatabaseFood, seedSavedFood} from '../../fixtures/db';
+import {seedSavedFood} from '../../fixtures/db';
 import {FOOD_ESTIMATE, HEALTH_ALERTS} from '../../mocks/data';
 import {dialog, logRow, openQuickLog} from '../../fixtures/ui';
 
@@ -291,74 +291,4 @@ test('AIF-13 picking a saved food clears the AI note', async ({authedPage: page,
   await panel.getByRole('listitem').filter({hasText: 'Porridge'}).click();
   await expect(f.calories).toHaveValue('300');
   await expect(f.note).toHaveCount(0);
-});
-
-test('AIF-14 foods are matched to the food database and the match is remembered', async ({
-  authedPage: page,
-  db,
-  user,
-}) => {
-  // The bundled AUSNUT foods and shared aliases were loaded at startup.
-  expect(await db.food.findFirst({where: {name: 'Rice, white, cooked'}})).not.toBeNull();
-  expect(await db.foodAlias.findFirst({where: {userId: null, phrase: 'chawal'}})).not.toBeNull();
-
-  const tag = marker();
-  // 100 kcal per 100 g, 200 g a cup.
-  const rice = await seedDatabaseFood(db, {
-    name: `Rice, white, cooked, ${tag}`,
-    energyKj: 418.4,
-    protein: 3,
-    carbs: 30,
-    fat: 0.5,
-    saturatedFat: 0.1,
-    measures: [{unit: 'cup', detail: null, grams: 200}],
-  });
-
-  const panel = await openFood(page);
-  const f = foodForm(panel);
-  const response = await estimate(page, f, `daal chawal ${tag} [ai:items]`);
-  expect(response.status()).toBe(200);
-
-  const foods = panel.getByRole('list', {name: 'Foods in this estimate'});
-  const chawal = foods.getByRole('listitem').filter({hasText: '1 cup jeera chawal'});
-  const daal = foods.getByRole('listitem').filter({hasText: '1 bowl moong daal'});
-  const change = chawal.getByRole('button', {name: 'Change match for 1 cup jeera chawal'});
-  const match = chawal.getByRole('combobox', {name: 'Food match for 1 cup jeera chawal'});
-  // The database entry is listed by its exact name; the picker opens on demand.
-  await expect(chawal).toContainText(rice.name);
-  await expect(chawal).toContainText('200 g · 200 kcal');
-  await expect(match).toHaveCount(0);
-  await expect(daal.getByRole('button')).toHaveCount(0);
-  await change.click();
-  await expect(match).toHaveValue(rice.id);
-  // Nothing in the database for daal, so it keeps the AI's numbers.
-  await expect(daal).toContainText('250 g · 240 kcal');
-  await expect(daal).toContainText('AI estimate (not in database)');
-  await expect(panel.getByText(/^Matched to the AUSNUT food database/)).toBeVisible();
-
-  // Rice from the database (200 g) plus the AI's daal.
-  await expect(f.calories).toHaveValue('440');
-  await expect(f.protein).toHaveValue('18');
-  await expect(f.carbs).toHaveValue('90');
-  await expect(f.fat).toHaveValue('9');
-  await expect(f.saturatedFat).toHaveValue('1.2');
-
-  // With nothing from the database, the AI's meal totals are used.
-  await match.selectOption('ai');
-  await expect(f.calories).toHaveValue(String(FOOD_ESTIMATE.calories));
-  await expect(chawal).toContainText('150 g · 180 kcal');
-  await expect(chawal).toContainText('AI estimate (not in database)');
-  await expect(f.note).toBeVisible();
-  await change.click();
-  await match.selectOption(rice.id);
-  await expect(chawal).toContainText(rice.name);
-  await expect(f.calories).toHaveValue('440');
-
-  const logged = nextApiRequest(page, '/api/food');
-  await f.submit.click();
-  expect((await logged).postDataJSON().matches).toEqual([{phrase: 'jeera chawal', foodId: rice.id}]);
-  await expect
-    .poll(async () => (await db.foodAlias.findFirst({where: {userId: user.id, phrase: 'jeera chawal'}}))?.foodId)
-    .toBe(rice.id);
-  await expect(panel.getByRole('list', {name: 'Foods in this estimate'})).toHaveCount(0);
 });

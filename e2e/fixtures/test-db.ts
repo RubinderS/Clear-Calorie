@@ -33,8 +33,6 @@ export type TestDb = {
   verificationToken: Delegate<T.VerificationToken>;
   foodLog: Delegate<T.FoodLog>;
   savedFoodItem: Delegate<T.SavedFoodItem>;
-  food: Delegate<T.Food>;
-  foodAlias: Delegate<T.FoodAlias>;
   exerciseLog: Delegate<T.ExerciseLog>;
   savedExerciseItem: Delegate<T.SavedExerciseItem>;
   exerciseGoal: Delegate<T.ExerciseGoal>;
@@ -147,8 +145,6 @@ const NAMES: Record<Exclude<keyof TestDb, 'connection'>, keyof Models> = {
   verificationToken: 'VerificationToken',
   foodLog: 'FoodLog',
   savedFoodItem: 'SavedFoodItem',
-  food: 'Food',
-  foodAlias: 'FoodAlias',
   exerciseLog: 'ExerciseLog',
   savedExerciseItem: 'SavedExerciseItem',
   exerciseGoal: 'ExerciseGoal',

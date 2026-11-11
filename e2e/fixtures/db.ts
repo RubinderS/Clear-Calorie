@@ -168,19 +168,6 @@ export function seedSavedFood(
   });
 }
 
-/** A food database entry with a random 8-digit id; nutrients per 100 g. */
-export function seedDatabaseFood(db: TestDb, data: Seed<T.Food> & {name: string}) {
-  return db.food.create({
-    data: {
-      id: String(90_000_000 + Math.floor(Math.random() * 9_999_999)),
-      groupCode: '99999',
-      groupName: 'Test foods',
-      energyKj: 0,
-      ...data,
-    },
-  });
-}
-
 export function seedSavedExercise(
   db: TestDb,
   userId: string,
