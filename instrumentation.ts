@@ -14,6 +14,12 @@ export async function register() {
     await connectDb();
     await syncIndexes();
 
+    // The bundled food database; without it, estimates fall back to the AI.
+    const {syncFoodDatabase} = await import('@/lib/food-dataset');
+    await syncFoodDatabase().catch((error) =>
+      console.error('Could not load the food database:', error),
+    );
+
     const {startWeeklyReportScheduler} =
       await import('@/lib/weekly-report-scheduler');
     startWeeklyReportScheduler();

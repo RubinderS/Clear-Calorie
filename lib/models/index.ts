@@ -81,6 +81,63 @@ const savedFoodItemSchema = schema<T.SavedFoodItem>('saved_food_items', {
 });
 savedFoodItemSchema.index({userId: 1, name: 1}, {unique: true});
 
+const foodMeasureSchema = new Schema<T.FoodMeasure>(
+  {
+    unit: {type: String, required: true},
+    detail: optional(String),
+    grams: {type: Number, required: true},
+  },
+  {_id: false},
+);
+
+// Loaded from datasets/ausnut.json at startup (lib/food-dataset.ts); _id is
+// the AUSNUT survey ID.
+const foodSchema = schema<T.Food>(
+  'foods',
+  {
+    _id: {type: String, required: true},
+    publicKey: optional(String),
+    name: {type: String, required: true},
+    groupCode: {type: String, required: true},
+    groupName: {type: String, required: true},
+    joinedWords: {type: String, default: ''},
+    energyKj: {type: Number, required: true},
+    protein: {type: Number, default: 0},
+    carbs: {type: Number, default: 0},
+    fat: {type: Number, default: 0},
+    saturatedFat: {type: Number, default: 0},
+    sugars: {type: Number, default: 0},
+    fibre: {type: Number, default: 0},
+    sodiumMg: {type: Number, default: 0},
+    density: optional(Number),
+    measures: {type: [foodMeasureSchema], default: []},
+  },
+  false,
+);
+foodSchema.index(
+  {name: 'text', joinedWords: 'text', groupName: 'text'},
+  {name: 'food_text', weights: {name: 10, joinedWords: 5, groupName: 1}},
+);
+
+const foodAliasSchema = schema<T.FoodAlias>('food_aliases', {
+  userId: optional(String),
+  phrase: {type: String, required: true},
+  foodId: ref,
+  count: {type: Number, default: 1},
+});
+// One shared alias (userId null) and one per user for each phrase.
+foodAliasSchema.index({phrase: 1, userId: 1}, {unique: true});
+
+const datasetSchema = schema<T.Dataset>(
+  'datasets',
+  {
+    _id: {type: String, required: true},
+    version: {type: String, required: true},
+    loadedAt: now,
+  },
+  false,
+);
+
 const exerciseSetSchema = new Schema<T.ExerciseSet>(
   {
     position: {type: Number, required: true},
@@ -299,6 +356,9 @@ const SCHEMAS = {
   VerificationToken: verificationTokenSchema,
   FoodLog: foodLogSchema,
   SavedFoodItem: savedFoodItemSchema,
+  Food: foodSchema,
+  FoodAlias: foodAliasSchema,
+  Dataset: datasetSchema,
   ExerciseLog: exerciseLogSchema,
   SavedExerciseItem: savedExerciseItemSchema,
   ExerciseGoal: exerciseGoalSchema,

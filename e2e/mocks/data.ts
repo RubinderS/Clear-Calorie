@@ -37,3 +37,33 @@ export const HEALTH_ALERTS = {
   avoid: {level: 'avoid', message: 'Very high in saturated fat.'},
   caution: {level: 'caution', message: 'Fairly high in sodium.'},
 } as const;
+
+/** The `[ai:items]` estimate's foods: neither has a shared alias; jeera chawal matches a seeded database food, moong daal nothing. */
+export const FOOD_ESTIMATE_ITEMS = [
+  {
+    label: '1 cup jeera chawal',
+    food: 'jeera chawal',
+    search: ['rice'],
+    amount: 1,
+    unit: 'cup',
+    grams: 150,
+    calories: 180,
+    protein: 4,
+    carbs: 40,
+    fat: 0.5,
+    saturatedFat: 0.1,
+  },
+  {
+    label: '1 bowl moong daal',
+    food: 'moong daal',
+    search: ['zzzunmatched'],
+    amount: 1,
+    unit: 'bowl',
+    grams: 250,
+    calories: 240,
+    protein: 12,
+    carbs: 30,
+    fat: 8,
+    saturatedFat: 1,
+  },
+];

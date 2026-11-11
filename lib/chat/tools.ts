@@ -1,9 +1,7 @@
 import {format, parseISO, subDays} from 'date-fns';
 import {z} from 'zod';
-import {
-  estimateFood,
-  type ToolDefinition,
-} from '@/lib/ai';
+import {type ToolDefinition} from '@/lib/ai';
+import {aliasLinks, estimateFoodWithDatabase} from '@/lib/food-estimate';
 import {
   isValidMetricValue,
   metricEntrySchema,
@@ -562,7 +560,7 @@ export const TOOLS = {
     async run({description, ...when}, ctx) {
       const {date, time} = resolveLogDate(when, getTodayDate(ctx.timeZone));
       const {healthNotes} = await getReportGoals(ctx.userId);
-      const estimate = await estimateFood(description, healthNotes);
+      const estimate = await estimateFoodWithDatabase(ctx.userId, description, healthNotes);
       const entry = foodSchema.parse({
         name: estimate.name,
         calories: estimate.calories,
@@ -571,6 +569,8 @@ export const TOOLS = {
         fat: estimate.fat,
         saturatedFat: estimate.saturatedFat,
         healthAlert: estimate.healthAlert ?? null,
+        // Saved as aliases when the user confirms.
+        matches: aliasLinks(estimate.items),
       });
       const action = await createAction(ctx, 'food', entry, {
         note: estimate.assumptions,
@@ -579,7 +579,8 @@ export const TOOLS = {
       });
       return {
         result: {
-          proposed: entry,
+          // The matches mean nothing to the coach.
+          proposed: {...entry, matches: undefined},
           date,
           time,
           assumptions: estimate.assumptions,

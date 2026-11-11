@@ -2,7 +2,8 @@ import {NextResponse} from 'next/server';
 import {getServerSession} from 'next-auth/next';
 import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
-import {AiError, estimateFood, isAiEnabled} from '@/lib/ai';
+import {AiError, isAiEnabled} from '@/lib/ai';
+import {estimateFoodWithDatabase} from '@/lib/food-estimate';
 import {findGoals} from '@/lib/data/goals';
 import {aiRateLimit, rateLimitByKey} from '@/lib/rate-limit';
 
@@ -40,7 +41,8 @@ export async function POST(request: Request) {
   try {
     // Read from the DB rather than the request so notes can't be spoofed per call.
     const goal = await findGoals(session.user.id);
-    const estimate = await estimateFood(
+    const estimate = await estimateFoodWithDatabase(
+      session.user.id,
       parsed.data.description,
       goal?.healthNotes,
     );

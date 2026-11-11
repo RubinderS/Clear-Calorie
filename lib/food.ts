@@ -1,5 +1,7 @@
 import {z} from 'zod';
 import * as foodLogs from '@/lib/data/food-logs';
+import {saveAliases} from '@/lib/data/foods';
+import {normalisePhrase} from '@/lib/food-match';
 
 export const nutritionFields = {
   name: z.string().trim().min(1),
@@ -23,6 +25,12 @@ export function refineSaturatedFat(
   }
 }
 
+/** The database food each estimated item was logged as, to remember for next time. */
+const foodMatchSchema = z.object({
+  phrase: z.string().trim().min(1).max(100),
+  foodId: z.string().regex(/^\d{8}$/),
+});
+
 export const foodSchema = z
   .object({
     ...nutritionFields,
@@ -32,19 +40,29 @@ export const foodSchema = z
         message: z.string().trim().min(1).max(200),
       })
       .nullish(),
+    matches: z.array(foodMatchSchema).max(20).optional(),
   })
   .superRefine(refineSaturatedFat);
 
 export type FoodInput = z.infer<typeof foodSchema>;
 
 /** Logs food, now unless `loggedAt` is given. */
-export function createFoodLog(userId: string, input: FoodInput, loggedAt?: Date) {
-  const {healthAlert, ...food} = input;
-  return foodLogs.createFoodLog({
+export async function createFoodLog(userId: string, input: FoodInput, loggedAt?: Date) {
+  const {healthAlert, matches, ...food} = input;
+  const entry = await foodLogs.createFoodLog({
     ...food,
     healthAlertLevel: healthAlert?.level ?? null,
     healthAlertMessage: healthAlert?.message ?? null,
     userId,
     loggedAt,
   });
+
+  if (matches?.length) {
+    // Remembering a match is a bonus; it never fails the log.
+    await saveAliases(
+      userId,
+      matches.map(({phrase, foodId}) => ({phrase: normalisePhrase(phrase), foodId})),
+    ).catch((error) => console.error('Saving food aliases failed:', error));
+  }
+  return entry;
 }

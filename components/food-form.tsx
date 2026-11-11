@@ -7,6 +7,8 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {Select} from '@/components/ui/select';
+import {roundNutrition, sumNutrition} from '@/lib/food-match';
 
 type SavedFoodItem = {
   id: string;
@@ -26,11 +28,42 @@ type Nutrition = Pick<
 
 type HealthAlert = {level: 'caution' | 'avoid'; message: string};
 
+/** A database food an estimated item can be logged as. */
+type FoodChoice = {foodId: string; name: string; grams: number; nutrition: Nutrition};
+
+/** One food in the estimate, matched to the food database or not. */
+type EstimateItem = {
+  label: string;
+  phrase: string;
+  foodId: string | null;
+  ai: {grams: number; nutrition: Nutrition};
+  candidates: FoodChoice[];
+};
+
 type AiEstimate = Nutrition & {
   name: string;
   assumptions: string;
   healthAlert?: HealthAlert;
+  items?: EstimateItem[];
+  aiTotals?: Nutrition;
 };
+
+const AI_CHOICE = 'ai';
+
+/** The item as chosen: a database food by id, or the AI's own estimate. */
+function chosenFor(item: EstimateItem, foodId: string | null) {
+  return item.candidates.find((c) => c.foodId === foodId) ?? null;
+}
+
+/** Totals for the chosen foods; the AI's meal totals when none is from the database. */
+function totalsFor(estimate: AiEstimate, choices: (string | null)[]): Nutrition {
+  const items = estimate.items ?? [];
+  const chosen = items.map((item, index) => chosenFor(item, choices[index]));
+  if (!chosen.some(Boolean)) return roundNutrition(estimate.aiTotals ?? estimate);
+  return roundNutrition(
+    sumNutrition(items.map((item, index) => chosen[index]?.nutrition ?? item.ai.nutrition)),
+  );
+}
 
 const SATURATED_FAT_ERROR = 'Saturated fat cannot exceed total fat.';
 const MAX_SUGGESTIONS = 8;
@@ -62,6 +95,11 @@ export function FoodForm({
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiAssumptions, setAiAssumptions] = useState<string | null>(null);
   const [healthAlert, setHealthAlert] = useState<HealthAlert | null>(null);
+  // The last estimate with foods listed, and the database food chosen for each.
+  const [estimate, setEstimate] = useState<AiEstimate | null>(null);
+  const [choices, setChoices] = useState<(string | null)[]>([]);
+  // The food whose match is being changed.
+  const [changing, setChanging] = useState<number | null>(null);
   const [updating, setUpdating] = useState(false);
   // Name of the saved item just updated, for the confirmation.
   const [updatedName, setUpdatedName] = useState<string | null>(null);
@@ -128,6 +166,24 @@ export function FoodForm({
     setAiError(null);
     setAiAssumptions(null);
     setHealthAlert(null);
+    clearEstimate();
+  }
+
+  function clearEstimate() {
+    setEstimate(null);
+    setChoices([]);
+    setChanging(null);
+  }
+
+  /** Switches one food to another database match, or to the AI's estimate. */
+  function chooseFood(index: number, value: string) {
+    if (!estimate) return;
+    const next = choices.map((choice, i) =>
+      i === index ? (value === AI_CHOICE ? null : value) : choice,
+    );
+    setChoices(next);
+    setChanging(null);
+    fillNutrition(totalsFor(estimate, next));
   }
 
   async function estimateWithAi() {
@@ -157,6 +213,12 @@ export function FoodForm({
 
       setName(estimate.name);
       setSelectedId(null);
+      if (estimate.items?.length) {
+        setEstimate(estimate);
+        setChoices(estimate.items.map((item) => item.foodId));
+      } else {
+        clearEstimate();
+      }
       setAiAssumptions(estimate.assumptions || '');
       setHealthAlert(estimate.healthAlert ?? null);
       setError(null);
@@ -198,6 +260,7 @@ export function FoodForm({
     setShowSuggestions(true);
     setSaveError(null);
     setHealthAlert(null);
+    clearEstimate();
   }
 
   function handleSaveChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -291,10 +354,20 @@ export function FoodForm({
       return;
     }
 
+    // Remembers which database food each estimated item was, for next time.
+    const matches = (estimate?.items ?? []).flatMap((item, index) => {
+      const foodId = choices[index];
+      return foodId ? [{phrase: item.phrase, foodId}] : [];
+    });
+
     const response = await fetch('/api/food', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({...data, healthAlert}),
+      body: JSON.stringify({
+        ...data,
+        healthAlert,
+        ...(matches.length ? {matches} : {}),
+      }),
     });
 
     setLoading(false);
@@ -308,6 +381,7 @@ export function FoodForm({
       setAiError(null);
       setAiAssumptions(null);
       setHealthAlert(null);
+      clearEstimate();
       onLogCreated?.();
       router.refresh();
     }
@@ -403,9 +477,74 @@ export function FoodForm({
             {aiAssumptions !== null && (
               <p className="text-xs text-muted-foreground">
                 <Sparkles className="mr-1 inline size-3" />
-                AI estimate. Check before logging.
+                {choices.some(Boolean)
+                  ? 'Matched to the AUSNUT food database where possible. Check before logging.'
+                  : 'AI estimate. Check before logging.'}
                 {aiAssumptions && ` ${aiAssumptions}`}
               </p>
+            )}
+            {estimate?.items && (
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Found in AUSNUT
+                </p>
+                <ul aria-label="Foods in this estimate" className="space-y-2.5">
+                  {estimate.items.map((item, index) => {
+                    const chosen = chosenFor(item, choices[index]);
+                    const grams = chosen?.grams ?? item.ai.grams;
+                    const calories = (chosen?.nutrition ?? item.ai.nutrition).calories;
+                    return (
+                      <li key={index} className="space-y-1.5 text-sm">
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            {/* The database entry exactly as AUSNUT names it. */}
+                            <p className={chosen ? 'font-medium' : 'text-muted-foreground'}>
+                              {chosen ? chosen.name : item.label}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {chosen ? (
+                                item.label
+                              ) : (
+                                <>
+                                  <Sparkles className="mr-1 inline size-3" />
+                                  AI estimate (not in database)
+                                </>
+                              )}
+                              {` · ${grams} g · ${calories} kcal`}
+                            </p>
+                          </div>
+                          {item.candidates.length > 0 && (
+                            <button
+                              type="button"
+                              aria-label={`Change match for ${item.label}`}
+                              aria-expanded={changing === index}
+                              onClick={() => setChanging(changing === index ? null : index)}
+                              className="shrink-0 rounded px-1.5 py-0.5 text-xs text-primary hover:bg-muted"
+                            >
+                              {changing === index ? 'Cancel' : 'Change'}
+                            </button>
+                          )}
+                        </div>
+                        {changing === index && (
+                          <Select
+                            aria-label={`Food match for ${item.label}`}
+                            value={choices[index] ?? AI_CHOICE}
+                            onChange={(event) => chooseFood(index, event.target.value)}
+                            className="h-9 text-xs"
+                          >
+                            {item.candidates.map((candidate) => (
+                              <option key={candidate.foodId} value={candidate.foodId}>
+                                {candidate.name}
+                              </option>
+                            ))}
+                            <option value={AI_CHOICE}>AI estimate (not in database)</option>
+                          </Select>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             )}
             {healthAlert && (
               <div

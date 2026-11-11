@@ -5,6 +5,7 @@ import {createServer, type IncomingMessage, type ServerResponse} from 'node:http
 import {MOCK_PORT} from '../env';
 import {
   FOOD_ESTIMATE,
+  FOOD_ESTIMATE_ITEMS,
   HEALTH_ALERTS,
   type RecordedEmail,
   type RecordedRequest,
@@ -225,6 +226,13 @@ async function handleCompletion(req: IncomingMessage, res: ServerResponse) {
   const user = body.messages.find((m) => m.role === 'user')?.content ?? '';
   const scenario = /\[ai:([a-z0-9-]+)\]/.exec(user)?.[1];
 
+  // Matching foods to the database: picks each item's first candidate.
+  if (system.includes('AUSNUT')) {
+    const {items} = JSON.parse(user) as {items: {index: number; candidates: {id: string}[]}[]};
+    const picks = items.map((item) => ({item: item.index, id: item.candidates[0]?.id ?? null}));
+    return respondJson(res, 200, completion(JSON.stringify({picks})));
+  }
+
   if (scenario === 'error500') {
     return respondJson(res, 500, {error: {message: 'mock failure'}});
   }
@@ -235,9 +243,16 @@ async function handleCompletion(req: IncomingMessage, res: ServerResponse) {
     return respondJson(res, 200, completion('Sorry, I cannot help with that.'));
   }
 
-  const content = JSON.stringify(
-    foodResponse(scenario, system.includes('<health_notes>')),
-  );
+  const estimate = foodResponse(scenario, system.includes('<health_notes>'));
+  // Lists the foods separately: rice searched by the prompt's `m1234abcd`
+  // marker, which a test seeds a database food for, and daal, which matches nothing.
+  if (scenario === 'items') {
+    const tag = /\bm[0-9a-f]{8}\b/.exec(user)?.[0] ?? 'none';
+    estimate.items = FOOD_ESTIMATE_ITEMS.map((item) =>
+      item.food === 'jeera chawal' ? {...item, search: [`rice ${tag}`]} : item,
+    );
+  }
+  const content = JSON.stringify(estimate);
 
   respondJson(
     res,

@@ -3,6 +3,7 @@ import {test} from 'node:test';
 import {
   ToolCallCollector,
   parseEstimate,
+  parsePicks,
   parseSseData,
   parseWeeklyReportText,
 } from './ai';
@@ -143,4 +144,55 @@ test('accepts whole tool calls without an index or id', () => {
       ['call_1', 'get_exercise_plan'],
     ],
   );
+});
+
+const item = {
+  label: '1 cup chawal',
+  food: 'chawal',
+  search: ['rice white cooked'],
+  amount: 1,
+  unit: 'cup',
+  grams: 190,
+  calories: 260,
+  protein: 5,
+  carbs: 57,
+  fat: 0.5,
+  saturatedFat: 0.1,
+};
+
+test('keeps estimated items', () => {
+  const estimate = parseEstimate({...base, items: [item]});
+  assert.equal(estimate?.items?.length, 1);
+  assert.deepEqual(estimate?.items?.[0].search, ['rice white cooked']);
+});
+
+test('malformed items fall back to the meal totals', () => {
+  const estimate = parseEstimate({...base, items: [{...item, grams: 'lots'}]});
+  assert.ok(estimate);
+  assert.equal(estimate.items, undefined);
+  assert.equal(estimate.calories, 512);
+  assert.equal(parseEstimate({...base, items: []})?.items, undefined);
+});
+
+const pickItems = [
+  {label: 'daal', food: 'daal', otherFoods: ['chawal'], candidates: [{id: '25202005', name: 'Dhal'}]},
+  {label: 'chawal', food: 'chawal', otherFoods: ['daal'], candidates: [{id: '12102003', name: 'Rice'}]},
+];
+
+test('keeps only picks that were offered for that item', () => {
+  assert.deepEqual(
+    parsePicks(
+      {
+        picks: [
+          {item: 0, id: '12102003'}, // another item's candidate
+          {item: 1, id: '12102003'},
+          {item: 5, id: '25202005'}, // no such item
+        ],
+      },
+      pickItems,
+    ),
+    [null, '12102003'],
+  );
+  assert.deepEqual(parsePicks({picks: [{item: 0, id: null}]}, pickItems), [null, null]);
+  assert.equal(parsePicks({choices: []}, pickItems), null);
 });

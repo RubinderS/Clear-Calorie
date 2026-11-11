@@ -53,3 +53,6 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# AUSNUT spreadsheets for npm run foods:build
+/data/ausnut/

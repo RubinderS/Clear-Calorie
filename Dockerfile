@@ -63,6 +63,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Standalone output leaves out public/ (e.g. the workout voice clips).
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# The food database, loaded into MongoDB at startup. Not under /app/data,
+# which the volume covers.
+COPY --from=builder --chown=nextjs:nodejs /app/datasets ./datasets
 COPY --from=builder --chown=nextjs:nodejs /app/docker-entrypoint.sh ./docker-entrypoint.sh
 # Data migrations, applied by the entrypoint on every start
 COPY --from=builder --chown=nextjs:nodejs /app/migrate-mongo-config.js ./migrate-mongo-config.js

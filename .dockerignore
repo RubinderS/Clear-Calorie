@@ -11,3 +11,5 @@ README.md
 .github
 # Python voice generator; the app only needs its output in public/audio/voice
 scripts/voice
+# AUSNUT spreadsheets; the image uses datasets/ausnut.json built from them
+data/ausnut

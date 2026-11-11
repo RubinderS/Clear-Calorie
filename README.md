@@ -27,7 +27,8 @@ and get an AI-written review of your week, all on your own server.
   protein, exercise and weight.
 - **🍽️ Food logging.** Calories and macros per entry, saved foods for quick
   re-logging, and optional **AI estimates**: type "2 eggs on toast with butter"
-  and the AI fills in the numbers for you to review.
+  and the AI fills in the numbers for you to review. Each food is matched to
+  the bundled AUSNUT food database and the numbers come from there.
 - **🏋️ Exercise plan and workouts.** Plan exercises per weekday, run guided
   sets with a tempo, voice or tone cues and music, and compare against last
   week's sets.
@@ -155,6 +156,43 @@ limiting (Upstash) and verification emails (Resend).
 Health notes, food and exercise logs are sent to the configured AI service
 when you use AI estimates, weekly reports or the coach.
 
+### 🥗 Food database
+
+AI estimates take their numbers from [AUSNUT 2023](https://www.foodstandards.gov.au/science-data/food-nutrient-databases/ausnut),
+the Australian food composition database from FSANZ. It ships with the app
+as `datasets/ausnut.json` (3,741 foods) and is loaded into MongoDB when the
+app starts. Nothing to set up; it reloads only when the file changes, and
+users' saved matches are kept.
+
+How an estimate uses it:
+
+1. The AI splits the meal into foods, each with an amount. Combined dishes are
+   split into their parts: "daal chawal" becomes daal and rice.
+2. Each food is matched to a database entry: one remembered from an earlier
+   log, or one the AI picks from search results. The AI can only pick entries
+   it was shown, or none.
+3. Matched foods get their numbers from the database, using its household
+   measures for amounts such as "1 cup". Foods it doesn't have (e.g. most
+   branded products) keep the AI's numbers.
+
+The food form lists each food with its match, which you can change. When you
+log the food, each match is remembered for you, so "chawal" maps to the same
+entry next time. The bundled file also has shared matches for common names
+such as daal, chawal and roti.
+
+To update it for a new AUSNUT release, download these files from its
+[data files page](https://www.foodstandards.gov.au/science-data/food-nutrient-databases/ausnut/data-files)
+into `data/ausnut/`, run `npm run foods:build` and commit the new
+`datasets/ausnut.json`:
+
+- AUSNUT 2023 - Food details
+- AUSNUT 2023 - Food nutrient profiles
+- AUSNUT 2023 - Food measures
+
+AUSNUT 2023 © Food Standards Australia New Zealand, used under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). FSANZ doesn't
+endorse this app.
+
 ## 🧱 Tech Stack
 
 Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · MongoDB with
@@ -166,6 +204,7 @@ decimal.js for exact nutrition arithmetic.
 - `app/`: pages and API routes (App Router)
 - `components/`: React components, including the 3D exercise animations
 - `lib/`: auth, data access (`lib/data/`), models (`lib/models/`), AI chat tools and the exercise catalog
+- `datasets/`: the bundled AUSNUT food database
 - `migrations/`: data migrations ([migrations/README.md](migrations/README.md))
 - `scripts/`: seed, reset and weekly report scripts
 - `docs/`: how the exercise animations are built ([docs/exercise-animations.md](docs/exercise-animations.md))

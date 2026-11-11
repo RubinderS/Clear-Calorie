@@ -40,6 +40,65 @@ export type FoodLog = {
   updatedAt: Date;
 };
 
+/** A household measure of a food, e.g. 1 cup of cooked rice is 190 g. */
+export type FoodMeasure = {
+  // Lowercase, e.g. "cup", "slice", "egg"
+  unit: string;
+  // Extra words from the source, e.g. "regular" or "small"
+  detail: string | null;
+  // Grams in one unit
+  grams: number;
+};
+
+/** A food from the AUSNUT food composition database; nutrients per 100 g. */
+export type Food = {
+  // AUSNUT survey ID (8 digits)
+  id: string;
+  publicKey: string | null;
+  name: string;
+  // AUSNUT 2023 food classification (5 digits) and its name
+  groupCode: string;
+  groupName: string;
+  // Neighbouring name words joined ("sour dough" -> "sourdough"), for search
+  joinedWords: string;
+  energyKj: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  saturatedFat: number;
+  sugars: number;
+  fibre: number;
+  sodiumMg: number;
+  // Grams per ml, for amounts given in ml
+  density: number | null;
+  measures: FoodMeasure[];
+};
+
+/**
+ * What a phrase someone types (e.g. "chawal") means in the food database.
+ * userId null is a shared alias; a user's own one wins over it.
+ */
+export type FoodAlias = {
+  id: string;
+  userId: string | null;
+  // Normalised, see normalisePhrase
+  phrase: string;
+  foodId: string;
+  // Times the user logged food with this match
+  count: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+/** Reference data shipped with the app, e.g. the food database. */
+export type Dataset = {
+  // e.g. "ausnut"
+  id: string;
+  // Hash of the bundled file last loaded; a new file reloads it
+  version: string;
+  loadedAt: Date;
+};
+
 export type SavedFoodItem = {
   id: string;
   userId: string;
