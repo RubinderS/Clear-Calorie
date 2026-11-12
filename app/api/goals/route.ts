@@ -4,13 +4,16 @@ import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {upsertGoals} from '@/lib/data/goals';
 
-const notes = z
-  .string()
-  .trim()
-  .max(500)
-  .nullable()
-  .optional()
-  .transform((value) => (value === '' ? null : value));
+const notesSchema = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullable()
+    .optional()
+    .transform((value) => (value === '' ? null : value));
+
+const notes = notesSchema(500);
 
 const goalsSchema = z.object({
   calorieGoal: z.number().int().min(0).optional(),
@@ -20,6 +23,8 @@ const goalsSchema = z.object({
   saturatedFatGoal: z.number().int().min(0).optional(),
   healthNotes: notes,
   foodPreferences: notes,
+  // Rule lists (portions, cooking methods) run longer than the other notes.
+  foodDefaults: notesSchema(1000),
 });
 
 export async function POST(request: Request) {

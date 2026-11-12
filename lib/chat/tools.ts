@@ -224,14 +224,14 @@ const PLAN_PROPOSAL_RESULT =
 export const TOOLS = {
   get_profile_and_goals: defineTool({
     description:
-      "The user's daily food goals (calories, protein, carbs, fat, saturated fat), health notes, food preferences, and profile: fitness goal, body stats, maintenance calories and the suggested daily calories and protein for their goal.",
+      "The user's daily food goals (calories, protein, carbs, fat, saturated fat), health notes, food preferences, food defaults (the user's standing portion and preparation assumptions), and profile: fitness goal, body stats, maintenance calories and the suggested daily calories and protein for their goal.",
     status: 'Checking your goals and profile',
     schema: z.object({}),
     parameters: {type: 'object', properties: {}},
     async run(_args, {userId, timeZone}) {
       const today = getTodayDate(timeZone);
       const yesterday = format(subDays(parseISO(today), 1), 'yyyy-MM-dd');
-      const [{goals, healthNotes, foodPreferences}, profile] = await Promise.all([
+      const [{goals, healthNotes, foodPreferences, foodDefaults}, profile] = await Promise.all([
         getReportGoals(userId),
         loadProfileSummary(userId, timeZone, yesterday, new Date()),
       ]);
@@ -240,6 +240,7 @@ export const TOOLS = {
           dailyGoals: goals,
           healthNotes,
           foodPreferences,
+          foodDefaults,
           profile: profile ?? 'No profile filled in (or no weigh-ins yet).',
         },
       };
@@ -561,8 +562,8 @@ export const TOOLS = {
     },
     async run({description, ...when}, ctx) {
       const {date, time} = resolveLogDate(when, getTodayDate(ctx.timeZone));
-      const {healthNotes} = await getReportGoals(ctx.userId);
-      const estimate = await estimateFood(description, healthNotes);
+      const {healthNotes, foodDefaults} = await getReportGoals(ctx.userId);
+      const estimate = await estimateFood(description, {healthNotes, foodDefaults});
       const entry = foodSchema.parse({
         name: estimate.name,
         calories: estimate.calories,

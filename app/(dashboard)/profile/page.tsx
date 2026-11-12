@@ -14,6 +14,7 @@ import {ProfileForm} from '@/components/profile-form';
 import {MaintenanceSummary} from '@/components/maintenance-summary';
 import {FoodGoalsForm} from '@/components/food-goals-form';
 import {FoodPreferencesForm} from '@/components/food-preferences-form';
+import {FoodDefaultsForm} from '@/components/food-defaults-form';
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
@@ -79,9 +80,12 @@ export default async function ProfilePage() {
         )}
         <div className="space-y-6">
           {profileForm}
-          {/* Only the AI coach and weekly report use them. */}
+          {/* Only the AI uses these. */}
           {aiEnabled && (
-            <FoodPreferencesForm foodPreferences={goal?.foodPreferences ?? null} />
+            <>
+              <FoodPreferencesForm foodPreferences={goal?.foodPreferences ?? null} />
+              <FoodDefaultsForm foodDefaults={goal?.foodDefaults ?? null} />
+            </>
           )}
         </div>
         {!summary && foodGoalsForm}

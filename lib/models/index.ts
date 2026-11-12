@@ -191,6 +191,7 @@ const goalSchema = schema<T.Goal>(
     saturatedFatGoal: {type: Number, default: 20},
     healthNotes: optional(String),
     foodPreferences: optional(String),
+    foodDefaults: optional(String),
   },
   false,
 );

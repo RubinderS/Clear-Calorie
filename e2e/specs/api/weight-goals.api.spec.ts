@@ -100,11 +100,27 @@ test.describe('Goals API', () => {
     ).toBeNull();
   });
 
+  test('GA-02 food defaults are saved without touching food preferences', async ({api, db, user}) => {
+    await api.post('/api/goals', {data: {foodPreferences: 'Vegetarian'}});
+    const defaults = '1 plate rice = 70g. Curries no oil. '.repeat(20).trim();
+    expect(defaults.length).toBeGreaterThan(500);
+    await api.post('/api/goals', {data: {foodDefaults: `  ${defaults} `}});
+    expect(await db.goal.findUnique({where: {userId: user.id}})).toMatchObject({
+      foodPreferences: 'Vegetarian',
+      foodDefaults: defaults,
+    });
+    await api.post('/api/goals', {data: {foodDefaults: ''}});
+    expect(
+      (await db.goal.findUnique({where: {userId: user.id}}))?.foodDefaults,
+    ).toBeNull();
+  });
+
   for (const [label, data] of [
     ['decimal', {calorieGoal: 1800.5}],
     ['negative', {fatGoal: -1}],
     ['string', {proteinGoal: '100'}],
     ['notes over 500 chars', {healthNotes: 'x'.repeat(501)}],
+    ['food defaults over 1000 chars', {foodDefaults: 'x'.repeat(1001)}],
   ] as const) {
     test(`GA-01 ${label} → 400`, async ({api}) => {
       const response = await api.post('/api/goals', {data});

@@ -202,6 +202,8 @@ export type Goal = {
   healthNotes: string | null;
   // Likes, dislikes and diet, e.g. "vegetarian, no mushrooms"; used by the AI coach
   foodPreferences: string | null;
+  // Standing assumptions for AI food estimates, e.g. "1 plate rice = 70g, curries no oil"
+  foodDefaults: string | null;
 };
 
 // Details for maintenance calories (lib/tdee.ts). Weight comes from weigh-ins.

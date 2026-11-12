@@ -40,10 +40,10 @@ export async function POST(request: Request) {
   try {
     // Read from the DB rather than the request so notes can't be spoofed per call.
     const goal = await findGoals(session.user.id);
-    const estimate = await estimateFood(
-      parsed.data.description,
-      goal?.healthNotes,
-    );
+    const estimate = await estimateFood(parsed.data.description, {
+      healthNotes: goal?.healthNotes,
+      foodDefaults: goal?.foodDefaults,
+    });
     return NextResponse.json(estimate);
   } catch (error) {
     if (error instanceof AiError) {

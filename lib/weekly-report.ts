@@ -85,6 +85,7 @@ export async function getReportGoals(userId: string) {
     goals,
     healthNotes: goal?.healthNotes?.trim() || null,
     foodPreferences: goal?.foodPreferences?.trim() || null,
+    foodDefaults: goal?.foodDefaults?.trim() || null,
   };
 }
 
