@@ -17,6 +17,7 @@ import {
   ExerciseAreas,
   ExerciseHowTo,
 } from '@/components/exercise-animation';
+import {DaySwapControl} from '@/components/day-swap';
 import {GoalNotes} from '@/components/goal-notes';
 import {SequenceTag} from '@/components/sequence-steps-field';
 import {Button} from '@/components/ui/button';
@@ -374,6 +375,7 @@ export function TodaysExercisePlan({
         ) : (
           <ul className="space-y-2">{visibleGoals.map(goalRow)}</ul>
         )}
+        <DaySwapControl className="mt-3" />
         {error && (
           <p role="alert" className="mt-3 text-sm text-red-500">
             {error}

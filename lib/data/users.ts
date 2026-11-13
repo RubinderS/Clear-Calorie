@@ -60,6 +60,7 @@ export async function deleteUserData(userId: string) {
       models.SavedExerciseItem,
       models.ExerciseGoal,
       models.ExercisePlanDay,
+      models.ExerciseWeekSwap,
       models.WeightLog,
       models.BodyMetric,
       models.Goal,

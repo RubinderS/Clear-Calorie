@@ -4,7 +4,6 @@ import {z} from 'zod';
 import {authOptions} from '@/lib/auth-options';
 import {
   exerciseSetsSchema,
-  isActiveOn,
   isSequence,
   setsOf,
   toExerciseFields,
@@ -18,7 +17,8 @@ import {
   deleteGoalTick,
   findGoalTick,
 } from '@/lib/data/exercise-logs';
-import {getTodayDate, getTodayWeekday, getUserTimeZone} from '@/lib/timezone';
+import {getPlannedExerciseGoals} from '@/lib/exercise-plan';
+import {getTodayDate, getUserTimeZone} from '@/lib/timezone';
 
 // Details override the goal's when the user changed them before logging, e.g.
 // a heavier last set. durationMin is the older way to change a single timed set.
@@ -61,7 +61,9 @@ export async function POST(request: Request) {
     }
 
     const timeZone = await getUserTimeZone();
-    if (!isActiveOn(goal.daysMask, getTodayWeekday(timeZone))) {
+    // Today's plan, after any day swaps this week.
+    const planned = await getPlannedExerciseGoals(userId, timeZone);
+    if (!planned.some((today) => today.id === goal.id)) {
       return NextResponse.json(
         {error: 'This exercise is not planned for today'},
         {status: 400},
@@ -69,15 +71,15 @@ export async function POST(request: Request) {
     }
 
     const goalDate = getTodayDate(timeZone);
-    const planned = setsOf(goal);
+    const plannedSets = setsOf(goal);
     // A sequence's sets are labelled from its steps, never by the client.
-    const sets = (exerciseSets ?? plannedSetsWith(planned, durationMin)).map(
+    const sets = (exerciseSets ?? plannedSetsWith(plannedSets, durationMin)).map(
       (set, index) =>
         isSequence(goal)
           ? {
               ...set,
-              name: planned[index]?.name ?? null,
-              catalogId: planned[index]?.catalogId ?? null,
+              name: plannedSets[index]?.name ?? null,
+              catalogId: plannedSets[index]?.catalogId ?? null,
             }
           : set,
     );

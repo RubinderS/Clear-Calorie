@@ -432,6 +432,49 @@ export function isActiveOn(mask: number, day: number): boolean {
   return (mask & (1 << day)) !== 0;
 }
 
+/** A yyyy-MM-dd date moved by whole days. */
+export function shiftDateKey(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+/** The weekday (0 = Sunday) of a yyyy-MM-dd date. */
+export function weekdayOfDateKey(date: string): number {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+/** The Monday (yyyy-MM-dd) of the Monday–Sunday week a yyyy-MM-dd date falls in. */
+export function weekStartOf(date: string): string {
+  return shiftDateKey(date, -((weekdayOfDateKey(date) + 6) % 7));
+}
+
+/**
+ * A week's day swaps: index is the real weekday (0 = Sunday), value is the
+ * weekday whose planned workout is done on it.
+ */
+export type DayMap = readonly number[];
+
+export function identityDayMap(): number[] {
+  return [0, 1, 2, 3, 4, 5, 6];
+}
+
+/** The day map with days a and b trading workouts. */
+export function swapInDayMap(map: DayMap | null, a: number, b: number): number[] {
+  const next = map ? [...map] : identityDayMap();
+  [next[a], next[b]] = [next[b], next[a]];
+  return next;
+}
+
+export function isIdentityDayMap(map: DayMap | null): boolean {
+  return !map || map.every((scheduled, day) => scheduled === day);
+}
+
+/** The weekday whose workout is done on `day`, given the week's swaps. */
+export function scheduledWeekday(map: DayMap | null, day: number): number {
+  return map?.[day] ?? day;
+}
+
 /** Goals planned for a weekday, ignoring goals created after the day ended. */
 export function countPlannedOn(
   goals: readonly {daysMask: number; createdAt: Date}[],

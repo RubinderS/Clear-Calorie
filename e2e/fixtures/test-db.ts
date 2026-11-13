@@ -37,6 +37,7 @@ export type TestDb = {
   savedExerciseItem: Delegate<T.SavedExerciseItem>;
   exerciseGoal: Delegate<T.ExerciseGoal>;
   exercisePlanDay: Delegate<T.ExercisePlanDay>;
+  exerciseWeekSwap: Delegate<T.ExerciseWeekSwap>;
   weightLog: Delegate<T.WeightLog>;
   bodyMetric: Delegate<T.BodyMetric>;
   bodyMetricLog: Delegate<T.BodyMetricLog>;
@@ -149,6 +150,7 @@ const NAMES: Record<Exclude<keyof TestDb, 'connection'>, keyof Models> = {
   savedExerciseItem: 'SavedExerciseItem',
   exerciseGoal: 'ExerciseGoal',
   exercisePlanDay: 'ExercisePlanDay',
+  exerciseWeekSwap: 'ExerciseWeekSwap',
   weightLog: 'WeightLog',
   bodyMetric: 'BodyMetric',
   bodyMetricLog: 'BodyMetricLog',

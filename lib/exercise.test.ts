@@ -313,3 +313,29 @@ test('logged sets keep the exercise each step was', () => {
     'Jumping jacks, Squats · 3 steps',
   );
 });
+
+test('weekStartOf gives the Monday of a Monday–Sunday week', async () => {
+  const {weekStartOf, weekdayOfDateKey, shiftDateKey} = await import('./exercise');
+  assert.equal(weekStartOf('2026-11-13'), '2026-11-09'); // Friday
+  assert.equal(weekStartOf('2026-11-09'), '2026-11-09'); // Monday
+  assert.equal(weekStartOf('2026-11-15'), '2026-11-09'); // Sunday stays in its week
+  assert.equal(weekStartOf('2026-01-01'), '2025-12-29'); // across a year
+  assert.equal(weekdayOfDateKey('2026-11-15'), 0);
+  assert.equal(shiftDateKey('2026-02-28', 1), '2026-03-01');
+});
+
+test('swapInDayMap trades two days and swapping back undoes it', async () => {
+  const {swapInDayMap, isIdentityDayMap, scheduledWeekday, identityDayMap} =
+    await import('./exercise');
+  const once = swapInDayMap(null, 5, 4); // Fri does Thu's workout
+  assert.equal(scheduledWeekday(once, 5), 4);
+  assert.equal(scheduledWeekday(once, 4), 5);
+  assert.equal(scheduledWeekday(once, 1), 1);
+  assert.equal(scheduledWeekday(null, 3), 3);
+  const twice = swapInDayMap(once, 4, 6);
+  assert.deepEqual([...twice].sort(), identityDayMap()); // still a permutation
+  assert.equal(scheduledWeekday(twice, 6), 5);
+  assert.ok(isIdentityDayMap(swapInDayMap(once, 5, 4)));
+  assert.ok(isIdentityDayMap(null));
+  assert.ok(!isIdentityDayMap(once));
+});

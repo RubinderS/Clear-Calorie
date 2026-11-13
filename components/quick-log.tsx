@@ -6,6 +6,7 @@ import {Dumbbell, List, PersonStanding, Plus, Utensils} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
 import {FoodForm} from '@/components/food-form';
+import {DaySwapControl} from '@/components/day-swap';
 import {ExerciseForm} from '@/components/exercise-form';
 import {WeightForm} from '@/components/weight-form';
 import type {TrackedMetric} from '@/lib/body-metrics';
@@ -281,6 +282,8 @@ function ExercisePanel({
               headerAction={headerAction}
             />
           )}
+          {/* A rest day can take another day's workout this week. */}
+          {!hasPlan && <DaySwapControl className="px-6 pt-6" />}
           {showCustom ? (
             <div ref={customRef} className="group-has-data-workout:hidden">
               <ExerciseForm

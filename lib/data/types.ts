@@ -155,6 +155,16 @@ export type ExercisePlanDay = {
   plannedCount: number;
 };
 
+// One week's day swaps; weeks without a row follow the plan as scheduled.
+export type ExerciseWeekSwap = {
+  id: string;
+  userId: string;
+  // User-local yyyy-MM-dd of the week's Monday
+  weekStart: string;
+  // Index = real weekday (0 = Sunday), value = weekday whose workout is done on it
+  dayMap: number[];
+};
+
 export type WeightLog = {
   id: string;
   userId: string;

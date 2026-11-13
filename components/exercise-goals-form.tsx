@@ -31,6 +31,7 @@ import {
 } from '@/components/exercise-detail-fields';
 import {ExerciseAreaTag, ExerciseAreas, ExerciseHowTo} from '@/components/exercise-animation';
 import {ExerciseNameInput} from '@/components/exercise-name-input';
+import {useWeekSwaps, weekdayName} from '@/components/day-swap';
 import {
   SequenceStepsField,
   SequenceTag,
@@ -60,6 +61,7 @@ type ExerciseGoalsFormProps = {
 };
 
 export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
+  const weekSwaps = useWeekSwaps();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -195,6 +197,17 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
     router.refresh();
   }
 
+  /** The weekday whose workout `day` does this week, when swapped. */
+  function swapFor(day: number): number | null {
+    const swapped = weekSwaps.overview?.days.find((entry) => entry.weekday === day);
+    return swapped && swapped.plannedWeekday !== day ? swapped.plannedWeekday : null;
+  }
+  const swappedThisWeek = WEEKDAYS.some(
+    ({day}) =>
+      swapFor(day) !== null &&
+      weekSwaps.overview?.days.find((entry) => entry.weekday === day)?.swappable,
+  );
+
   return (
     <Card>
       <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
@@ -230,7 +243,18 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
           <p className="text-sm text-muted-foreground">No exercise plan yet.</p>
         ) : (
           <div className="space-y-4">
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
+              {swappedThisWeek && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={weekSwaps.pending}
+                  onClick={() => void weekSwaps.reset()}
+                >
+                  Reset this week&apos;s swaps
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -271,6 +295,11 @@ export function ExerciseGoalsForm({goals}: ExerciseGoalsFormProps) {
                       {focus && (
                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                           {focus}
+                        </span>
+                      )}
+                      {swapFor(day) !== null && (
+                        <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                          This week: {weekdayName(swapFor(day)!)}&apos;s workout
                         </span>
                       )}
                       {/* An open rest day already says so below. */}

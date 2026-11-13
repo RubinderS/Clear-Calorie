@@ -100,6 +100,21 @@ export async function findExerciseLog(
   return withDetailsOne(await ExerciseLog.findOne({_id: id, userId}).lean());
 }
 
+/** Entries ticked off from planned goals for goal dates in [from, to). */
+export async function listGoalTicksBetween(
+  userId: string,
+  from: string,
+  to: string,
+): Promise<ExerciseLogWithDetails[]> {
+  const {ExerciseLog} = await db();
+  const docs = await ExerciseLog.find({
+    userId,
+    exerciseGoalId: {$ne: null},
+    goalDate: {$gte: from, $lt: to},
+  }).lean();
+  return withDetails(docs);
+}
+
 /** The entry a planned goal was ticked off with on goalDate. */
 export async function findGoalTick(
   exerciseGoalId: string,

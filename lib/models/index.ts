@@ -150,6 +150,17 @@ const exercisePlanDaySchema = schema<T.ExercisePlanDay>(
 );
 exercisePlanDaySchema.index({userId: 1, date: 1}, {unique: true});
 
+const exerciseWeekSwapSchema = schema<T.ExerciseWeekSwap>(
+  'exercise_week_swaps',
+  {
+    userId: ref,
+    weekStart: {type: String, required: true},
+    dayMap: {type: [Number], required: true},
+  },
+  false,
+);
+exerciseWeekSwapSchema.index({userId: 1, weekStart: 1}, {unique: true});
+
 const weightLogSchema = schema<T.WeightLog>('weight_logs', {
   userId: ref,
   weight: {type: Number, required: true},
@@ -304,6 +315,7 @@ const SCHEMAS = {
   SavedExerciseItem: savedExerciseItemSchema,
   ExerciseGoal: exerciseGoalSchema,
   ExercisePlanDay: exercisePlanDaySchema,
+  ExerciseWeekSwap: exerciseWeekSwapSchema,
   WeightLog: weightLogSchema,
   BodyMetric: bodyMetricSchema,
   BodyMetricLog: bodyMetricLogSchema,
