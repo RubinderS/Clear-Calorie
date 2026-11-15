@@ -4,6 +4,7 @@ import bandTricepsExtension from './band-triceps-extension.json';
 import bandTricepsPushdown from './band-triceps-pushdown.json';
 import barbellBenchPress from './barbell-bench-press.json';
 import barbellBentOverRow from './barbell-bent-over-row.json';
+import barbellHipThrust from './barbell-hip-thrust.json';
 import barbellSquat from './barbell-squat.json';
 import bulgarianSplitSquat from './bulgarian-split-squat.json';
 import burpee from './burpee.json';
@@ -31,6 +32,7 @@ import inclineDumbbellPress from './incline-dumbbell-press.json';
 import jumpSquat from './jump-squat.json';
 import jumpingJack from './jumping-jack.json';
 import plankJack from './plank-jack.json';
+import lowJack from './low-jack.json';
 import meditation from './meditation.json';
 import mountainClimber from './mountain-climber.json';
 import oneArmDumbbellRow from './one-arm-dumbbell-row.json';
@@ -344,5 +346,18 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     type: 'TIME',
     aliases: ['wall sits', 'wall squat', 'wall squat hold', 'wall chair', 'chair pose against wall', 'wall sitting'],
     areas: {primary: ['quads', 'glutes'], secondary: ['hamstrings', 'calves', 'core']},
+  },
+  {
+    config: barbellHipThrust,
+    type: 'STRENGTH',
+    aliases: ['hip thrust', 'hip thrusts', 'barbell hip thrusts', 'bb hip thrust', 'weighted hip thrust', 'glute thrust'],
+    areas: {primary: ['glutes'], secondary: ['hamstrings', 'quads', 'core']},
+  },
+  {
+    config: lowJack,
+    // Cardio: usually done for time, and the animation keeps its own pace.
+    type: 'TIME',
+    aliases: ['low jacks', 'squat jack', 'squat jacks', 'squat jumping jack', 'squat jumping jacks'],
+    areas: {primary: ['cardio', 'quads', 'glutes'], secondary: ['calves', 'core']},
   },
 ];

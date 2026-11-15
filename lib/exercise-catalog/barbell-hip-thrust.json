@@ -1,0 +1,25 @@
+{
+  "id": "barbell-hip-thrust",
+  "name": "Barbell hip thrust",
+  "view": "side",
+  "equipment": ["barbell", "bench"],
+  "phases": [
+    {"name": "drive", "durationMs": 1100, "from": 0, "to": 1, "cue": "Drive through your heels — hips up"},
+    {"name": "squeeze", "durationMs": 500, "from": 1, "to": 1, "cue": "Squeeze your glutes, torso level"},
+    {"name": "lower", "durationMs": 1800, "from": 1, "to": 0, "cue": "Lower your hips under control"},
+    {"name": "reset", "durationMs": 400, "from": 0, "to": 0, "cue": "Brace, chin tucked, upper back on the bench"}
+  ],
+  "formTips": [
+    "Rest your upper back, just below the shoulder blades, across the edge of the bench",
+    "Roll the bar over your hip crease, using a pad, and hold it in place with both hands",
+    "Plant your feet about hip-width so your shins are upright at the top",
+    "Keep your chin tucked and ribs down, moving your head with your torso",
+    "Finish with your torso and thighs level and your glutes squeezed hard"
+  ],
+  "commonMistakes": [
+    "Arching the lower back to get the hips higher",
+    "Pushing through the toes so the heels lift",
+    "Feet too far forward or back, so the hamstrings or quads take over",
+    "Letting the knees cave inwards"
+  ]
+}

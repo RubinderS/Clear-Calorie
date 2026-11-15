@@ -1,0 +1,23 @@
+{
+  "id": "low-jack",
+  "name": "Low jack",
+  "view": "front",
+  "equipment": [],
+  "phases": [
+    {"name": "out", "durationMs": 400, "from": 0, "to": 1, "cue": "Stay low — jump your feet out wide"},
+    {"name": "wide", "durationMs": 150, "from": 1, "to": 1, "cue": "Land softly, knees out over your toes"},
+    {"name": "in", "durationMs": 400, "from": 1, "to": 0, "cue": "Jump your feet back in, hips still low"},
+    {"name": "together", "durationMs": 150, "from": 0, "to": 0, "cue": "Chest up, hands together in front"}
+  ],
+  "formTips": [
+    "Sink into a half squat and stay at that height the whole time",
+    "Jump your feet out to wider than your shoulders and back in under your hips",
+    "Land softly on the balls of your feet, knees in line with your toes",
+    "Keep your chest up and your hands together in front of it"
+  ],
+  "commonMistakes": [
+    "Standing up between jumps instead of staying low",
+    "Knees caving in as you land wide",
+    "Rounding the back or letting the chest drop"
+  ]
+}

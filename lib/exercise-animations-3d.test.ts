@@ -13,6 +13,7 @@ import * as extension from '@/components/exercise-animations/3d/poses/band-trice
 import * as pushdown from '@/components/exercise-animations/3d/poses/band-triceps-pushdown';
 import * as bench from '@/components/exercise-animations/3d/poses/barbell-bench-press';
 import * as row from '@/components/exercise-animations/3d/poses/barbell-bent-over-row';
+import * as hipThrust from '@/components/exercise-animations/3d/poses/barbell-hip-thrust';
 import * as squat from '@/components/exercise-animations/3d/poses/barbell-squat';
 import * as splitSquat from '@/components/exercise-animations/3d/poses/bulgarian-split-squat';
 import * as chestRow from '@/components/exercise-animations/3d/poses/chest-supported-dumbbell-row';
@@ -45,6 +46,7 @@ import * as hamstringCurl from '@/components/exercise-animations/3d/poses/standi
 import * as highKnees from '@/components/exercise-animations/3d/poses/high-knees';
 import * as jumpSquat from '@/components/exercise-animations/3d/poses/jump-squat';
 import * as plankJack from '@/components/exercise-animations/3d/poses/plank-jack';
+import * as lowJack from '@/components/exercise-animations/3d/poses/low-jack';
 import * as climber from '@/components/exercise-animations/3d/poses/mountain-climber';
 import * as meditation from '@/components/exercise-animations/3d/poses/meditation';
 import * as runningMan from '@/components/exercise-animations/3d/poses/running-man';
@@ -362,6 +364,17 @@ const EXPECT: Record<string, Expect> = {
     elbow: () => Y.clone().negate(),
     // A hold: nothing moves.
     planted: joints,
+  },
+  'barbell-hip-thrust': {
+    // Arms along the sides to the bar, the elbows soft and out.
+    elbow: (s, side) => outward(s, side),
+    planted: plantedFeet,
+    // Palms down on top of the bar, the fingers wrapping over it.
+    grip: (s, side) => ({palm: s.forward.clone(), over: forearm(s, side)}),
+  },
+  'low-jack': {
+    // Elbows tucked down and out by the ribs, the hands together in front of the chest.
+    elbow: (s, side) => outward(s, side).sub(up(s)),
   },
 };
 const NATIVE = Object.keys(EXPECT);
@@ -1392,6 +1405,37 @@ test('wall sit: shins upright, thighs level, back and head against the wall, arm
   assert.ok(entry.phases.every((phase) => phase.from === 0 && phase.to === 0));
 });
 
+test('hip thrust: upper back on the bench edge; hips from near the floor up until torso and thighs are level over upright shins', () => {
+  const bottom = hipThrust.barbellHipThrustPose(0);
+  const top = hipThrust.barbellHipThrustPose(1);
+  // At the top: the torso level, the knees about a right angle with the shins upright.
+  assert.ok(close(top.hip.y, top.shoulder.y, 1e-9), 'torso level at the top');
+  for (const side of SIDES) {
+    const {hip, knee, ankle} = top.legs[side];
+    const angle = jointAngle(hip, knee, ankle);
+    assert.ok(angle > 85 && angle < 95, `${side} knee at ${angle.toFixed(1)}° at the top`);
+    assert.ok(Math.abs(knee.x - ankle.x) < 0.03, `${side} shin upright at the top`);
+    assert.ok(Math.abs(knee.y - hip.y) < 0.05, `${side} thigh level at the top`);
+  }
+  // At the bottom the hips sit low, the shoulders still on the bench.
+  assert.ok(bottom.hip.y < top.hip.y - 0.4, `hips at ${bottom.hip.y.toFixed(2)} at the bottom`);
+  assert.ok(bottom.hip.y - SIZES.shorts > 0.02, 'hips clear of the floor');
+  for (const t of steps) {
+    const s = hipThrust.barbellHipThrustPose(t);
+    // The upper back stays on the bench's edge.
+    const back = s.shoulder.clone().addScaledVector(up(s), -hipThrust.CONTACT_FROM_SHOULDER).addScaledVector(s.forward, -DEPTH);
+    assert.ok(back.distanceTo(hipThrust.PIVOT) < 1e-9, `back off the bench edge at ${t}`);
+    assert.ok(s.shoulder.x < hipThrust.BENCH.right, `shoulders off the bench at ${t}`);
+    // The bar rides in the hip crease, above the hips, held in both paws.
+    const bar = between(s.paws.left.at, s.paws.right.at);
+    assert.ok(bar.distanceTo(hipThrust.hipThrustBarAt(t)) < 1e-9, `paws off the bar at ${t}`);
+    assert.ok(bar.clone().sub(s.hip).dot(s.forward) > DEPTH, `bar in the body at ${t}`);
+    assert.ok(Math.abs(bar.x - s.hip.x) < 0.2, `bar off the hips at ${t}`);
+    // The head stays off the bench.
+    assert.ok(s.head.y - SIZES.head.radius > hipThrust.BENCH.top, `head on the bench at ${t}`);
+  }
+});
+
 test('meditation: sitting cross-legged on the floor, hands resting on the knees; the chest lifts tall on the in-breath', () => {
   for (const t of steps) {
     const s = meditation.meditationPose(t);
@@ -1570,6 +1614,34 @@ test('burpee: hands planted from the squat to the plank and back; a straight pla
   for (const frame of framesOf('burpee')) {
     const hop = burpee.hopAt(frame);
     assert.ok(['jump', 'land'].includes(frame.phase.name) || hop === 0, `hop in ${frame.phase.name}`);
+  }
+});
+
+test('low jack: stays low in a half squat; the feet jump from under the hips out wide and back, landing on the floor', () => {
+  const together = lowJack.lowJackPose(0);
+  const wide = lowJack.lowJackPose(1);
+  for (const s of [together, wide]) {
+    for (const side of SIDES) {
+      const {hip, knee, ankle} = s.legs[side];
+      const angle = jointAngle(hip, knee, ankle);
+      assert.ok(angle > 95 && angle < 125, `${side} knee at ${angle.toFixed(1)}°`);
+      // Knees forward of the ankles and out over the toes.
+      assert.ok(knee.z > ankle.z + 0.2, `${side} knee forward`);
+      assert.ok(knee.x * SIDE_SIGN[side] > hip.x * SIDE_SIGN[side], `${side} knee caving in`);
+    }
+    // Paws together in front of the chest.
+    assert.ok(s.paws.left.at.distanceTo(s.paws.right.at) < 0.25, 'hands together');
+    for (const side of SIDES) assert.ok(s.paws[side].at.z > s.shoulder.z + 0.2, `${side} hand in front`);
+  }
+  assert.ok(Math.abs(together.legs.left.ankle.x - together.legs.right.ankle.x) < 0.4, 'feet together under the hips');
+  assert.ok(Math.abs(wide.legs.left.ankle.x - wide.legs.right.ankle.x) > 2 * SHOULDER_HALF + 0.3, 'feet wider than the shoulders');
+  // Low the whole time: well below standing tall.
+  assert.ok(together.hip.y < FOOT.ankle + RIG.thigh + RIG.shin - 0.2, 'hips low');
+  for (const frame of framesOf('low-jack')) {
+    const s = SPECS['low-jack'].pose(frame);
+    const hop = lowJack.hopAt(frame);
+    assert.ok(frame.phase.from !== frame.phase.to || hop === 0, 'hops only while jumping');
+    for (const side of SIDES) assert.ok(close(s.feet[side].at.y, FOOT.height + hop, 1e-9), `${side} foot off the floor`);
   }
 });
 

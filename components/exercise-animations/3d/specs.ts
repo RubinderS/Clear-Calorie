@@ -8,6 +8,7 @@ import * as tricepsExtension from './poses/band-triceps-extension';
 import * as pushdown from './poses/band-triceps-pushdown';
 import * as bench from './poses/barbell-bench-press';
 import * as row from './poses/barbell-bent-over-row';
+import * as hipThrust from './poses/barbell-hip-thrust';
 import * as barbellSquat from './poses/barbell-squat';
 import * as splitSquat from './poses/bulgarian-split-squat';
 import * as burpee from './poses/burpee';
@@ -35,6 +36,7 @@ import * as inclinePress from './poses/incline-dumbbell-press';
 import * as jumpSquat from './poses/jump-squat';
 import * as jumpingJack from './poses/jumping-jack';
 import * as plankJack from './poses/plank-jack';
+import * as lowJack from './poses/low-jack';
 import * as meditation from './poses/meditation';
 import * as mountainClimber from './poses/mountain-climber';
 import * as oneArmRow from './poses/one-arm-dumbbell-row';
@@ -143,6 +145,15 @@ export const SPECS: Record<string, Spec3D> = {
     pose: row.pose,
     equipment: barbellInPaws(),
     camera: {aspect: 398 / 347},
+  },
+  'barbell-hip-thrust': {
+    pose: hipThrust.pose,
+    equipment: (kit, parent) => {
+      // The bench seen end-on behind the upper back, the bar across the hips.
+      parent.add(flatBench(kit, hipThrust.BENCH).object);
+      return barbellInPaws()(kit, parent);
+    },
+    camera: {aspect: 440 / 300},
   },
   'barbell-squat': {
     pose: barbellSquat.pose,
@@ -310,6 +321,10 @@ export const SPECS: Record<string, Spec3D> = {
   'jumping-jack': {
     pose: jumpingJack.pose,
     camera: {aspect: 308 / 406},
+  },
+  'low-jack': {
+    pose: lowJack.pose,
+    camera: {aspect: 330 / 380},
   },
   'plank-jack': {
     pose: plankJack.pose,
