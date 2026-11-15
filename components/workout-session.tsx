@@ -390,9 +390,9 @@ type Pending = {make: MakeSession; voice: boolean};
 
 type WorkoutSessionProps = {
   goal: PlannedExercise;
-  /** Created in the Start tap for time goals; strength goals make their own. */
-  sound: WorkoutSound | null;
   onComplete: (result?: WorkoutResult) => void;
+  /** Skips the workout and goes straight to logging it as planned. */
+  onLogOnly: () => void;
   onCancel: () => void;
   /** Called when notes are saved mid-workout, so the review can show them. */
   onNotesSaved?: (notes: string | null) => void;
@@ -400,32 +400,16 @@ type WorkoutSessionProps = {
 
 export function WorkoutSession({
   goal,
-  sound,
   onComplete,
+  onLogOnly,
   onCancel,
   onNotesSaved,
 }: WorkoutSessionProps) {
   const [session, setSession] = useState<Session | null>(null);
   // A spoken workout waits here until every voice clip has loaded, so the
-  // timer never runs ahead of a count that can't be said yet.
-  const [waiting, setWaiting] = useState<Pending | null>(() => {
-    // Strength exercises and sequences start from a setup screen.
-    if (goal.type !== 'TIME') return null;
-    // Timed work has no setup screen, so it starts with the saved choices.
-    const prefs = loadPrefs();
-    return {
-      // Calm exercises never speak, so they needn't wait for the voice.
-      voice: prefs.cues === 'voice' && !isCalmExercise(goal.catalogId),
-      make: (startedAt) => ({
-        ...prefs,
-        initial: startWorkout(
-          markSteps(buildWorkoutSteps(setsOf(goal)), goal),
-          startedAt,
-        ),
-        sound,
-      }),
-    };
-  });
+  // timer never runs ahead of a count that can't be said yet. Every exercise
+  // starts from a setup screen, where it can be logged without a workout.
+  const [waiting, setWaiting] = useState<Pending | null>(null);
 
   useEffect(() => {
     if (!waiting) return;
@@ -460,9 +444,26 @@ export function WorkoutSession({
           onCancel={onCancel}
         />
       ) : isSequence(goal) ? (
-        <SequenceSetup goal={goal} onStart={setWaiting} onCancel={onCancel} />
+        <SequenceSetup
+          goal={goal}
+          onStart={setWaiting}
+          onLogOnly={onLogOnly}
+          onCancel={onCancel}
+        />
+      ) : goal.type === 'TIME' ? (
+        <TimedSetup
+          goal={goal}
+          onStart={setWaiting}
+          onLogOnly={onLogOnly}
+          onCancel={onCancel}
+        />
       ) : (
-        <StrengthSetup goal={goal} onStart={setWaiting} onCancel={onCancel} />
+        <StrengthSetup
+          goal={goal}
+          onStart={setWaiting}
+          onLogOnly={onLogOnly}
+          onCancel={onCancel}
+        />
       )}
       <div className={cn(big && 'md:col-start-1 md:row-start-2')}>
         <GoalNotes
@@ -491,6 +492,33 @@ function LoadingVoice({onCancel}: {onCancel: () => void}) {
         Loading voice…
       </p>
       <CancelRow label="Cancel" onCancel={onCancel} />
+    </div>
+  );
+}
+
+/**
+ * A setup screen's two ways on: its Start button, and logging the exercise as
+ * done without a workout. Side by side on desktop, stacked on phones.
+ */
+function SetupActions({
+  onLogOnly,
+  children,
+}: {
+  onLogOnly: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="grid gap-2 md:grid-cols-2">
+      {children}
+      <Button
+        type="button"
+        variant="outline"
+        className="h-12 w-full"
+        onClick={onLogOnly}
+      >
+        <Check />
+        Just log it
+      </Button>
     </div>
   );
 }
@@ -566,13 +594,77 @@ function WithAnimation({
   );
 }
 
-function StrengthSetup({
+/** Timed work: sound choices, the plan, then a timer or just logging it. */
+function TimedSetup({
   goal,
   onStart,
+  onLogOnly,
   onCancel,
 }: {
   goal: PlannedExercise;
   onStart: (pending: Pending) => void;
+  onLogOnly: () => void;
+  onCancel: () => void;
+}) {
+  const [prefs, setPrefs] = useState(loadPrefs);
+  const [planned] = useState(() => setsOf(goal));
+  const calm = isCalmExercise(goal.catalogId);
+
+  function start() {
+    savePrefs(prefs);
+    // Made in the tap, not once the voice loads: iOS only unlocks audio here.
+    const sound = createWorkoutSound();
+    onStart({
+      // Calm exercises never speak, so they needn't wait for the voice.
+      voice: prefs.cues === 'voice' && !calm,
+      make: (startedAt) => ({
+        ...prefs,
+        initial: startWorkout(markSteps(buildWorkoutSteps(planned), goal), startedAt),
+        sound,
+      }),
+    });
+  }
+
+  useEffect(() => {
+    if (prefs.music) void preloadWorkoutMusic().catch(() => {});
+  }, [prefs.music]);
+
+  return (
+    <WithAnimation
+      catalogId={goal.catalogId}
+      dimmed
+      sync={{key: 'preview', message: {cmd: 'free', playing: true}}}
+    >
+      <div className="space-y-4">
+        <SoundControls
+          cues={prefs.cues}
+          onCuesChange={(cues) => setPrefs({...prefs, cues})}
+          music={prefs.music}
+          onMusicToggle={() => setPrefs({...prefs, music: !prefs.music})}
+          hideCues={calm}
+        />
+        <SetPlanTable target={planned} lastWeek={goal.lastWeekSets} />
+        <SetupActions onLogOnly={onLogOnly}>
+          <Button className="h-12 w-full" onClick={start}>
+            <Play />
+            Start timer
+          </Button>
+        </SetupActions>
+        <CancelRow label="Cancel" onCancel={onCancel} />
+      </div>
+    </WithAnimation>
+  );
+}
+
+function StrengthSetup({
+  goal,
+  onStart,
+  onLogOnly,
+  onCancel,
+}: {
+  goal: PlannedExercise;
+  onStart: (pending: Pending) => void;
+  onLogOnly: () => void;
   onCancel: () => void;
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
@@ -647,10 +739,12 @@ function StrengthSetup({
         )}
         {/* Weight is changed when logging, so here it is only shown. */}
         <SetPlanTable target={planned} lastWeek={goal.lastWeekSets} />
-        <Button className="h-12 w-full" onClick={start}>
-          <Play />
-          Start {planned.length} {planned.length === 1 ? 'set' : 'sets'}
-        </Button>
+        <SetupActions onLogOnly={onLogOnly}>
+          <Button className="h-12 w-full" onClick={start}>
+            <Play />
+            Start {planned.length} {planned.length === 1 ? 'set' : 'sets'}
+          </Button>
+        </SetupActions>
         <CancelRow label="Cancel" onCancel={onCancel} />
       </div>
     </WithAnimation>
@@ -701,10 +795,12 @@ function sequencePlan(steps: readonly SequenceStep[]) {
 function SequenceSetup({
   goal,
   onStart,
+  onLogOnly,
   onCancel,
 }: {
   goal: PlannedExercise;
   onStart: (pending: Pending) => void;
+  onLogOnly: () => void;
   onCancel: () => void;
 }) {
   const [prefs, setPrefs] = useState(loadPrefs);
@@ -753,14 +849,16 @@ function SequenceSetup({
           shown={shown}
           onShow={setShown}
         />
-        <Button
-          className="h-12 w-full"
-          disabled={steps.length === 0}
-          onClick={start}
-        >
-          <Play />
-          Start {steps.length} {steps.length === 1 ? 'step' : 'steps'}
-        </Button>
+        <SetupActions onLogOnly={onLogOnly}>
+          <Button
+            className="h-12 w-full"
+            disabled={steps.length === 0}
+            onClick={start}
+          >
+            <Play />
+            Start {steps.length} {steps.length === 1 ? 'step' : 'steps'}
+          </Button>
+        </SetupActions>
         <CancelRow label="Cancel" onCancel={onCancel} />
       </div>
     </WithAnimation>

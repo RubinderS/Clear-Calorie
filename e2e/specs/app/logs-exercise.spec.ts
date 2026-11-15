@@ -1,7 +1,7 @@
 import {test, expect, nextApiRequest, onNextDialog} from '../../fixtures/test';
 import {seedExercise, seedExerciseGoal} from '../../fixtures/db';
 import {daysAgoIn, longDate, noonDaysAgo, todayIn} from '../../fixtures/dates';
-import {card, dialog, exerciseProgress, fillSets, logRow, setMode} from '../../fixtures/ui';
+import {card, dialog, exerciseProgress, fillSets, logPlanned, logRow, setMode} from '../../fixtures/ui';
 
 const STRENGTH = {
   name: 'Bench press',
@@ -232,7 +232,7 @@ test('EL-07 the plus button ticks the plan and logs custom exercise', async ({
   await card(page, "Today's workouts").getByRole('button', {name: 'Add exercise'}).click();
   const panel = dialog(page, 'Log exercise');
   await expect(panel.getByRole('link', {name: 'View logs'})).toHaveCount(0);
-  await panel.getByRole('checkbox', {name: 'Mark Plank as done'}).click();
+  await logPlanned(panel, 'Plank');
   await card(panel, 'Plank').getByRole('button', {name: 'Done', exact: true}).click();
   await expect(panel.getByText('All planned exercises done.')).toBeVisible();
   // The list behind the dialog picks up the ticked goal straight away.

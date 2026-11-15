@@ -19,7 +19,6 @@ import {
   BIG_SCREEN_FRAME,
   BigScreenProvider,
   useBigScreenZoom,
-  saveBigScreenPref,
   useBigScreenKeys,
   useIsDesktop,
 } from '@/components/workout-big-screen';
@@ -242,16 +241,12 @@ function ExercisePanel({
   const [bigOn, setBigOn] = useState(false);
   const bigScreen = {
     big: bigOn && desktop,
-    setBig(next: boolean) {
-      setBigOn(next);
-      // Remembered, so the next workout starts the same way.
-      saveBigScreenPref(next);
-    },
+    // Only the Big screen button or F11 changes it; a workout never does.
+    setBig: setBigOn,
   };
   const {big} = bigScreen;
   // Escape on the plan closes the panel, big screen and all, in one press;
   // a workout or log review opened over it goes back to the plan first.
-  // Closing isn't turning the big screen off, so the next workout keeps it.
   useBigScreenKeys(true, {...bigScreen, back: onClose});
   const zoomStyle = useBigScreenZoom(big);
 

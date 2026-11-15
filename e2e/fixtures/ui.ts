@@ -114,3 +114,9 @@ export function logRow(page: Page, name: string) {
     .getByRole('listitem')
     .filter({has: page.getByText(name, {exact: true})});
 }
+
+/** Opens a planned exercise's log form: Start, then Just log it, no workout. */
+export async function logPlanned(scope: Locator, name: string) {
+  await scope.getByRole('button', {name: `Start ${name}`}).click();
+  await card(scope, name).getByRole('button', {name: 'Just log it'}).click();
+}

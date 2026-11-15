@@ -2,7 +2,7 @@ import {test, expect} from '../../fixtures/test';
 import {signInOrThrow} from '../../fixtures/auth';
 import {seedExerciseGoal, seedFood} from '../../fixtures/db';
 import {daysAgoIn, instantAt, shiftDate, todayIn, weekdayIn} from '../../fixtures/dates';
-import {calorieSummary, card, logRow, openQuickLog} from '../../fixtures/ui';
+import {calorieSummary, card, logPlanned, logRow, openQuickLog} from '../../fixtures/ui';
 
 // UTC+14 and UTC-11: 25 hours apart, so their calendar dates never match.
 const KIRITIMATI = 'Pacific/Kiritimati';
@@ -113,9 +113,7 @@ test.describe('TZ-03 pages in Kiritimati', () => {
     await page.goto('/dashboard');
     const panel = await openQuickLog(page, 'exercise');
     const response = page.waitForResponse('**/api/exercise-goals/log');
-    await card(panel, "Today's plan")
-      .getByRole('checkbox', {name: 'Mark Island swim as done'})
-      .click();
+    await logPlanned(panel, 'Island swim');
     await card(panel, 'Island swim').getByRole('button', {name: 'Done', exact: true}).click();
     expect(await (await response).json()).toMatchObject({
       exerciseGoalId: goal.id,

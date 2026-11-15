@@ -3,7 +3,7 @@
 import {useEffect, useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
-import {Check, Play, X} from 'lucide-react';
+import {Check, Play, Undo2, X} from 'lucide-react';
 import {
   ExerciseLogFields,
   formatTimeInput,
@@ -31,16 +31,10 @@ import {
 import {WorkoutSession, type WorkoutResult} from '@/components/workout-session';
 import {
   BigScreenToggle,
-  loadBigScreenPref,
   useBigScreenBack,
   useBigScreenState,
 } from '@/components/workout-big-screen';
-import {
-  createWorkoutSound,
-  loadWorkoutVoice,
-  unlockAudio,
-  type WorkoutSound,
-} from '@/lib/workout-sound';
+import {loadWorkoutVoice, unlockAudio} from '@/lib/workout-sound';
 import {dayFocus} from '@/lib/day-focus';
 import {exerciseCatalog} from '@/lib/exercise-catalog';
 import {
@@ -156,7 +150,6 @@ export function TodaysExercisePlan({
 }: TodaysExercisePlanProps) {
   const [workout, setWorkout] = useState<{
     goal: PlannedExercise;
-    sound: WorkoutSound | null;
     /** Notes saved during the workout; the goal still holds the old ones. */
     notes?: string | null;
   } | null>(null);
@@ -186,6 +179,11 @@ export function TodaysExercisePlan({
   const doneGoals = goals.filter((goal) => completedIds.has(goal.id));
 
   if (workout) {
+    // The goal with any notes saved during the workout.
+    const current = () =>
+      workout.notes === undefined
+        ? workout.goal
+        : {...workout.goal, notes: workout.notes};
     return (
       <Card data-workout>
         {/* Less padding on phones, so the whole workout fits on screen. */}
@@ -195,14 +193,13 @@ export function TodaysExercisePlan({
         <CardContent className="max-md:px-4 max-md:pb-4">
           <WorkoutSession
             goal={workout.goal}
-            sound={workout.sound}
             onComplete={(result) => {
               setWorkout(null);
-              const {goal, notes} = workout;
-              setReview({
-                goal: notes === undefined ? goal : {...goal, notes},
-                result,
-              });
+              setReview({goal: current(), result});
+            }}
+            onLogOnly={() => {
+              setWorkout(null);
+              setReview({goal: current()});
             }}
             onCancel={() => setWorkout(null)}
             onNotesSaved={(notes) =>
@@ -258,18 +255,11 @@ export function TodaysExercisePlan({
   }
 
   function startWorkout(goal: PlannedExercise) {
-    // Workouts start on the big screen unless the user turned it off.
-    if (loadBigScreenPref()) bigScreen?.setBig(true);
-    // Timed workouts start without another tap, so their countdown voice
-    // and music must be unlocked by this one. Strength exercises and
-    // sequences have a setup screen.
-    let sound: WorkoutSound | null = null;
-    if (goal.type !== 'TIME') {
-      unlockAudio();
-    } else {
-      sound = createWorkoutSound();
-    }
-    setWorkout({goal, sound});
+    // The view stays as it is: only the Big screen button or F11 changes it.
+    // Every exercise opens a setup screen, whose Start makes the sound;
+    // unlocking audio in this tap too keeps iOS happy.
+    unlockAudio();
+    setWorkout({goal});
   }
 
   function goalRow(goal: PlannedExercise) {
@@ -279,20 +269,9 @@ export function TodaysExercisePlan({
         key={goal.id}
         className="flex items-center rounded-xl border border-border/50 bg-muted/30 transition-colors hover:bg-muted/50"
       >
-        {/* Only the checkbox toggles completion; a wrapping label
-            made taps on the name tick exercises off by mistake. */}
+        {/* Start opens a setup screen with a guided workout or just logging
+            it, so there's one way in; done rows have Undo instead. */}
         <div className="flex min-w-0 flex-1 items-start gap-3 p-3">
-          <input
-            id={`planned-${goal.id}`}
-            type="checkbox"
-            checked={checked}
-            disabled={pendingId === goal.id}
-            onChange={(event) =>
-              event.target.checked ? setReview({goal}) : onToggle(goal, false)
-            }
-            aria-label={`Mark ${goal.name} as done`}
-            className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-input accent-primary disabled:cursor-wait disabled:opacity-50"
-          />
           <span className="min-w-0 flex-1">
             {/* Wraps rather than truncates: the How to and Start
                 buttons leave little room for the name on phones. */}
@@ -324,7 +303,20 @@ export function TodaysExercisePlan({
           </span>
         </div>
         <ExerciseHowTo catalogId={goal.catalogId} className="mr-1 shrink-0" compact />
-        {!checked && (
+        {checked ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mr-3"
+            aria-label={`Undo ${goal.name}`}
+            disabled={pendingId === goal.id}
+            onClick={() => onToggle(goal, false)}
+          >
+            <Undo2 />
+            Undo
+          </Button>
+        ) : (
           <Button
             type="button"
             variant="outline"
@@ -393,7 +385,7 @@ export function TodaysExercisePlan({
       <Card data-done-today>
         <CardHeader>
           <CardTitle>Done today</CardTitle>
-          <CardDescription>Untick one to log it again</CardDescription>
+          <CardDescription>Undo one to log it again</CardDescription>
         </CardHeader>
         <CardContent>
           {doneGoals.length === 0 ? (

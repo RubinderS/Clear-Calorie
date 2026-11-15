@@ -20,7 +20,6 @@ import {cn} from '@/lib/utils';
 
 // Tailwind's md breakpoint, where the big screen is offered.
 const DESKTOP_QUERY = '(min-width: 48rem)';
-const PREF_KEY = 'clearcalorie:workout-big-screen';
 /** How much bigger everything is on the big screen, at most. */
 export const BIG_SCREEN_ZOOM = 1.35;
 /**
@@ -56,25 +55,14 @@ export function useIsDesktop() {
   );
 }
 
-/** Whether workouts start on the big screen: on until turned off. */
-export function loadBigScreenPref(): boolean {
-  try {
-    return localStorage.getItem(PREF_KEY) !== 'off';
-  } catch {
-    return true;
-  }
-}
-
-export function saveBigScreenPref(on: boolean) {
-  try {
-    localStorage.setItem(PREF_KEY, on ? 'on' : 'off');
-  } catch {}
-}
-
 export type BigScreenState = {big: boolean; setBig: (big: boolean) => void};
 
-/** A window's state, plus a screen inside it that Escape goes back from. */
-type KeyTarget = BigScreenState & {back?: () => void};
+/**
+ * A window's state, plus a screen inside it that Escape goes back from.
+ * `nested` marks a screen opened over the window's own, whose Escape goes
+ * back even off the big screen, rather than closing the whole window.
+ */
+type KeyTarget = BigScreenState & {back?: () => void; nested?: boolean};
 
 // For a component outside any big screen, so its hooks still run.
 const NO_BIG_SCREEN: BigScreenState = {big: false, setBig() {}};
@@ -95,15 +83,17 @@ export function useBigScreen(): boolean {
 // Windows and screens listening for the keys, innermost (last opened) last:
 // only it acts, so F11 in a How to opened over the exercise panel toggles the
 // How to, and Escape in a workout goes back to the plan.
-const listening: {current: KeyTarget}[] = [];
+const listening: {current: KeyTarget & {desktop: boolean}}[] = [];
 
 function onBigScreenKey(event: KeyboardEvent) {
   const current = listening.at(-1)?.current;
   if (!current) return;
   if (event.key === 'F11' && !event.repeat) {
+    // The big screen is only offered on desktop.
+    if (!current.desktop) return;
     event.preventDefault();
     current.setBig(!current.big);
-  } else if (event.key === 'Escape' && current.big) {
+  } else if (event.key === 'Escape' && (current.big || current.nested)) {
     // Caught first, so the dialog it's in doesn't also close.
     event.preventDefault();
     event.stopPropagation();
@@ -117,16 +107,17 @@ function onBigScreenKey(event: KeyboardEvent) {
 /**
  * While enabled (a workout window is showing) on desktop, F11 toggles the big
  * screen in place of the browser's own full screen. On it, Escape leaves it
- * rather than closing the window it's in.
+ * rather than closing the window it's in; a nested screen's Escape goes back
+ * on either view.
  */
 export function useBigScreenKeys(enabled: boolean, state: KeyTarget) {
   const desktop = useIsDesktop();
-  const latest = useRef(state);
+  const latest = useRef({...state, desktop});
   useEffect(() => {
-    latest.current = state;
+    latest.current = {...state, desktop};
   });
   useEffect(() => {
-    if (!enabled || !desktop) return;
+    if (!enabled) return;
     if (listening.length === 0) {
       window.addEventListener('keydown', onBigScreenKey, {capture: true});
     }
@@ -137,19 +128,20 @@ export function useBigScreenKeys(enabled: boolean, state: KeyTarget) {
         window.removeEventListener('keydown', onBigScreenKey, {capture: true});
       }
     };
-  }, [enabled, desktop]);
+  }, [enabled]);
 }
 
 /**
- * While active, a screen opened inside a big screen (a workout, a log
- * review): Escape there runs `back` rather than leaving the big screen, so a
- * second Escape is what leaves it.
+ * While active, a screen opened inside a workout window (a workout, a log
+ * review): Escape there runs `back`, on the big screen or not, so only a
+ * second Escape leaves the big screen or closes the window.
  */
 export function useBigScreenBack(active: boolean, back: () => void) {
   const state = useContext(BigScreenContext);
   useBigScreenKeys(active && state !== null, {
     ...(state ?? NO_BIG_SCREEN),
     back,
+    nested: true,
   });
 }
 
