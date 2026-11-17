@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {Dumbbell, List, PersonStanding, Plus, Utensils} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
-import {BigScreenCoach} from '@/components/chat/coach-provider';
+import {ExerciseDock} from '@/components/exercise-dock';
 import {FoodForm} from '@/components/food-form';
 import {DaySwapControl} from '@/components/day-swap';
 import {ExerciseForm} from '@/components/exercise-form';
@@ -304,7 +304,7 @@ function ExercisePanel({
             </div>
           )}
         </div>
-        {big && <BigScreenCoach />}
+        <ExerciseDock big={big} />
       </div>
     </BigScreenProvider>
   );

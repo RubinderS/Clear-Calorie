@@ -232,6 +232,38 @@ export function unlockAudio(): AudioContext | null {
   return context;
 }
 
+/** Rings one bell-like chime on the context. */
+function strike(
+  context: AudioContext,
+  {frequency, durationMs, gain: toneGain = 1, delayMs = 0}: Tone,
+) {
+  wake(context);
+  const start = context.currentTime + delayMs / 1000;
+  for (const partial of PARTIALS) {
+    const end = start + durationMs / 1000 / partial.ratio;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.frequency.value = frequency * partial.ratio;
+    // A near-instant strike, then an exponential ring-out like a struck bell.
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.linearRampToValueAtTime(VOLUME * toneGain * partial.gain, start + STRIKE_S);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start(start);
+    oscillator.stop(end + 0.02);
+  }
+}
+
+/**
+ * A quick timer's chimes: a count for each of its last seconds, then the
+ * set-end chord. Needs audio unlocked by a tap first (see unlockAudio).
+ */
+export function playTimerChime(kind: 'count' | 'end') {
+  const context = getAudioContext();
+  if (!context) return;
+  for (const tone of kind === 'end' ? SET_END_TONES : [LEAD_IN_TONE]) strike(context, tone);
+}
+
 /**
  * Must be called from a tap: iOS only allows audio that a user gesture
  * started, after which later cues can play on their own.
@@ -244,26 +276,8 @@ export function createWorkoutSound(): WorkoutSound {
   let speaking: {name: string; source: AudioBufferSourceNode; endS: number}[] =
     [];
 
-  function chime({frequency, durationMs, gain: toneGain = 1, delayMs = 0}: Tone) {
-    if (!context) return;
-    wake(context);
-    const start = context.currentTime + delayMs / 1000;
-    for (const partial of PARTIALS) {
-      const end = start + durationMs / 1000 / partial.ratio;
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.frequency.value = frequency * partial.ratio;
-      // A near-instant strike, then an exponential ring-out like a struck bell.
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.linearRampToValueAtTime(
-        VOLUME * toneGain * partial.gain,
-        start + STRIKE_S,
-      );
-      gain.gain.exponentialRampToValueAtTime(0.0001, end);
-      oscillator.connect(gain).connect(context.destination);
-      oscillator.start(start);
-      oscillator.stop(end + 0.02);
-    }
+  function chime(tone: Tone) {
+    if (context) strike(context, tone);
   }
 
   function stop() {

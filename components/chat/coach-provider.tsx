@@ -438,7 +438,7 @@ export const COACH_PANEL_ATTR = 'data-coach-panel';
 
 /**
  * The coach inside a workout's big screen, which is a modal dialog the
- * page's own drawer can't show over: a button in the corner opening a panel
+ * page's own drawer can't show over: a button (see ExerciseDock) opening a panel
  * down the right, sharing the drawer's conversation. The big screen makes
  * room for the panel rather than hiding behind it, and the panel has no
  * link to the full page, so asking never leaves the workout.
@@ -475,7 +475,7 @@ export function BigScreenCoach() {
         ref={buttonRef}
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-30 h-12 rounded-full px-5 shadow-xl max-md:hidden"
+        className="pointer-events-auto h-12 rounded-full px-5 shadow-xl max-md:hidden"
       >
         <Sparkles aria-hidden /> Ask coach
       </Button>
@@ -495,7 +495,7 @@ export function BigScreenCoach() {
           close();
         }
       }}
-      className="fixed inset-y-0 right-0 z-30 flex w-[420px] flex-col border-l border-border/60 bg-background shadow-2xl max-md:hidden"
+      className="pointer-events-auto fixed inset-y-0 right-0 z-30 flex w-[420px] flex-col border-l border-border/60 bg-background shadow-2xl max-md:hidden"
     >
       <CoachHeader
         chat={chat}

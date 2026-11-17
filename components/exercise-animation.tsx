@@ -14,7 +14,7 @@ import {ChevronRight, CircleHelp} from 'lucide-react';
 import {EXERCISE_ANIMATIONS} from '@/components/exercise-animations';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
-import {BigScreenCoach} from '@/components/chat/coach-provider';
+import {ExerciseDock} from '@/components/exercise-dock';
 import {
   BIG_SCREEN_FRAME,
   BigScreenProvider,
@@ -331,7 +331,7 @@ export function ExerciseHowTo({
               <BigScreenToggle className="-ml-3" />
             </div>
           </div>
-          {big && <BigScreenCoach />}
+          <ExerciseDock big={big} />
         </BigScreenProvider>
       </Dialog>
     </>
