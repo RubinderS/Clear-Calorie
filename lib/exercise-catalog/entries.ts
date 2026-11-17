@@ -6,6 +6,7 @@ import barbellBenchPress from './barbell-bench-press.json';
 import barbellBentOverRow from './barbell-bent-over-row.json';
 import barbellHipThrust from './barbell-hip-thrust.json';
 import barbellSquat from './barbell-squat.json';
+import benchDip from './bench-dip.json';
 import bulgarianSplitSquat from './bulgarian-split-squat.json';
 import burpee from './burpee.json';
 import buttKicks from './butt-kicks.json';
@@ -359,5 +360,11 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     type: 'TIME',
     aliases: ['low jacks', 'squat jack', 'squat jacks', 'squat jumping jack', 'squat jumping jacks'],
     areas: {primary: ['cardio', 'quads', 'glutes'], secondary: ['calves', 'core']},
+  },
+  {
+    config: benchDip,
+    type: 'STRENGTH',
+    aliases: ['bench dips', 'seated bench dip', 'seated bench dips', 'triceps bench dip', 'tricep bench dip', 'bench triceps dip', 'chair dip', 'chair dips'],
+    areas: {primary: ['triceps'], secondary: ['shoulders', 'chest']},
   },
 ];

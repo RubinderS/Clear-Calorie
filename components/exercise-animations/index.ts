@@ -21,6 +21,7 @@ export const EXERCISE_ANIMATIONS: Record<
   'barbell-bent-over-row': () => scene3D('barbell-bent-over-row'),
   'barbell-hip-thrust': () => scene3D('barbell-hip-thrust'),
   'barbell-squat': () => scene3D('barbell-squat'),
+  'bench-dip': () => scene3D('bench-dip'),
   'bulgarian-split-squat': () => scene3D('bulgarian-split-squat'),
   'burpee': () => scene3D('burpee'),
   'butt-kicks': () => scene3D('butt-kicks'),

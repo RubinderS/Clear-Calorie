@@ -1,0 +1,27 @@
+{
+  "id": "bench-dip",
+  "name": "Bench dip",
+  "view": "side",
+  "equipment": ["bench"],
+  "phases": [
+    {"name": "lower", "durationMs": 1800, "from": 0, "to": 1, "cue": "Bend your elbows straight back — lower your hips"},
+    {"name": "hold", "durationMs": 300, "from": 1, "to": 1, "cue": "Elbows at about 90°, upper arms level"},
+    {"name": "press", "durationMs": 1100, "from": 1, "to": 0, "cue": "Press through your palms to straighten your arms"},
+    {"name": "rest", "durationMs": 400, "from": 0, "to": 0, "cue": "Chest up, shoulders down and back"}
+  ],
+  "formTips": [
+    "Sit on the edge of a sturdy bench, hands just beside your hips with the fingers over the edge",
+    "Slide your hips forward off the bench and plant your heels with your knees bent",
+    "Keep your back close to the bench as you lower straight down",
+    "Point your elbows straight back, not out to the sides",
+    "Stop when your elbows reach about 90° and your upper arms are level, then press back up",
+    "Straighten your legs out in front to make it harder"
+  ],
+  "commonMistakes": [
+    "Dropping so low that the shoulders sink below the elbows and roll forward",
+    "Flaring the elbows out to the sides",
+    "Drifting away from the bench so the shoulders take the load",
+    "Pushing up with the legs instead of the arms",
+    "Shrugging the shoulders up towards the ears"
+  ]
+}

@@ -14,6 +14,7 @@ import * as pushdown from '@/components/exercise-animations/3d/poses/band-tricep
 import * as bench from '@/components/exercise-animations/3d/poses/barbell-bench-press';
 import * as row from '@/components/exercise-animations/3d/poses/barbell-bent-over-row';
 import * as hipThrust from '@/components/exercise-animations/3d/poses/barbell-hip-thrust';
+import * as benchDip from '@/components/exercise-animations/3d/poses/bench-dip';
 import * as squat from '@/components/exercise-animations/3d/poses/barbell-squat';
 import * as splitSquat from '@/components/exercise-animations/3d/poses/bulgarian-split-squat';
 import * as chestRow from '@/components/exercise-animations/3d/poses/chest-supported-dumbbell-row';
@@ -371,6 +372,12 @@ const EXPECT: Record<string, Expect> = {
     planted: plantedFeet,
     // Palms down on top of the bar, the fingers wrapping over it.
     grip: (s, side) => ({palm: s.forward.clone(), over: forearm(s, side)}),
+  },
+  'bench-dip': {
+    // The elbows bend straight back, towards the bench.
+    elbow: () => X.clone().negate(),
+    // Hands on the bench and heels on the floor; open paws, pressing flat.
+    planted: (s) => [...plantedFeet(s), s.arms.left.wrist, s.arms.right.wrist],
   },
   'low-jack': {
     // Elbows tucked down and out by the ribs, the hands together in front of the chest.
@@ -1433,6 +1440,42 @@ test('hip thrust: upper back on the bench edge; hips from near the floor up unti
     assert.ok(Math.abs(bar.x - s.hip.x) < 0.2, `bar off the hips at ${t}`);
     // The head stays off the bench.
     assert.ok(s.head.y - SIZES.head.radius > hipThrust.BENCH.top, `head on the bench at ${t}`);
+  }
+});
+
+test('bench dip: hands on the bench edge behind, heels planted; the torso upright and close to the bench as the elbows bend back to a right angle', () => {
+  const top = benchDip.benchDipPose(0);
+  const bottom = benchDip.benchDipPose(1);
+  for (const side of SIDES) {
+    // Arms long with soft elbows at the top; a right angle at the bottom, the upper arm about level.
+    const angleAt = (s: Skeleton) => jointAngle(s.arms[side].shoulder, s.arms[side].elbow, s.arms[side].wrist);
+    assert.ok(angleAt(top) > 150, `${side} elbow at ${angleAt(top).toFixed(1)}° at the top`);
+    assert.ok(angleAt(bottom) > 85 && angleAt(bottom) < 95, `${side} elbow at ${angleAt(bottom).toFixed(1)}° at the bottom`);
+    const {shoulder, elbow} = bottom.arms[side];
+    assert.ok(Math.abs(shoulder.y - elbow.y) < 0.2, `${side} upper arm not level at the bottom`);
+    assert.ok(shoulder.y > elbow.y, `${side} shoulder sunk below the elbow`);
+  }
+  // The hips drop well down past the bench's edge, clear of the floor.
+  assert.ok(top.hip.y > bottom.hip.y + 0.3, 'hips lower');
+  assert.ok(bottom.hip.y < benchDip.BENCH.top - 0.3, 'hips below the bench top');
+  assert.ok(bottom.hip.y - SIZES.shorts > 0.1, 'hips clear of the floor');
+  for (const t of steps) {
+    const s = benchDip.benchDipPose(t);
+    // Upright, facing ahead, the back close to the bench's edge but in front of it.
+    assert.ok(up(s).dot(Y) > 0.99, `torso leaning at ${t}`);
+    const back = s.hip.x - DEPTH;
+    assert.ok(back > benchDip.BENCH.right && back - benchDip.BENCH.right < 0.25, `back off the bench at ${t}`);
+    for (const side of SIDES) {
+      // The hands on the pad, behind the hips, a little wider than the shoulders.
+      const paw = s.paws[side].at;
+      assert.ok(paw.x < benchDip.BENCH.right && paw.x > benchDip.BENCH.left, `${side} hand off the bench at ${t}`);
+      assert.ok(close(paw.y - SIZES.paw, benchDip.BENCH.top, 1e-9), `${side} hand off the pad at ${t}`);
+      assert.ok(Math.abs(paw.z) > SHOULDER_HALF, `${side} hand inside the shoulders at ${t}`);
+      // Elbows straight back behind the body, not flared out.
+      const {shoulder, elbow} = s.arms[side];
+      assert.ok(elbow.x < shoulder.x, `${side} elbow not behind at ${t}`);
+      assert.ok(Math.abs(elbow.z) < Math.abs(paw.z) + 0.02, `${side} elbow flared at ${t}`);
+    }
   }
 });
 

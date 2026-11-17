@@ -9,6 +9,7 @@ import * as pushdown from './poses/band-triceps-pushdown';
 import * as bench from './poses/barbell-bench-press';
 import * as row from './poses/barbell-bent-over-row';
 import * as hipThrust from './poses/barbell-hip-thrust';
+import * as benchDip from './poses/bench-dip';
 import * as barbellSquat from './poses/barbell-squat';
 import * as splitSquat from './poses/bulgarian-split-squat';
 import * as burpee from './poses/burpee';
@@ -154,6 +155,14 @@ export const SPECS: Record<string, Spec3D> = {
       return barbellInPaws()(kit, parent);
     },
     camera: {aspect: 440 / 300},
+  },
+  'bench-dip': {
+    pose: benchDip.pose,
+    // The bench behind, the hands on its front edge.
+    equipment: (kit, parent) => {
+      parent.add(flatBench(kit, benchDip.BENCH).object);
+    },
+    camera: {aspect: 380 / 380},
   },
   'barbell-squat': {
     pose: barbellSquat.pose,
