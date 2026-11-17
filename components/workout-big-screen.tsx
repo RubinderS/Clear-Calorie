@@ -11,6 +11,7 @@ import {
 import {Maximize2, Minimize2} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {cn} from '@/lib/utils';
+import {COACH_PANEL_ATTR} from '@/components/chat/coach-provider';
 
 /*
  * The big screen is the same workout screen, filling the window and scaled
@@ -94,6 +95,8 @@ function onBigScreenKey(event: KeyboardEvent) {
     event.preventDefault();
     current.setBig(!current.big);
   } else if (event.key === 'Escape' && (current.big || current.nested)) {
+    // The coach panel on the big screen closes itself first.
+    if (event.target instanceof Element && event.target.closest(`[${COACH_PANEL_ATTR}]`)) return;
     // Caught first, so the dialog it's in doesn't also close.
     event.preventDefault();
     event.stopPropagation();
@@ -145,9 +148,12 @@ export function useBigScreenBack(active: boolean, back: () => void) {
   });
 }
 
-/** Classes that make a card or dialog fill the window on the big screen. */
+/**
+ * Classes that make a card or dialog fill the window on the big screen,
+ * leaving room down the right for the coach while it's open.
+ */
 export const BIG_SCREEN_FRAME =
-  'fixed inset-0 z-50 m-0 h-dvh max-h-none w-screen max-w-none overflow-y-auto rounded-none border-0 bg-background shadow-none hover:shadow-none';
+  'fixed inset-0 z-50 m-0 h-dvh max-h-none w-screen max-w-none overflow-y-auto rounded-none border-0 bg-background shadow-none hover:shadow-none md:has-data-coach-panel:pr-[420px]';
 
 /**
  * Scales the big screen's content as far as the window's height allows;
