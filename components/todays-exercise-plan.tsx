@@ -62,8 +62,8 @@ export type PlannedExercise = {
   catalogId?: string | null;
   /** How a custom exercise uses its sides (see Sides in lib/workout). */
   sides?: string | null;
-  /** Sets logged for this goal on the same weekday last week, if any. */
-  lastWeekSets?: ExerciseSet[] | null;
+  /** Sets from the latest time this goal was logged in the past week, if any. */
+  lastTimeSets?: ExerciseSet[] | null;
 };
 
 /** What was actually done, where it differs from the goal. */
@@ -467,7 +467,7 @@ function LogReview({
         value={values}
         onChange={setValues}
         stepNames={stepNames}
-        lastWeek={goal.lastWeekSets}
+        lastTime={goal.lastTimeSets}
       />
       <Button type="submit" className="h-12 w-full">
         <Check />

@@ -643,7 +643,7 @@ function TimedSetup({
           onMusicToggle={() => setPrefs({...prefs, music: !prefs.music})}
           hideCues={calm}
         />
-        <SetPlanTable target={planned} lastWeek={goal.lastWeekSets} />
+        <SetPlanTable target={planned} lastTime={goal.lastTimeSets} />
         <SetupActions onLogOnly={onLogOnly}>
           <Button className="h-12 w-full" onClick={start}>
             <Play />
@@ -738,7 +738,7 @@ function StrengthSetup({
           </p>
         )}
         {/* Weight is changed when logging, so here it is only shown. */}
-        <SetPlanTable target={planned} lastWeek={goal.lastWeekSets} />
+        <SetPlanTable target={planned} lastTime={goal.lastTimeSets} />
         <SetupActions onLogOnly={onLogOnly}>
           <Button className="h-12 w-full" onClick={start}>
             <Play />
@@ -845,7 +845,7 @@ function SequenceSetup({
         />
         <SequencePlanTable
           steps={steps}
-          lastWeek={goal.lastWeekSets}
+          lastTime={goal.lastTimeSets}
           shown={shown}
           onShow={setShown}
         />
@@ -912,17 +912,17 @@ function SoundControls({
 }
 
 /**
- * The planned sets, one row each, beside last week's when there was a log.
+ * The planned sets, one row each, beside the last time's when there was a log.
  * Read-only: sets are changed when logging.
  */
 function SetPlanTable({
   target,
-  lastWeek,
+  lastTime,
 }: {
   target: readonly ExerciseSet[];
-  lastWeek?: readonly ExerciseSet[] | null;
+  lastTime?: readonly ExerciseSet[] | null;
 }) {
-  const previous = lastWeek?.length ? lastWeek : null;
+  const previous = lastTime?.length ? lastTime : null;
   const rows = Math.max(target.length, previous?.length ?? 0);
   return (
     <div className="rounded-xl border border-border/50 bg-muted/30 px-4 py-3">
@@ -937,7 +937,7 @@ function SetPlanTable({
             </th>
             {previous ? (
               <th scope="col" className="pb-1.5 text-right font-medium">
-                Last week
+                Last time
               </th>
             ) : null}
           </tr>
@@ -968,22 +968,22 @@ function SetPlanTable({
 }
 
 /**
- * A sequence's steps with the breaks between, beside last week's when logged.
+ * A sequence's steps with the breaks between, beside the last time's when logged.
  * Built-in exercises have a How to button that shows their animation.
  */
 function SequencePlanTable({
   steps,
-  lastWeek,
+  lastTime,
   shown,
   onShow,
 }: {
   steps: readonly SequenceStep[];
-  lastWeek?: readonly ExerciseSet[] | null;
+  lastTime?: readonly ExerciseSet[] | null;
   /** The step whose animation is showing. */
   shown: number;
   onShow: (index: number) => void;
 }) {
-  const previous = lastWeek?.length ? lastWeek : null;
+  const previous = lastTime?.length ? lastTime : null;
   return (
     <div className="rounded-xl border border-border/50 bg-muted/30 px-4 py-3">
       <table className="w-full text-sm tabular-nums">
@@ -1000,7 +1000,7 @@ function SequencePlanTable({
             </th>
             {previous ? (
               <th scope="col" className="pb-1.5 pl-2 text-right font-medium">
-                Last week
+                Last time
               </th>
             ) : null}
           </tr>

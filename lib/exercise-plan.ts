@@ -176,7 +176,7 @@ export async function getTodaysPlanStatus(
   timeZone: string,
   todaysLogs: {exerciseGoalId: string | null}[],
 ) {
-  const [goals, lastWeekSets] = await Promise.all([
+  const [goals, lastTimeSets] = await Promise.all([
     getPlannedExerciseGoals(userId, timeZone),
     getLastWeekSets(userId, timeZone),
   ]);
@@ -194,7 +194,7 @@ export async function getTodaysPlanStatus(
     sides: goal.sides,
     tempoMs: goal.tempoMs,
     notes: goal.notes,
-    lastWeekSets: lastWeekSets.get(goal.id) ?? null,
+    lastTimeSets: lastTimeSets.get(goal.id) ?? null,
     completed: todaysLogs.some((log) => log.exerciseGoalId === goal.id),
   }));
 }

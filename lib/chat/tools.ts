@@ -352,7 +352,7 @@ export const TOOLS = {
     parameters: {type: 'object', properties: {}},
     async run(_args, {userId, timeZone}) {
       const {start, end} = getTodayRange(timeZone);
-      const [goals, todaysLogs, lastWeekSets] = await Promise.all([
+      const [goals, todaysLogs, lastTimeSets] = await Promise.all([
         listExerciseGoals(userId),
         listExerciseLogs(userId, {loggedAt: {gte: start, lte: end}}),
         getLastWeekSets(userId, timeZone),
@@ -377,11 +377,11 @@ export const TOOLS = {
             notes: goal.notes ?? undefined,
           })),
           today: today.map((goal) => {
-            const sets = lastWeekSets.get(goal.id);
+            const sets = lastTimeSets.get(goal.id);
             return {
               name: goal.name,
               completed: todaysLogs.some((log) => log.exerciseGoalId === goal.id),
-              lastWeek: sets
+              lastTime: sets
                 ? formatExerciseDetail({type: goal.type, exerciseSets: sets})
                 : undefined,
             };

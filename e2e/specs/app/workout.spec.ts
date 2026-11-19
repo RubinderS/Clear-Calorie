@@ -71,7 +71,7 @@ test('WO-01 strength setup screen', async ({authedPage: page, db, user}) => {
   await expect(card(panel, "Today's plan")).toBeVisible();
 });
 
-test('WO-01 setup shows target weights and last week', async ({
+test('WO-01 setup shows target weights and last time', async ({
   authedPage: page,
   db,
   user,
@@ -102,7 +102,7 @@ test('WO-01 setup shows target weights and last week', async ({
   await expect(table.getByRole('columnheader')).toHaveText([
     'Set',
     'Target',
-    'Last week',
+    'Last time',
   ]);
   await expect(table.getByRole('row').nth(1)).toHaveText(
     /^1\s*10\s*×\s*12 kg\s*10\s*×\s*10 kg$/,
@@ -115,7 +115,7 @@ test('WO-01 setup shows target weights and last week', async ({
   );
 });
 
-test('WO-01 log review shows last week beside each set', async ({
+test('WO-01 log review shows last time beside each set', async ({
   authedPage: page,
   db,
   user,
@@ -139,10 +139,10 @@ test('WO-01 log review shows last week beside each set', async ({
   await expect(review.getByText('Check what you did, then log it')).toBeVisible();
 
   await expect(review.getByText('Today', {exact: true})).toBeVisible();
-  await expect(review.getByLabel('Set 1 last week')).toContainText(/10 reps.*10 kg/);
-  await expect(review.getByLabel('Set 2 last week')).toContainText(/9 reps.*10 kg/);
-  // A set not done last week shows a dash.
-  await expect(review.getByLabel('Set 3 last week')).toContainText('—');
+  await expect(review.getByLabel('Set 1 last time')).toContainText(/10 reps.*10 kg/);
+  await expect(review.getByLabel('Set 2 last time')).toContainText(/9 reps.*10 kg/);
+  // A set not done last time shows a dash.
+  await expect(review.getByLabel('Set 3 last time')).toContainText('—');
 });
 
 test('WO-01 log review shows the areas a built-in exercise works', async ({
@@ -160,7 +160,7 @@ test('WO-01 log review shows the areas a built-in exercise works', async ({
   );
 });
 
-test('WO-01 no last week column without a log', async ({
+test('WO-01 no last time column without a log', async ({
   authedPage: page,
   db,
   user,

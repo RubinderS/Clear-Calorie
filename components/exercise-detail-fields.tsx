@@ -111,8 +111,8 @@ type SetRowsProps = {
   fixedCount?: boolean;
   /** Each set stays for reps or for a time, as the exercise is done, e.g. when logging. */
   fixedMode?: boolean;
-  /** Each set as done last week, shown in a column beside its row. */
-  lastWeek?: readonly ExerciseSet[] | null;
+  /** Each set as done the last time, shown in a column beside its row. */
+  lastTime?: readonly ExerciseSet[] | null;
 };
 
 /** A set as done before, e.g. "10 reps × 10 kg"; "—" if missing. */
@@ -161,15 +161,15 @@ function SetRows({
   labels,
   fixedCount = false,
   fixedMode = false,
-  lastWeek,
+  lastTime,
 }: SetRowsProps) {
   function update(index: number, change: Partial<SetValues>) {
     onChange(sets.map((set, i) => (i === index ? {...set, ...change} : set)));
   }
 
-  // Last week's sets go under each set today on phones, and in their own
+  // Last time's sets go under each set today on phones, and in their own
   // column beside it on wider screens.
-  const previous = lastWeek?.length ? lastWeek : null;
+  const previous = lastTime?.length ? lastTime : null;
   const columns = 'grid gap-2 sm:grid-cols-[minmax(0,1fr)_8.5rem] sm:gap-3';
 
   return (
@@ -184,7 +184,7 @@ function SetRows({
           className={cn(columns, 'text-xs font-medium text-muted-foreground max-sm:hidden')}
         >
           <span>Today</span>
-          <span className="pl-3">Last week</span>
+          <span className="pl-3">Last time</span>
         </div>
       ) : null}
       {sets.map((set, index) => {
@@ -275,16 +275,16 @@ function SetRows({
             {row}
             {/* As tall as the inputs and level with them, below a sequence's step name. */}
             <div
-              aria-label={`${label} last week`}
+              aria-label={`${label} last time`}
               className="flex items-baseline justify-between gap-3 rounded-xl bg-muted/40 px-3 py-1.5 sm:h-11 sm:items-center sm:self-end sm:py-0"
             >
-              <span className="text-xs text-muted-foreground sm:hidden">Last week</span>
+              <span className="text-xs text-muted-foreground sm:hidden">Last time</span>
               <PreviousSet set={previous[index]} />
             </div>
           </div>
         );
       })}
-      {/* Sets done last week beyond today's, so none of last week's go missing. */}
+      {/* Sets done last time beyond today's, so none of them go missing. */}
       {previous?.slice(sets.length).map((set, offset) => {
         const index = sets.length + offset;
         const label = labels ? `Step ${index + 1}` : `Set ${index + 1}`;
@@ -295,10 +295,10 @@ function SetRows({
               <span className="ml-2 text-xs font-normal">Not logged today</span>
             </p>
             <div
-              aria-label={`${label} last week`}
+              aria-label={`${label} last time`}
               className="flex items-baseline justify-between gap-3 rounded-xl bg-muted/40 px-3 py-1.5 sm:h-11 sm:items-center sm:self-end sm:py-0"
             >
-              <span className="text-xs text-muted-foreground sm:hidden">Last week</span>
+              <span className="text-xs text-muted-foreground sm:hidden">Last time</span>
               <PreviousSet set={set} />
             </div>
           </div>
@@ -365,8 +365,8 @@ type ExerciseLogFieldsProps = {
   onChange: (value: WorkValues) => void;
   /** A sequence's exercises, one per step; its steps stay as planned. */
   stepNames?: readonly string[];
-  /** Each set as done on this weekday last week, for comparison. */
-  lastWeek?: readonly ExerciseSet[] | null;
+  /** Each set as done the last time it was logged in the past week, for comparison. */
+  lastTime?: readonly ExerciseSet[] | null;
 };
 
 /** What was done, set by set, each for reps or a time as the exercise is done. */
@@ -375,7 +375,7 @@ export function ExerciseLogFields({
   value,
   onChange,
   stepNames,
-  lastWeek,
+  lastTime,
 }: ExerciseLogFieldsProps) {
   return (
     <SetRows
@@ -385,7 +385,7 @@ export function ExerciseLogFields({
       labels={stepNames}
       fixedCount={stepNames !== undefined}
       fixedMode
-      lastWeek={lastWeek}
+      lastTime={lastTime}
     />
   );
 }
