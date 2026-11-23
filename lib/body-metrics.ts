@@ -216,7 +216,10 @@ export function roundMetricValue(value: number, decimals: number) {
   return roundNumber(value, decimals);
 }
 
-/** avg - prevAvg, rounded to the metric's decimals; null without a baseline. */
+/**
+ * avg - prevAvg, from each rounded to the metric's decimals so the change
+ * matches the values shown beside it; null without a baseline.
+ */
 export function metricChange(
   avg: number | null,
   prevAvg: number | null,
@@ -224,7 +227,7 @@ export function metricChange(
 ): number | null {
   return avg === null || prevAvg === null
     ? null
-    : roundNumber(subtractNumbers(avg, prevAvg), decimals);
+    : subtractNumbers(roundNumber(avg, decimals), roundNumber(prevAvg, decimals));
 }
 
 export function formatMetricValue(
@@ -265,6 +268,49 @@ export function rollingAverages(
     else if (loggedAt >= prevStart) previous.push(value);
   }
   return {avg: averageNumbers(current), prevAvg: averageNumbers(previous)};
+}
+
+/** Seven-day windows in a measurement's weekly trend, about three months. */
+export const TREND_WEEKS = 12;
+
+export type WeeklyAverage = {
+  /** Start of the window's first day in the user's timezone. */
+  start: Date;
+  /** Start of the window's last day; today for the newest. */
+  end: Date;
+  /** Null when nothing was logged in the window. */
+  avg: number | null;
+  count: number;
+};
+
+/**
+ * Back-to-back seven-day windows, newest first: today and the six days before,
+ * then the seven days before those, and so on, so the newest matches
+ * rollingAverages. Empty windows older than the oldest entry are left out.
+ * `todayStart` is the start of today in the user's timezone.
+ */
+export function weeklyAverages(
+  entries: {value: number; loggedAt: Date}[],
+  todayStart: Date,
+  weeks = TREND_WEEKS,
+): WeeklyAverage[] {
+  const windows = Array.from({length: weeks}, (_, i) => ({
+    start: subDays(todayStart, ROLLING_AVERAGE_DAYS * (i + 1) - 1),
+    end: subDays(todayStart, ROLLING_AVERAGE_DAYS * i),
+    values: [] as number[],
+  }));
+  for (const {value, loggedAt} of entries) {
+    // Windows are newest first, so the first that starts by then holds it.
+    windows.find((window) => loggedAt >= window.start)?.values.push(value);
+  }
+  let last = windows.length - 1;
+  while (last >= 0 && windows[last].values.length === 0) last--;
+  return windows.slice(0, last + 1).map(({start, end, values}) => ({
+    start,
+    end,
+    avg: averageNumbers(values),
+    count: values.length,
+  }));
 }
 
 /**

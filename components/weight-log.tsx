@@ -3,12 +3,16 @@ import type {TrackedMetric} from '@/lib/body-metrics';
 
 interface WeightLogProps {
   entries: {id: string; weight: number; loggedAt: Date}[];
+  /** Every weigh-in from the weekly trend's range. */
+  history: {value: number; loggedAt: Date}[];
   timeZone: string;
+  /** Start of today in the user's timezone. */
+  todayStart: Date;
   /** Active body metrics; the add dialog's manage link depends on them. */
   bodyMetrics: TrackedMetric[];
 }
 
-export function WeightLog({entries, timeZone, bodyMetrics}: WeightLogProps) {
+export function WeightLog({entries, history, timeZone, todayStart, bodyMetrics}: WeightLogProps) {
   return (
     <MeasurementCard
       title="Weight"
@@ -18,7 +22,9 @@ export function WeightLog({entries, timeZone, bodyMetrics}: WeightLogProps) {
         value: weight,
         loggedAt,
       }))}
+      history={history}
       timeZone={timeZone}
+      todayStart={todayStart}
       formatValue={(value) => `${value} kg`}
       decimals={1}
       minSpan={10}

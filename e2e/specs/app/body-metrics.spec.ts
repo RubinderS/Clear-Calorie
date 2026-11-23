@@ -1,6 +1,6 @@
 import type {Page} from '@playwright/test';
 import {test, expect, nextApiRequest, onNextDialog} from '../../fixtures/test';
-import {seedBodyMetric, seedBodyMetricLog} from '../../fixtures/db';
+import {seedBodyMetric, seedBodyMetricLog, seedWeight} from '../../fixtures/db';
 import {noonDaysAgo} from '../../fixtures/dates';
 import {card, dialog, openQuickLog} from '../../fixtures/ui';
 
@@ -192,5 +192,42 @@ test.describe('Body logs plus button', () => {
     await panel.getByRole('link', {name: 'Manage measurements'}).click();
     await expect(panel).toBeHidden();
     await expect(dialog(page, 'Body measurements')).toBeVisible();
+  });
+});
+
+test.describe('Body weekly trend', () => {
+  test('BM-07 the weekly trend averages each seven days back from today', async ({
+    authedPage: page,
+    db,
+    user,
+  }) => {
+    for (const [days, weight] of [
+      [1, 80],
+      [3, 82], // last 7 days: 81
+      [8, 84],
+      [10, 86], // the 7 before: 85
+      // 14 to 20 days ago: nothing logged
+      [22, 90],
+      [100, 99], // past the trend's 12 weeks
+    ]) {
+      await seedWeight(db, user.id, {weight, loggedAt: noonDaysAgo(days)});
+    }
+
+    await page.goto('/logs?tab=body');
+    const weight = card(page, 'Weight (kg)');
+    await expect(weight.getByRole('listitem')).toHaveCount(6);
+
+    await weight.getByRole('radio', {name: '7-day trend'}).click();
+    const weeks = weight.getByRole('listitem');
+    await expect(weeks).toHaveText([
+      /^81 kg-4 kg vs prior 7 days.*2 entries$/,
+      // The week before had nothing, so it's compared with the 90 kg week.
+      /^85 kg-5 kg vs \w{3} \d+ – .*2 entries$/,
+      /^No entries.*0 entries$/,
+      /^90 kg.*1 entry$/,
+    ]);
+
+    await weight.getByRole('radio', {name: 'Entries'}).click();
+    await expect(weight.getByRole('listitem')).toHaveCount(6);
   });
 });

@@ -12,6 +12,7 @@ import {
   metricLogSchema,
   parseMetricDefinition,
   rollingAverages,
+  weeklyAverages,
 } from './body-metrics';
 
 test('presets take their definition from the catalog and the chosen unit', () => {
@@ -154,6 +155,9 @@ test('rolling averages and their change use decimal arithmetic', () => {
   assert.equal(prevAvg, 84.2);
   assert.equal(metricChange(84.3, 84.2, 1), 0.1);
   assert.equal(metricChange(70.15, 70, 1), 0.2);
+  // Both show as 81, so the change is none rather than +0.1.
+  assert.equal(metricChange(81.04, 80.96, 1), 0);
+  assert.equal(metricChange(81.06, 80.94, 1), 0.2);
   assert.equal(metricChange(84.3, null, 1), null);
   assert.equal(metricChange(null, 84.2, 1), null);
 });
@@ -171,4 +175,38 @@ test('convertUnitValue converts exactly and rounds', () => {
   assert.equal(convertUnitValue(85, 'cm', 'in', 2), 33.46);
   assert.equal(convertUnitValue(100, 'lb', 'kg', 2), 45.36);
   assert.equal(convertUnitValue(40, '%', '%', 2), 40);
+});
+
+test('weekly averages step back seven days at a time and drop older empty weeks', () => {
+  const todayStart = new Date('2026-10-19T00:00:00Z');
+  const at = (iso: string, value: number) => ({value, loggedAt: new Date(iso)});
+  const entries = [
+    at('2026-10-19T08:00:00Z', 80),
+    at('2026-10-13T00:00:00Z', 82), // first day of the newest week
+    at('2026-10-12T23:59:00Z', 84), // last day of the week before
+    at('2026-10-06T00:00:00Z', 86),
+    // 2026-09-29 to 10-05 has nothing logged
+    at('2026-09-25T12:00:00Z', 90),
+    at('2026-09-01T12:00:00Z', 99), // older than three weeks, ignored
+  ];
+  const weeks = weeklyAverages(entries, todayStart, 4);
+  assert.deepEqual(
+    weeks.map(({start, end, avg, count}) => ({
+      start: start.toISOString().slice(0, 10),
+      end: end.toISOString().slice(0, 10),
+      avg,
+      count,
+    })),
+    [
+      {start: '2026-10-13', end: '2026-10-19', avg: 81, count: 2},
+      {start: '2026-10-06', end: '2026-10-12', avg: 85, count: 2},
+      {start: '2026-09-29', end: '2026-10-05', avg: null, count: 0},
+      {start: '2026-09-22', end: '2026-09-28', avg: 90, count: 1},
+    ],
+  );
+  // The newest week matches the rolling average.
+  assert.equal(weeks[0].avg, rollingAverages(entries, todayStart).avg);
+  // Weeks older than the oldest entry are left out.
+  assert.equal(weeklyAverages(entries.slice(0, 2), todayStart, 4).length, 1);
+  assert.deepEqual(weeklyAverages([], todayStart), []);
 });

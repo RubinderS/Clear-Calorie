@@ -16,9 +16,12 @@ import {BodyMetricLog} from '@/components/body-metric-log';
 import {BodyMetricsManager} from '@/components/body-metrics-manager';
 import {
   ROLLING_AVERAGE_DAYS,
+  TREND_WEEKS,
   dailyRollingAverages,
   toTrackedMetric,
 } from '@/lib/body-metrics';
+
+const toPoint = ({value, loggedAt}: {value: number; loggedAt: Date}) => ({value, loggedAt});
 
 const TABS = [
   {id: 'food', label: 'Food'},
@@ -84,14 +87,23 @@ async function renderTab(
   manage: boolean,
 ) {
   if (tab === 'body') {
-    const [entries, withLogs] = await Promise.all([
+    // Today is fixed once, so the fetched range and the cards' weeks agree
+    // even if midnight passes while the page renders.
+    const todayStart = getTodayRange(timeZone).start;
+    // Every entry in the weekly trend's range, beside the latest 30 listed.
+    const trendRange = {
+      gte: subDays(todayStart, TREND_WEEKS * ROLLING_AVERAGE_DAYS - 1),
+    };
+    const [entries, withLogs, weightHistory] = await Promise.all([
       listWeightLogs(userId, {take: 30}),
-      listBodyMetricsWithLogs(userId, {takeEach: 30}),
+      listBodyMetricsWithLogs(userId, {takeEach: 30, history: trendRange}),
+      listWeightLogs(userId, {loggedAt: trendRange}),
     ]);
-    const metrics = withLogs.map(({logs, ...metric}) => ({
+    const metrics = withLogs.map(({logs, history, ...metric}) => ({
       ...toTrackedMetric(metric),
       archivedAt: metric.archivedAt,
       logs: logs.map(({id, value, loggedAt}) => ({id, value, loggedAt})),
+      history: history.map(toPoint),
     }));
     const active = metrics.filter((metric) => !metric.archivedAt);
     const archivedMetrics = metrics.filter((metric) => metric.archivedAt);
@@ -123,10 +135,12 @@ async function renderTab(
         >
           <WeightLog
             entries={entries}
+            history={weightHistory.map(({weight, loggedAt}) => ({value: weight, loggedAt}))}
             timeZone={timeZone}
+            todayStart={todayStart}
             bodyMetrics={active.map(toTrackedMetric)}
           />
-          <BodyMetricLog metrics={active} timeZone={timeZone} />
+          <BodyMetricLog metrics={active} timeZone={timeZone} todayStart={todayStart} />
         </div>
       </div>
     );

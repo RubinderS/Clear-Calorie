@@ -9,15 +9,19 @@ import {MeasurementCard} from '@/components/measurement-card';
 type MetricWithLogs = TrackedMetric & {
   /** Newest first. */
   logs: {id: string; value: number; loggedAt: Date}[];
+  /** Every log from the weekly trend's range. */
+  history: {value: number; loggedAt: Date}[];
 };
 
 interface BodyMetricLogProps {
   metrics: MetricWithLogs[];
   timeZone: string;
+  /** Start of today in the user's timezone. */
+  todayStart: Date;
 }
 
 /** A card per tracked body metric, laid out like weight. */
-export function BodyMetricLog({metrics, timeZone}: BodyMetricLogProps) {
+export function BodyMetricLog({metrics, timeZone, todayStart}: BodyMetricLogProps) {
   const bodyMetrics = metrics.map(toTrackedMetric);
   return metrics.map((metric) => (
     <MeasurementCard
@@ -25,7 +29,9 @@ export function BodyMetricLog({metrics, timeZone}: BodyMetricLogProps) {
       title={metric.label}
       unit={metric.unit}
       entries={metric.logs}
+      history={metric.history}
       timeZone={timeZone}
+      todayStart={todayStart}
       formatValue={(value) => formatMetricValue(value, metric)}
       decimals={metric.decimals}
       direction={metric.direction}

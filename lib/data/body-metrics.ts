@@ -11,7 +11,11 @@ export type BodyMetricFields = Pick<
   'key' | 'label' | 'unit' | 'direction' | 'decimals' | 'sortOrder'
 >;
 
-export type BodyMetricWithLogs = BodyMetric & {logs: BodyMetricLog[]};
+export type BodyMetricWithLogs = BodyMetric & {
+  logs: BodyMetricLog[];
+  /** Every log in the `history` range, newest first; empty without one. */
+  history: BodyMetricLog[];
+};
 
 export async function listBodyMetrics(
   userId: string,
@@ -26,7 +30,10 @@ export async function listBodyMetrics(
   return toPlainAll(BodyMetric, docs);
 }
 
-/** Metrics with their logs, filtered and capped per metric. */
+/**
+ * Metrics with their logs, filtered and capped per metric. With `history`,
+ * every log in that range is also fetched, in one query for all metrics.
+ */
 export async function listBodyMetricsWithLogs(
   userId: string,
   {
@@ -34,22 +41,45 @@ export async function listBodyMetricsWithLogs(
     loggedAt,
     order = 'desc',
     takeEach,
-  }: {activeOnly?: boolean; loggedAt?: DateRange; order?: SortOrder; takeEach?: number},
+    history,
+  }: {
+    activeOnly?: boolean;
+    loggedAt?: DateRange;
+    order?: SortOrder;
+    takeEach?: number;
+    history?: DateRange;
+  },
 ): Promise<BodyMetricWithLogs[]> {
   const {BodyMetricLog} = await db();
   const metrics = await listBodyMetrics(userId, {activeOnly});
-  // A user tracks a handful of metrics, so one query each is cheap.
-  return Promise.all(
-    metrics.map(async (metric) => {
-      const logs = await BodyMetricLog.find(
-        where({metricId: metric.id, loggedAt: inRange(loggedAt)}),
-      )
-        .sort({loggedAt: direction(order)})
-        .limit(takeEach ?? 0)
-        .lean();
-      return {...metric, logs: toPlainAll(BodyMetricLog, logs)};
-    }),
-  );
+  const [logsByMetric, historyLogs] = await Promise.all([
+    // A user tracks a handful of metrics, so one query each is cheap.
+    Promise.all(
+      metrics.map(async (metric) => {
+        const logs = await BodyMetricLog.find(
+          where({metricId: metric.id, loggedAt: inRange(loggedAt)}),
+        )
+          .sort({loggedAt: direction(order)})
+          .limit(takeEach ?? 0)
+          .lean();
+        return toPlainAll(BodyMetricLog, logs);
+      }),
+    ),
+    history && metrics.length > 0
+      ? BodyMetricLog.find({
+          metricId: {$in: metrics.map((metric) => metric.id)},
+          loggedAt: inRange(history),
+        })
+          .sort({loggedAt: -1})
+          .lean()
+          .then((logs) => toPlainAll(BodyMetricLog, logs))
+      : [],
+  ]);
+  return metrics.map((metric, i) => ({
+    ...metric,
+    logs: logsByMetric[i],
+    history: historyLogs.filter((log) => String(log.metricId) === metric.id),
+  }));
 }
 
 /** How many logs each metric has, by metric id; metrics without logs are left out. */

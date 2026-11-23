@@ -11,7 +11,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-type TrendPoint = {date: string; value: number};
+/** A null value leaves a gap in the line. */
+type TrendPoint = {date: string; value: number | null};
 
 interface TrendChartProps {
   data: TrendPoint[];
@@ -28,7 +29,9 @@ interface TrendChartProps {
 }
 
 function getYDomain(data: TrendPoint[], minSpan: number): [number, number] {
-  const values = data.map((d) => d.value).filter(Number.isFinite);
+  const values = data
+    .map((d) => d.value)
+    .filter((value): value is number => value !== null && Number.isFinite(value));
   if (values.length === 0) return [0, minSpan];
 
   const min = Math.min(...values);

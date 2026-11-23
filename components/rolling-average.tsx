@@ -6,6 +6,14 @@ import {
   metricChange,
 } from '@/lib/body-metrics';
 
+/** Text colour for a change that's good, bad or neither. */
+export function changeToneClass(tone: 'good' | 'bad' | 'neutral') {
+  return cn(
+    tone === 'good' && 'text-primary',
+    tone === 'bad' && 'text-red-600 dark:text-red-400',
+  );
+}
+
 type RollingAverageProps = {
   avg: number;
   /** Average of the seven days before; null when there were no entries. */
@@ -38,11 +46,7 @@ export function RollingAverage({
         <>
           {' · '}
           <span
-            className={cn(
-              'tabular-nums',
-              tone === 'good' && 'text-primary',
-              tone === 'bad' && 'text-red-600 dark:text-red-400',
-            )}
+            className={cn('tabular-nums', changeToneClass(tone))}
           >
             {change === 0
               ? 'same as prior 7 days'
