@@ -233,3 +233,48 @@ test('FL-08 the plus button logs food from the Logs page', async ({authedPage: p
   await expect(logRow(page, 'Banana')).toContainText('105 kcal');
   await expect(page.getByText('105 calories')).toBeVisible();
 });
+
+test('FL-09 the 7-day trend averages calories and macros for each week before today', async ({
+  authedPage: page,
+  db,
+  user,
+}) => {
+  for (const [days, calories, protein, carbs, fat, saturatedFat] of [
+    [0, 5000, 500, 0, 0, 0], // today, still being logged
+    [1, 1200, 60, 100, 30, 10],
+    [1, 800, 40, 100, 20, 6], // that day: 2000 kcal, P 100, C 200, F 50, Sat 16
+    [3, 1800, 80, 150, 40, 10], // last 7 days: 1900 kcal, P 90, C 175, F 45, Sat 13
+    [9, 2200, 120, 250, 70, 20], // the 7 before
+    // 15 to 21 days ago: nothing logged
+    [23, 2500, 100, 300, 80, 25],
+    [100, 9999, 0, 0, 0, 0], // past the trend's 12 weeks
+  ]) {
+    await seedFood(db, user.id, {
+      calories,
+      protein,
+      carbs,
+      fat,
+      saturatedFat,
+      loggedAt: noonDaysAgo(days),
+    });
+  }
+  await page.goto('/logs');
+  await expect(page.getByText('7-day avg 1900 kcal · -300 kcal vs prior 7 days')).toBeVisible();
+
+  await page.getByRole('radio', {name: '7-day trend'}).click();
+  const weeks = card(page, '7-day averages').getByRole('listitem');
+  await expect(weeks).toHaveText([
+    /^1900 kcal-300 kcal vs prior 7 days.*P 90g · C 175g · F 45g · Sat 13g2 days logged$/,
+    // The week before had nothing, so it's compared with the 2500 kcal week.
+    /^2200 kcal-300 kcal vs \w{3} \d+ – .*P 120g · C 250g · F 70g · Sat 20g1 day logged$/,
+    /^No entries.*0 days logged$/,
+    /^2500 kcal.*P 100g · C 300g · F 80g · Sat 25g1 day logged$/,
+  ]);
+
+  const nutrient = page.getByRole('radiogroup', {name: 'Chart nutrient'});
+  await nutrient.getByRole('radio', {name: 'Protein'}).check();
+  await expect(nutrient.getByRole('radio', {name: 'Protein'})).toBeChecked();
+
+  await page.getByRole('radio', {name: 'Entries'}).click();
+  await expect(card(page, "Today's entries").getByRole('listitem')).toHaveCount(1);
+});

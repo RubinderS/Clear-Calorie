@@ -25,6 +25,8 @@ interface TrendChartProps {
   unit?: string;
   /** Tooltip name for the value. */
   name?: string;
+  /** Line and fill colour; the theme's primary by default. */
+  color?: string;
   className?: string;
 }
 
@@ -57,6 +59,7 @@ export function TrendChart({
   minSpan,
   unit,
   name = 'value',
+  color = 'hsl(var(--primary))',
   className = 'h-72',
 }: TrendChartProps) {
   const yDomain = getYDomain(data, minSpan);
@@ -74,12 +77,12 @@ export function TrendChart({
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop
                 offset="5%"
-                stopColor="hsl(var(--primary))"
+                stopColor={color}
                 stopOpacity={0.3}
               />
               <stop
                 offset="95%"
-                stopColor="hsl(var(--primary))"
+                stopColor={color}
                 stopOpacity={0}
               />
             </linearGradient>
@@ -117,7 +120,7 @@ export function TrendChart({
             dataKey="value"
             name={name}
             unit={unit && (unit === '%' ? unit : ` ${unit}`)}
-            stroke="hsl(var(--primary))"
+            stroke={color}
             strokeWidth={3}
             fill={`url(#${gradientId})`}
             dot={{r: 4, strokeWidth: 2, fill: 'hsl(var(--card))'}}

@@ -10,7 +10,8 @@ import {listFoodLogs} from '@/lib/data/food-logs';
 import {listWeightLogs} from '@/lib/data/weight-logs';
 import {getTodayRange, getUserTimeZone, toZoned} from '@/lib/timezone';
 import {TogglerNav} from '@/components/ui/toggler';
-import {FoodLog} from '@/components/food-log';import {ExerciseLog} from '@/components/exercise-log';
+import {FoodLog} from '@/components/food-log';
+import {ExerciseLog} from '@/components/exercise-log';
 import {WeightLog} from '@/components/weight-log';
 import {BodyMetricLog} from '@/components/body-metric-log';
 import {BodyMetricsManager} from '@/components/body-metrics-manager';
@@ -20,6 +21,7 @@ import {
   dailyRollingAverages,
   toTrackedMetric,
 } from '@/lib/body-metrics';
+import {foodWeeklyAverages} from '@/lib/food-trend';
 
 const toPoint = ({value, loggedAt}: {value: number; loggedAt: Date}) => ({value, loggedAt});
 
@@ -174,9 +176,14 @@ async function renderTab(
 
   const [entries, recent, [first]] = await Promise.all([
     listFoodLogs(userId, {loggedAt}),
-    // Two weeks before today for the 7-day average and its change.
+    // The weekly trend's weeks before today, which also give the 7-day
+    // average and its change. A day extra, since days are bucketed by local
+    // date and a DST change can move the oldest day's midnight by an hour.
     listFoodLogs(userId, {
-      loggedAt: {gte: subDays(todayStart, 2 * ROLLING_AVERAGE_DAYS), lt: todayStart},
+      loggedAt: {
+        gte: subDays(todayStart, TREND_WEEKS * ROLLING_AVERAGE_DAYS + 1),
+        lt: todayStart,
+      },
     }),
     listFoodLogs(userId, {order: 'asc', take: 1}),
   ]);
@@ -187,10 +194,22 @@ async function renderTab(
     })),
     today,
   );
+  const weeks = foodWeeklyAverages(
+    recent.map(({calories, protein, carbs, fat, saturatedFat, loggedAt}) => ({
+      calories,
+      protein,
+      carbs,
+      fat,
+      saturatedFat,
+      date: toDay(loggedAt),
+    })),
+    today,
+  );
   return (
     <FoodLog
       entries={entries}
       calorieAverage={calorieAverage}
+      weeks={weeks}
       timeZone={timeZone}
       today={today}
       firstDate={first && toDay(first.loggedAt)}

@@ -4,7 +4,14 @@ import * as React from 'react';
 import Link from 'next/link';
 import {cn} from '@/lib/utils';
 
-export type TogglerOption<T extends string> = {value: T; label: string};
+export type TogglerOption<T extends string> = {
+  value: T;
+  label: string;
+  /** The highlight's colour while selected; the theme's primary by default. */
+  color?: string;
+  /** The label's colour while selected, for a `color` white text won't read on. */
+  textColor?: string;
+};
 
 export type TogglerProps<T extends string> = {
   /** The radio group's name; unique per toggler on the page. */
@@ -24,15 +31,24 @@ const OPTION =
   'flex w-full items-center justify-center rounded-[0.6rem] px-2.5 font-medium text-muted-foreground transition-colors duration-200 motion-reduce:transition-none';
 
 /** The highlight behind the selected option. */
-function Highlight({index, count}: {index: number; count: number}) {
+function Highlight({
+  index,
+  count,
+  color,
+}: {
+  index: number;
+  count: number;
+  color?: string;
+}) {
   // Options are equal width, so the highlight moves a whole width per step.
   return (
     <span
       aria-hidden
-      className="absolute inset-y-0.5 left-0.5 rounded-[0.6rem] bg-primary shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none"
+      className="absolute inset-y-0.5 left-0.5 rounded-[0.6rem] bg-primary shadow-sm transition-[transform,background-color] duration-200 ease-out motion-reduce:transition-none"
       style={{
         width: `calc((100% - 0.25rem) / ${count})`,
         transform: `translateX(${Math.max(0, index) * 100}%)`,
+        backgroundColor: color,
       }}
     />
   );
@@ -51,12 +67,10 @@ export function Toggler<T extends string>({
   onChange,
   className,
 }: TogglerProps<T>) {
+  const index = options.findIndex((option) => option.value === value);
   return (
     <div role="radiogroup" aria-label={label} className={cn(TRACK, className)}>
-      <Highlight
-        index={options.findIndex((option) => option.value === value)}
-        count={options.length}
-      />
+      <Highlight index={index} count={options.length} color={options[index]?.color} />
       {options.map((option) => (
         <label key={option.value} className="relative flex">
           <input
@@ -72,6 +86,7 @@ export function Toggler<T extends string>({
               OPTION,
               'text-xs peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring',
             )}
+            style={option.value === value ? {color: option.textColor} : undefined}
           >
             {option.label}
           </span>

@@ -5,11 +5,14 @@ import {AlertTriangle, Utensils} from 'lucide-react';
 import {DailyLogCard, useDailyLog} from '@/components/daily-log';
 import {AddLogButton} from '@/components/quick-log';
 import {RollingAverage} from '@/components/rolling-average';
+import {FoodTrend} from '@/components/food-trend';
+import {MeasurementViews} from '@/components/measurement-views';
 import {Button} from '@/components/ui/button';
 import {Dialog} from '@/components/ui/dialog';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {sumNumbers} from '@/lib/decimal';
+import type {FoodWeek} from '@/lib/food-trend';
 import {cn} from '@/lib/utils';
 
 type FoodEntry = {
@@ -29,6 +32,8 @@ type FoodLogProps = {
   entries: FoodEntry[];
   /** Daily calories over the last 7 days before today, and the 7 before. */
   calorieAverage: {avg: number | null; prevAvg: number | null};
+  /** Average daily calories and macros for each 7 days before today, newest first. */
+  weeks: FoodWeek[];
   timeZone: string;
   today: string;
   /** Date of the first entry ever logged, if any. */
@@ -44,6 +49,7 @@ const alertColor = (level?: string | null) =>
 export function FoodLog({
   entries,
   calorieAverage,
+  weeks,
   timeZone,
   today,
   firstDate,
@@ -61,58 +67,64 @@ export function FoodLog({
 
   return (
     <>
-      <DailyLogCard
-        log={log}
-        timeZone={timeZone}
-        todayTitle="Today's entries"
-        description={
-          calorieAverage.avg !== null && (
-            <RollingAverage
-              avg={calorieAverage.avg}
-              prevAvg={calorieAverage.prevAvg}
-              unit="kcal"
-              decimals={0}
-            />
-          )
-        }
-        dateInputLabel="View food logs for date"
-        summary={`${totalCalories} calories`}
-        loadingText="Loading entries..."
-        emptyText="No food logged"
-        icon={Utensils}
-        iconClassName="bg-primary/10 text-primary"
-        renderDetail={(entry) =>
-          `P: ${entry.protein}g · C: ${entry.carbs}g · F: ${entry.fat}g · Sat: ${entry.saturatedFat}g`
-        }
-        renderBadge={(entry) =>
-          entry.healthAlertMessage && (
-            <button
-              type="button"
-              aria-label={`Show health alert for ${entry.name}`}
-              title="Health alert"
-              onClick={() => setAlertEntry(entry)}
-              className={cn(
-                'flex size-8 items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                alertColor(entry.healthAlertLevel),
-                entry.healthAlertLevel === 'avoid'
-                  ? 'bg-red-500/10 hover:bg-red-500/20'
-                  : 'bg-amber-500/10 hover:bg-amber-500/20',
-              )}
-            >
-              <AlertTriangle className="size-4" aria-hidden="true" />
-            </button>
-          )
-        }
-        onEdit={setEditingEntry}
-        action={
-          <AddLogButton
-            panel="food"
-            label="Add food"
-            aiEnabled={aiEnabled}
-            disabled={!log.isToday}
-            onLogged={log.showTodayAndRefresh}
+      <MeasurementViews
+        title="Food"
+        entries={
+          <DailyLogCard
+            log={log}
+            timeZone={timeZone}
+            todayTitle="Today's entries"
+            description={
+              calorieAverage.avg !== null && (
+                <RollingAverage
+                  avg={calorieAverage.avg}
+                  prevAvg={calorieAverage.prevAvg}
+                  unit="kcal"
+                  decimals={0}
+                />
+              )
+            }
+            dateInputLabel="View food logs for date"
+            summary={`${totalCalories} calories`}
+            loadingText="Loading entries..."
+            emptyText="No food logged"
+            icon={Utensils}
+            iconClassName="bg-primary/10 text-primary"
+            renderDetail={(entry) =>
+              `P: ${entry.protein}g · C: ${entry.carbs}g · F: ${entry.fat}g · Sat: ${entry.saturatedFat}g`
+            }
+            renderBadge={(entry) =>
+              entry.healthAlertMessage && (
+                <button
+                  type="button"
+                  aria-label={`Show health alert for ${entry.name}`}
+                  title="Health alert"
+                  onClick={() => setAlertEntry(entry)}
+                  className={cn(
+                    'flex size-8 items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    alertColor(entry.healthAlertLevel),
+                    entry.healthAlertLevel === 'avoid'
+                      ? 'bg-red-500/10 hover:bg-red-500/20'
+                      : 'bg-amber-500/10 hover:bg-amber-500/20',
+                  )}
+                >
+                  <AlertTriangle className="size-4" aria-hidden="true" />
+                </button>
+              )
+            }
+            onEdit={setEditingEntry}
+            action={
+              <AddLogButton
+                panel="food"
+                label="Add food"
+                aiEnabled={aiEnabled}
+                disabled={!log.isToday}
+                onLogged={log.showTodayAndRefresh}
+              />
+            }
           />
         }
+        weekly={<FoodTrend weeks={weeks} />}
       />
       <Dialog
         open={editingEntry !== null}
